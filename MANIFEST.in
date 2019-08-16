@@ -1,0 +1,5 @@
+# Manifest file for the egg
+include *.pip
+include *.md
+include *.rst
+prune test

@@ -1,0 +1,20 @@
+sudo: true
+language: python
+python: 2.7
+before_install:
+  # need pandoc to convert markdown readme to reStructuredText that PyPi requires
+  - sudo apt-get install pandoc
+install:
+  - pip install tox-travis codacy-coverage pypandoc
+script:
+  - bash bin/versionCheck.sh $TRAVIS_BRANCH $TRAVIS_PULL_REQUEST
+  - tox
+  - python-codacy-coverage -r reports/coverage.xml
+deploy:
+  provider: pypi
+  user: $PYPI_USER
+  password: $PYPI_PASSWORD
+  on:
+    branch: master
+before_deploy:
+  - sed --expression "s|GIT_HASH|$TRAVIS_COMMIT|g" --in-place **/version.py
