@@ -94,16 +94,7 @@ class DictTransformer(Transformer):
         return result
 
     def one_line_block(self, args):
-        args = [arg for arg in args if arg != "\n" and not isinstance(arg, Discard)]
-        result = {}
-        current_level = result
-        for arg in args[0:-2]:
-            current_level[self.strip_quotes(arg)] = {}
-            current_level = current_level[self.strip_quotes(arg)]
-
-        current_level[self.strip_quotes(args[-2])] = args[-1]
-
-        return result
+        return self.block(args)
 
     def attribute(self, args):
         key = str(args[0])

@@ -1,4 +1,5 @@
 # python_hcl2
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/dbdef52c39fb47c896aa1d7876a3a965)](https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=amplify-education/python_hcl2&amp;utm_campaign=Badge_Grade)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/amplify-education/python_hcl2/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/python_hcl2.svg)](https://pypi.org/project/python_hcl2/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/python_hcl2.svg)](https://pypi.python.org/pypi/python_hcl2)
@@ -42,7 +43,6 @@ You can also run them individually with the `-e` argument.
 For example, `tox -e py37-unit` will run the unit tests for python 3.7
 
 To see all the available options, run `tox -l`.
-
 
 ## Responsible Disclosure
 If you have any security issue to report, contact project maintainers privately.
