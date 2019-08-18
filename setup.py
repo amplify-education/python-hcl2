@@ -35,7 +35,7 @@ def get_requirements():
 
 
 setup(
-    name='hcl2',
+    name='python_hcl2',
     python_requires='>=3.6.0',
     version=get_version(),
     description="A project for being awesome.",

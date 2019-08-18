@@ -1,11 +1,13 @@
 # python_hcl2
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/dbdef52c39fb47c896aa1d7876a3a965)](https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=amplify-education/python_hcl2&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Coverage/dbdef52c39fb47c896aa1d7876a3a965)](https://www.codacy.com?utm_source=github.com&utm_medium=referral&utm_content=amplify-education/python_hcl2&utm_campaign=Badge_Coverage)
+[![Build Status](https://travis-ci.org/amplify-education/python_hcl2.svg?branch=master)](https://travis-ci.org/amplify-education/python_hcl2)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/amplify-education/python_hcl2/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/python_hcl2.svg)](https://pypi.org/project/python_hcl2/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/python_hcl2.svg)](https://pypi.python.org/pypi/python_hcl2)
 [![Downloads](https://img.shields.io/badge/dynamic/json.svg?label=downloads&url=https%3A%2F%2Fpypistats.org%2Fapi%2Fpackages%2Fpython_hcl2%2Frecent&query=data.last_month&colorB=brightgreen&suffix=%2FMonth)](https://pypistats.org/packages/python_hcl2)
 
-A project for being awesome.
+A parser for HCL2 in Python using Lark.  
 
 ## About Amplify
 
@@ -27,7 +29,12 @@ This package can be installed using `pip`
 pip3 install python_hcl2
 ```
 
-You should now be able to use the `tf` command.
+### Usage
+```python
+import hcl2
+with(open('foo.tf', 'r')) as file:
+    dict = hcl2.load(file)
+```
 
 ## Building From Source
 
@@ -43,6 +50,10 @@ You can also run them individually with the `-e` argument.
 For example, `tox -e py37-unit` will run the unit tests for python 3.7
 
 To see all the available options, run `tox -l`.
+
+
+
+
 
 ## Responsible Disclosure
 If you have any security issue to report, contact project maintainers privately.
