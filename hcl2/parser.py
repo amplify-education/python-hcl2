@@ -38,7 +38,8 @@ def create_parser_file():
     feature works great but it expects to be run as a separate shell command
     The below code copies some of the standalone parser generator code in a way that we can use
     """
-    with open(dirname(__file__) + '/hcl2.lark', 'r') as lark_file, open(PARSER_FILE, 'w') as parser_file:
+    lark_file = os.path.join(dirname(__file__), 'hcl2.lark')
+    with open(lark_file, 'r') as lark_file, open(PARSER_FILE, 'w') as parser_file:
         lark_inst = Lark(lark_file.read(), parser="lalr", lexer="contextual")
 
         data, memo = lark_inst.memo_serialize([TerminalDef, Rule])

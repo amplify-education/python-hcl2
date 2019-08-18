@@ -9,7 +9,7 @@ HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z0-9]+)\n((.|\n)*?)\n\s*\1', re.S)
 # pylint: disable=missing-docstring,unused-argument
 class DictTransformer(Transformer):
     def numeric_lit(self, args):
-        return float(str(args[0]))
+        return float("".join([str(arg) for arg in args]))
 
     def true_lit(self, args):
         return True
@@ -125,15 +125,17 @@ class DictTransformer(Transformer):
             for key, value in arg.items():
                 key = str(key)
                 if key not in result:
-                    result[key] = [value]
+                    result[key] = value
                 else:
-                    if isinstance(result[key], list):
+                    if isinstance(result[key], dict) and isinstance(value, dict):
+                        result[key].update(value)
+                    elif isinstance(result[key], list):
                         if isinstance(value, list):
                             result[key].extend(value)
                         else:
                             result[key].append(value)
                     else:
-                        result[key] = [result[key], value]
+                        result[key] = value
         return result
 
     def start(self, args):

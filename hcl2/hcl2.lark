@@ -43,7 +43,7 @@ interpolation : "${" /[^}]+/ "}"
 true_lit : "true"
 false_lit : "false"
 null_lit : "null"
-?numeric_lit : decimal+ ("." decimal+)? (exp_mark decimal+)?
+!numeric_lit : decimal+ ("." decimal+)? (exp_mark decimal+)?
 ?decimal : "0".."9"
 ?exp_mark : ("e" | "E") ("+" | "-")
 

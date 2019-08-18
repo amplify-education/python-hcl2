@@ -20,10 +20,10 @@ if __name__ == '__main__':
     arguments = docopt(__doc__, version=__version__)
     target_dir = arguments["PATH"] if arguments["PATH"] else os.environ['TERRAFORM_CONFIG']
     for current_dir, dirs, files in os.walk(target_dir):
-        for file in files:
-            if ".terraform" not in current_dir and file.endswith(".tf"):
-                file_path = os.path.join(current_dir, file)
+        for file_name in files:
+            if ".terraform" not in current_dir and file_name.endswith(".tf"):
+                file_path = os.path.join(current_dir, file_name)
 
-                with open(file_path, 'r') as file2:
+                with open(file_path, 'r') as file:
                     print(file_path)
-                    hcl2.parse(file2.read())
+                    hcl2.parse(file.read())
