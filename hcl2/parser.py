@@ -10,6 +10,20 @@ from hcl2.transformer import DictTransformer
 
 PARSER_FILE = os.path.join(dirname(__file__), 'lark_parser.py')
 
+PARSER_FILE_TEMPLATE = """
+from sre_constants import MAXREPEAT
+from lark.grammar import Rule
+from lark.lexer import TerminalDef
+from lark import Lark
+
+DATA = (%s)
+MEMO = (%s)
+
+def Lark_StandAlone(transformer=None, postlex=None):
+  namespace = {'Rule': Rule, 'TerminalDef': TerminalDef}
+  return Lark.deserialize(DATA, namespace, MEMO, transformer=transformer, postlex=postlex)
+"""
+
 
 def create_parser_file():
     """
@@ -21,31 +35,15 @@ def create_parser_file():
     The lark state contains dicts with numbers as keys which is not supported by json so the serialized
     state can't be written to a json file. Exporting to other file types would have required
     adding additional dependencies or writing a lot more code. Lark's standalone parser
-    feature works great but it expects to be run as a separate command instead on ths shell
+    feature works great but it expects to be run as a separate shell command
     The below code copies some of the standalone parser generator code in a way that we can use
     """
     with open(dirname(__file__) + '/hcl2.lark', 'r') as lark_file, open(PARSER_FILE, 'w') as parser_file:
         lark_inst = Lark(lark_file.read(), parser="lalr", lexer="contextual")
 
-        print('from sre_constants import MAXREPEAT', file=parser_file)
-        print('from lark.grammar import Rule', file=parser_file)
-        print('from lark.lexer import TerminalDef', file=parser_file)
-        print('from lark import Lark', file=parser_file)
-
         data, memo = lark_inst.memo_serialize([TerminalDef, Rule])
-        print('DATA = (', file=parser_file)
-        print(data, file=parser_file)
-        print(')', file=parser_file)
-        print('MEMO = (', file=parser_file)
-        print(memo, file=parser_file)
-        print(')', file=parser_file)
 
-        print('Shift = 0', file=parser_file)
-        print('Reduce = 1', file=parser_file)
-        print("def Lark_StandAlone(transformer=None, postlex=None):", file=parser_file)
-        print("  namespace = {'Rule': Rule, 'TerminalDef': TerminalDef}", file=parser_file)
-        print("  return Lark.deserialize(DATA, namespace, MEMO, transformer=transformer, postlex=postlex)",
-              file=parser_file)
+        print(PARSER_FILE_TEMPLATE % (data, memo), file=parser_file)
 
 
 if not exists(PARSER_FILE):
