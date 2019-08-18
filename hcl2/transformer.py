@@ -1,10 +1,12 @@
+"""A Lark Transformer for transforming a Lark parse tree into a Python dict"""
 import re
-from lark import Transformer, Discard
 
+from lark import Transformer, Discard
 
 HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z0-9]+)\n((.|\n)*?)\n\s*\1', re.S)
 
 
+# pylint: disable=missing-docstring,unused-argument
 class DictTransformer(Transformer):
     def numeric_lit(self, args):
         return float(str(args[0]))
@@ -129,18 +131,18 @@ class DictTransformer(Transformer):
         args = [arg for arg in args if arg != "\n" and not isinstance(arg, Discard)]
         result = {}
         for arg in args:
-            for k, v in arg.items():
-                key = str(k)
+            for key, value in arg.items():
+                key = str(key)
                 if key not in result:
-                    result[key] = v
+                    result[key] = [value]
                 else:
                     if isinstance(result[key], list):
-                        if isinstance(v, list):
-                            result[key].extend(v)
+                        if isinstance(value, list):
+                            result[key].extend(value)
                         else:
-                            result[key].append(v)
+                            result[key].append(value)
                     else:
-                        result[key] = [result[key], v]
+                        result[key] = [result[key], value]
         return result
 
     def start(self, args):
@@ -160,8 +162,7 @@ class DictTransformer(Transformer):
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
                 return str(value)[1:-1]
-            else:
-                return '${%s}' % value
+            return '${%s}' % value
         return value
 
     def strip_quotes(self, value):

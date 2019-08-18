@@ -2,4 +2,4 @@
 
 from .version import __version__, __git_hash__
 
-from .parser import load
+from .api import load, loads
