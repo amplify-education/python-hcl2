@@ -7,7 +7,8 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/python_hcl2.svg)](https://pypi.python.org/pypi/python_hcl2)
 [![Downloads](https://img.shields.io/badge/dynamic/json.svg?label=downloads&url=https%3A%2F%2Fpypistats.org%2Fapi%2Fpackages%2Fpython_hcl2%2Frecent&query=data.last_month&colorB=brightgreen&suffix=%2FMonth)](https://pypistats.org/packages/python_hcl2)
 
-A parser for HCL2 in Python using Lark.  
+A parser for [HCL2](https://github.com/hashicorp/hcl2/blob/master/hcl/spec.md) written in Python using 
+[Lark](https://github.com/lark-parser/lark).  
 
 ## About Amplify
 
@@ -50,10 +51,6 @@ You can also run them individually with the `-e` argument.
 For example, `tox -e py37-unit` will run the unit tests for python 3.7
 
 To see all the available options, run `tox -l`.
-
-
-
-
 
 ## Responsible Disclosure
 If you have any security issue to report, contact project maintainers privately.
