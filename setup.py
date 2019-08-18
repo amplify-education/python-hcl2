@@ -1,10 +1,7 @@
-from __future__ import print_function
-
 """setup.py controls the build, testing, and distribution of the egg"""
-
-from setuptools import setup, find_packages
 import re
 import os.path
+from setuptools import setup, find_packages
 
 VERSION_REGEX = re.compile(r"""
     ^__version__\s=\s
@@ -28,8 +25,7 @@ def get_version():
         result = VERSION_REGEX.search(lines)
         if result:
             return result.groupdict()["version"]
-        else:
-            raise ValueError("Unable to determine __version__")
+        raise ValueError("Unable to determine __version__")
 
 
 def get_requirements():
