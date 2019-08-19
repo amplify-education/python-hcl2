@@ -17,6 +17,8 @@ country. We have a long history as the leading innovator in K-12 education - and
 company in education and the best education company in tech. While others try to shrink the learning experience into  
 the technology, we use technology to expand what is possible in real classrooms with real students and teachers.
 
+Learn more at <https://www.amplify.com>
+
 ## Getting Started
 ### Prerequisites
 
