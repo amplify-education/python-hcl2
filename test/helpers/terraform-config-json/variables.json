@@ -1,0 +1,17 @@
+{
+  "variable": [
+    {
+      "region": {}
+    },
+    {
+      "account": {}
+    }
+  ],
+  "locals": [
+    {
+      "foo": [
+        "${var.account}_bar"
+      ]
+    }
+  ]
+}

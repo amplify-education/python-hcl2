@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+"""
+This script recursively converts hcl2 files to json
+
+Usage:
+    hcl2tojson PATH OUT_PATH
+
+Options:
+    PATH        The path to convert
+    OUT_PATH    The path to write files to
+"""
+import json
+import os
+
+from docopt import docopt
+
+from hcl2.parser import hcl2
+from hcl2.version import __version__
+
+if __name__ == '__main__':
+    arguments = docopt(__doc__, version=__version__)
+    in_path = arguments["PATH"]
+    out_path = arguments["OUT_PATH"]
+    if os.path.isfile(in_path):
+        with open(in_path, 'r') as in_file, open(out_path, 'w') as out_file:
+            print(in_path)
+            json.dump(hcl2.parse(in_file.read()), out_file)
+    elif os.path.isdir(in_path):
+        for current_dir, dirs, files in os.walk(in_path):
+            dir_prefix = os.path.commonpath([in_path, current_dir])
+            relative_current_dir = current_dir.replace(dir_prefix, '')
+            current_out_path = os.path.join(out_path, relative_current_dir)
+            for file_name in files:
+                in_file_path = os.path.join(current_dir, file_name)
+                out_file_path = os.path.join(current_out_path, file_name)
+                out_file_path = os.path.splitext(out_file_path)[0] + '.json'
+
+                with open(in_file_path, 'r') as in_file, open(out_file_path, 'w') as out_file:
+                    print(in_file_path)
+                    json.dump(hcl2.parse(in_file.read()), out_file)
+    else:
+        raise RuntimeError('Invalid Path %s', in_path)
