@@ -1,1 +1,11 @@
-{"foo": "bar", "arr": ["foo", "bar"]}
+{
+  "foo": [
+    "bar"
+  ],
+  "arr": [
+    [
+      "foo",
+      "bar"
+    ]
+  ]
+}
