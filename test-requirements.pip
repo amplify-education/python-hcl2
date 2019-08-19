@@ -8,4 +8,3 @@ nose-cov>=1.5,<2
 mock>=1.0.1,<2
 coverage>=4.5.1,<5
 # Additional libraries
-docopt==0.6.2
