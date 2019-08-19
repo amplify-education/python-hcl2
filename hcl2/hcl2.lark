@@ -17,13 +17,14 @@ conditional : expression "?" expression ":" expression
 !unary_op : ("-" | "!") expr_term
 binary_op : expression binary_term
 !binary_operator : "==" | "!" | "!=" | "<" | ">" | "<=" | ">=" | "-" | "*" | "/" | "%" | "&&" | "||" | "+"
-?binary_term : binary_operator expression
+binary_term : binary_operator expression
 
 expr_term : "(" expression ")"
             | true_lit
             | false_lit
             | null_lit
-            | numeric_lit
+            | float_lit
+            | int_lit
             | string_lit
             | tuple
             | object
@@ -43,7 +44,9 @@ interpolation : "${" /[^}]+/ "}"
 true_lit : "true"
 false_lit : "false"
 null_lit : "null"
-!numeric_lit : decimal+ ("." decimal+)? (exp_mark decimal+)?
+!int_lit : decimal+
+!float_lit: decimal+ "." decimal+ (exp_mark decimal+)?
+            | decimal+ ("." decimal+)? exp_mark decimal+
 ?decimal : "0".."9"
 ?exp_mark : ("e" | "E") ("+" | "-")
 
