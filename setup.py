@@ -60,11 +60,11 @@ setup(
     license='MIT',
     packages=find_packages(),
     include_package_data=True,
+    package_data={'': ['*.lark']},
     zip_safe=False,
     install_requires=get_requirements(),
     test_suite='nose.collector',
     scripts=[
         'bin/hcl2tojson',
     ],
-    data_files=[('', ['hcl2/hcl2.lark'])]
 )
