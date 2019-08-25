@@ -66,5 +66,5 @@ setup(
     scripts=[
         'bin/hcl2tojson',
     ],
-    data_files=[('', 'hcl2/hcl2.lark')]
+    data_files=[('', ['hcl2/hcl2.lark'])]
 )
