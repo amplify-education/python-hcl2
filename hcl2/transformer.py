@@ -1,8 +1,8 @@
 """A Lark Transformer for transforming a Lark parse tree into a Python dict"""
 import re
+from typing import List, Dict, Any
 
 from lark import Transformer, Discard
-from typing import List, Dict, Any
 
 HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z0-9]+)\n((.|\n)*?)\n\s*\1', re.S)
 
@@ -66,7 +66,7 @@ class DictTransformer(Transformer):
 
     def object(self, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
-        result = {}
+        result: Dict[str, Any] = {}
         for arg in args:
             result.update(arg)
         return result
@@ -89,7 +89,14 @@ class DictTransformer(Transformer):
 
     def block(self, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
-        result = {}
+
+        # if the last token is a string instead of an object then the block is empty
+        # such as 'foo "bar" "baz" {}'
+        # in that case append an empty object
+        if isinstance(args[-1], str):
+            args.append({})
+
+        result: Dict[str, Any] = {}
         current_level = result
         for arg in args[0:-2]:
             current_level[self.strip_quotes(arg)] = {}
@@ -134,7 +141,7 @@ class DictTransformer(Transformer):
         # The attribute values will always be lists even if they aren't repeated
         # and only contain a single entry
         args = self.strip_new_line_tokens(args)
-        result = {}
+        result: Dict[str, Any] = {}
         for arg in args:
             for key, value in arg.items():
                 key = str(key)

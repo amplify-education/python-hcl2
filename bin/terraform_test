@@ -13,6 +13,7 @@ import os
 
 from docopt import docopt
 
+from hcl2 import load
 from hcl2.parser import hcl2
 from hcl2.version import __version__
 
@@ -21,9 +22,9 @@ if __name__ == '__main__':
     target_dir = arguments["PATH"] if arguments["PATH"] else os.environ['TERRAFORM_CONFIG']
     for current_dir, dirs, files in os.walk(target_dir):
         for file_name in files:
-            if ".terraform" not in current_dir and file_name.endswith(".tf"):
+            if ".terraform" not in current_dir and (file_name.endswith(".tf") or file_name.endswith('tfvars')):
                 file_path = os.path.join(current_dir, file_name)
 
                 with open(file_path, 'r') as file:
                     print(file_path)
-                    hcl2.parse(file.read())
+                    load(file)

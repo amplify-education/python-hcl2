@@ -14,6 +14,7 @@ import os
 
 from docopt import docopt
 
+from hcl2 import load
 from hcl2.parser import hcl2
 from hcl2.version import __version__
 
@@ -37,6 +38,6 @@ if __name__ == '__main__':
 
                 with open(in_file_path, 'r') as in_file, open(out_file_path, 'w') as out_file:
                     print(in_file_path)
-                    json.dump(hcl2.parse(in_file.read()), out_file)
+                    json.dump(load(in_file), out_file)
     else:
         raise RuntimeError('Invalid Path %s', in_path)
