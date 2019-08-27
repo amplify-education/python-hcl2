@@ -30,7 +30,7 @@ python_hcl2 requires Python 3.6.0 or higher to run.
 This package can be installed using `pip`
 
 ```sh
-pip3 install python_hcl2
+pip3 install python-hcl2
 ```
 
 ### Usage
