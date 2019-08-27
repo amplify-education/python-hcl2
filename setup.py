@@ -35,7 +35,7 @@ def get_requirements():
 
 
 setup(
-    name='python_hcl2',
+    name='python-hcl2',
     python_requires='>=3.6.0',
     version=get_version(),
     description="A parser for HCL2",
@@ -56,7 +56,7 @@ setup(
     keywords='',
     author='Amplify Education',
     author_email='github@amplify.com',
-    url='https://github.com/amplify-education/python_hcl2',
+    url='https://github.com/amplify-education/python-hcl2',
     license='MIT',
     packages=find_packages(),
     include_package_data=True,

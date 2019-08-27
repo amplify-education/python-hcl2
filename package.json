@@ -1,5 +1,5 @@
 {
-  "name": "python_hcl2",
+  "name": "python-hcl2",
   "devDependencies": {
     "remark-cli": "^6.0.1",
     "remark-preset-lint-consistent": "^2.0.2",
