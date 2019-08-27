@@ -38,7 +38,7 @@ setup(
     name='python_hcl2',
     python_requires='>=3.6.0',
     version=get_version(),
-    description="A project for being awesome.",
+    description="A parser for HCL2",
     long_description=get_long_description(),
     long_description_content_type='text/markdown',
     # Get strings from http://www.python.org/pypi?%3Aaction=list_classifiers
