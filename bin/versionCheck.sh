@@ -13,8 +13,8 @@ if [ "$IS_PULL_REQUEST" != "false" ]; then
         exit 0
     fi
 
-    CURRENT_VERSION=$(git show "origin/${TARGET_BRANCH}:python_hcl2/version.py" | sed -n 's/^__version__ = "\(.*\)"$/\1/p')
-    NEW_VERSION=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' python_hcl2/version.py)
+    CURRENT_VERSION=$(git show "origin/${TARGET_BRANCH}:hcl2/version.py" | sed -n 's/^__version__ = "\(.*\)"$/\1/p')
+    NEW_VERSION=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' hcl2/version.py)
 
     if [ "$CURRENT_VERSION" == "$NEW_VERSION" ]; then
         FAILURE_REASON="Failure reason: Version number should be bumped."
