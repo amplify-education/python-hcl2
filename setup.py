@@ -35,10 +35,10 @@ def get_requirements():
 
 
 setup(
-    name='python_hcl2',
+    name='python-hcl2',
     python_requires='>=3.6.0',
     version=get_version(),
-    description="A project for being awesome.",
+    description="A parser for HCL2",
     long_description=get_long_description(),
     long_description_content_type='text/markdown',
     # Get strings from http://www.python.org/pypi?%3Aaction=list_classifiers
@@ -56,11 +56,10 @@ setup(
     keywords='',
     author='Amplify Education',
     author_email='github@amplify.com',
-    url='https://github.com/amplify-education/python_hcl2',
+    url='https://github.com/amplify-education/python-hcl2',
     license='MIT',
     packages=find_packages(),
     include_package_data=True,
-    package_data={'': ['*.lark']},
     zip_safe=False,
     install_requires=get_requirements(),
     test_suite='nose.collector',

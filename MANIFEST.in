@@ -2,4 +2,5 @@
 include *.pip
 include *.md
 include *.rst
+include hcl2/hcl2.lark
 prune test

@@ -1,11 +1,11 @@
 # Python HCL2
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/dbdef52c39fb47c896aa1d7876a3a965)](https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=amplify-education/python_hcl2&amp;utm_campaign=Badge_Grade)
-[![Codacy Badge](https://api.codacy.com/project/badge/Coverage/dbdef52c39fb47c896aa1d7876a3a965)](https://www.codacy.com?utm_source=github.com&utm_medium=referral&utm_content=amplify-education/python_hcl2&utm_campaign=Badge_Coverage)
-[![Build Status](https://travis-ci.org/amplify-education/python_hcl2.svg?branch=master)](https://travis-ci.org/amplify-education/python_hcl2)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/amplify-education/python_hcl2/master/LICENSE)
-[![PyPI](https://img.shields.io/pypi/v/python_hcl2.svg)](https://pypi.org/project/python_hcl2/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/python_hcl2.svg)](https://pypi.python.org/pypi/python_hcl2)
-[![Downloads](https://img.shields.io/badge/dynamic/json.svg?label=downloads&url=https%3A%2F%2Fpypistats.org%2Fapi%2Fpackages%2Fpython_hcl2%2Frecent&query=data.last_month&colorB=brightgreen&suffix=%2FMonth)](https://pypistats.org/packages/python_hcl2)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/dbdef52c39fb47c896aa1d7876a3a965)](https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=amplify-education/python-hcl2&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Coverage/dbdef52c39fb47c896aa1d7876a3a965)](https://www.codacy.com?utm_source=github.com&utm_medium=referral&utm_content=amplify-education/python-hcl2&utm_campaign=Badge_Coverage)
+[![Build Status](https://travis-ci.org/amplify-education/python-hcl2.svg?branch=master)](https://travis-ci.org/amplify-education/python-hcl2)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/amplify-education/python-hcl2/master/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/python-hcl2.svg)](https://pypi.org/project/python-hcl2/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/python-hcl2.svg)](https://pypi.python.org/pypi/python-hcl2)
+[![Downloads](https://img.shields.io/badge/dynamic/json.svg?label=downloads&url=https%3A%2F%2Fpypistats.org%2Fapi%2Fpackages%2Fpython-hcl2%2Frecent&query=data.last_month&colorB=brightgreen&suffix=%2FMonth)](https://pypistats.org/packages/python-hcl2)
 
 A parser for [HCL2](https://github.com/hashicorp/hcl2/blob/master/hcl/spec.md) written in Python using 
 [Lark](https://github.com/lark-parser/lark). This parser only supports HCL2 and isn't backwards compatible
@@ -23,14 +23,14 @@ Learn more at <https://www.amplify.com>
 ## Getting Started
 ### Prerequisites
 
-python_hcl2 requires Python 3.6.0 or higher to run.
+python-hcl2 requires Python 3.6.0 or higher to run.
 
 ### Installing
 
 This package can be installed using `pip`
 
 ```sh
-pip3 install python_hcl2
+pip3 install python-hcl2
 ```
 
 ### Usage
@@ -46,7 +46,7 @@ For development, `tox>=2.9.1` is recommended.
 
 ### Running Tests
 
-python_hcl2 uses `tox`. You will need to install tox with `pip install tox`.
+python-hcl2 uses `tox`. You will need to install tox with `pip install tox`.
 Running `tox` will automatically execute linters as well as the unit tests.
 
 You can also run them individually with the `-e` argument.
