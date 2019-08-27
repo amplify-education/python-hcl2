@@ -31,7 +31,6 @@ class DictTransformer(Transformer):
         return str(args[0])
 
     def string_lit(self, args: List) -> str:
-        # remove double quotes from start and end of the token
         return "".join([str(arg) for arg in args])
 
     def expr_term(self, args: List) -> Any:
@@ -51,8 +50,7 @@ class DictTransformer(Transformer):
         return "%s.*.%s" % (args[0], args[1])
 
     def tuple(self, args: List) -> List:
-        args = [self.to_string_dollar(arg) for arg in self.strip_new_line_tokens(args)]
-        return args
+        return [self.to_string_dollar(arg) for arg in self.strip_new_line_tokens(args)]
 
     def object_elem(self, args: List) -> Dict:
         # This returns a dict with a single key/value pair to make it easier to merge these
