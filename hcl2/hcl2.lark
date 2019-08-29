@@ -1,13 +1,12 @@
 start : new_line_or_comment? body new_line_or_comment?
 body : (attribute | block | one_line_block)*
-attribute : (identifier | string_lit) "=" expression new_line_or_comment
-block : identifier (identifier | string_lit)* "{" new_line_or_comment body "}" new_line_or_comment?
-one_line_block : identifier (identifier | string_lit)* "{" (identifier "=" expression)? "}" new_line_or_comment
-new_line : /[\n]+/
-new_line_and_or_comma: new_line_or_comment | new_line_or_comment "," | "," | "," new_line_or_comment
-new_line_or_comment: (new_line | /#.*\n/ | /\/\/.*\n/ )+
+attribute : IDENTIFIER "=" expression new_line_or_comment
+block : IDENTIFIER (IDENTIFIER | STRING_LIT)* "{" new_line_or_comment body "}" new_line_or_comment
+one_line_block : IDENTIFIER (IDENTIFIER | STRING_LIT)* "{" (IDENTIFIER "=" expression)? "}" new_line_or_comment
+new_line_and_or_comma: new_line_or_comment | "," | "," new_line_or_comment
+new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ )+
 
-identifier : /[a-zA-Z][a-zA-Z0-9_-]*/
+IDENTIFIER : /[a-zA-Z][a-zA-Z0-9_-]*/
 
 ?expression : expr_term | operation | conditional
 
@@ -16,7 +15,7 @@ conditional : expression "?" expression ":" expression
 ?operation : unary_op | binary_op
 !unary_op : ("-" | "!") expr_term
 binary_op : expression binary_term
-!binary_operator : "==" | "!" | "!=" | "<" | ">" | "<=" | ">=" | "-" | "*" | "/" | "%" | "&&" | "||" | "+"
+!binary_operator : "==" | "!=" | "<" | ">" | "<=" | ">=" | "-" | "*" | "/" | "%" | "&&" | "||" | "+"
 binary_term : binary_operator expression
 
 expr_term : "(" expression ")"
@@ -25,38 +24,38 @@ expr_term : "(" expression ")"
             | null_lit
             | float_lit
             | int_lit
-            | string_lit
+            | STRING_LIT
             | tuple
             | object
             | function_call
             | index_expr_term
             | get_attr_expr_term
-            | identifier
+            | IDENTIFIER
             | heredoc_template
             | attr_splat_expr_term
             | full_splat_expr_term
 
 
-!string_lit : "\"" (string_chars | interpolation)* "\""
-?string_chars : /(?:(?!\${)([^"\\]|\\.))+/+
-interpolation : "${" /[^}]+/ "}"
+STRING_LIT : "\"" (STRING_CHARS | INTERPOLATION)* "\""
+STRING_CHARS : /(?:(?!\${)([^"\\]|\\.))+/+ // any character except '"" unless inside a interpolation string
+INTERPOLATION : "${" /[^}]+/ "}"
 
 true_lit : "true"
 false_lit : "false"
 null_lit : "null"
-!int_lit : decimal+
-!float_lit: decimal+ "." decimal+ (exp_mark decimal+)?
-            | decimal+ ("." decimal+)? exp_mark decimal+
-?decimal : "0".."9"
-?exp_mark : ("e" | "E") ("+" | "-")
+int_lit : DECIMAL+
+!float_lit: DECIMAL+ "." DECIMAL+ (EXP_MARK DECIMAL+)?
+            | DECIMAL+ ("." DECIMAL+)? EXP_MARK DECIMAL+
+DECIMAL : "0".."9"
+EXP_MARK : ("e" | "E") ("+" | "-")?
 
 tuple : "[" (new_line_or_comment? expression (new_line_or_comment? "," new_line_or_comment? expression)* new_line_or_comment? ","?)? new_line_or_comment? "]"
 object : "{" (new_line_or_comment? object_elem (new_line_and_or_comma object_elem )* new_line_and_or_comma?)? "}"
-object_elem : (identifier | expression) "="? expression
+object_elem : (IDENTIFIER | expression) "="? expression
 
 heredoc_template : /<<(?P<name>[a-zA-Z][a-zA-Z0-9-._]+)\n(?:.|\n)+?\n+\s*(?P=name)/
 
-function_call : identifier "(" new_line_or_comment? arguments? new_line_or_comment? ")"
+function_call : IDENTIFIER "(" new_line_or_comment? arguments? new_line_or_comment? ")"
 arguments : (expression (new_line_or_comment? "," new_line_or_comment?  expression)* ("," | "...")? new_line_or_comment?)
 
 index_expr_term : expr_term index
@@ -64,7 +63,7 @@ get_attr_expr_term : expr_term get_attr
 attr_splat_expr_term : expr_term attr_splat
 full_splat_expr_term : expr_term full_splat
 ?index : "[" expression "]"
-?get_attr : "." identifier
+?get_attr : "." IDENTIFIER
 ?attr_splat : ".*" get_attr*
 ?full_splat : "[" "*" "]" (get_attr | index)*
 
