@@ -40,7 +40,7 @@ def create_parser_file():
     """
     lark_file = os.path.join(dirname(__file__), 'hcl2.lark')
     with open(lark_file, 'r') as lark_file, open(PARSER_FILE, 'w') as parser_file:
-        lark_inst = Lark(lark_file.read(), parser="lalr", lexer="contextual")
+        lark_inst = Lark(lark_file.read(), parser="lalr", lexer="standard")
 
         data, memo = lark_inst.memo_serialize([TerminalDef, Rule])
 

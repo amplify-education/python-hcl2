@@ -24,15 +24,6 @@ class DictTransformer(Transformer):
     def null_lit(self, args: List) -> None:
         return None
 
-    def identifier(self, args: List) -> str:
-        return str(args[0])
-
-    def variable_expr(self, args: List) -> str:
-        return str(args[0])
-
-    def string_lit(self, args: List) -> str:
-        return "".join([str(arg) for arg in args])
-
     def expr_term(self, args: List) -> Any:
         # if the expression starts with a paren then unwrap it
         if args[0] == "(":
@@ -82,9 +73,6 @@ class DictTransformer(Transformer):
     def new_line_and_or_comma(self, args: List) -> Discard:
         return Discard()
 
-    def new_line(self, args: List) -> Discard:
-        return Discard()
-
     def block(self, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
 
@@ -116,9 +104,6 @@ class DictTransformer(Transformer):
         return {
             key: value
         }
-
-    def interpolation(self, args: List) -> str:
-        return "${%s}" % str(args[0])
 
     def conditional(self, args: List) -> str:
         return "%s ? %s : %s" % (args[0], args[1], args[2])
