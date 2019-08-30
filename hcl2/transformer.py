@@ -156,6 +156,24 @@ class DictTransformer(Transformer):
     def new_line_or_comment(self, args: List) -> Discard:
         return Discard()
 
+    def for_tuple_expr(self, args: List) -> str:
+        args = self.strip_new_line_tokens(args)
+        for_expr = " ".join([str(arg) for arg in args[1:-1]])
+        return '[%s]' % for_expr
+
+    def for_intro(self, args: List) -> str:
+        args = self.strip_new_line_tokens(args)
+        return " ".join([str(arg) for arg in args])
+
+    def for_cond(self, args: List) -> str:
+        args = self.strip_new_line_tokens(args)
+        return " ".join([str(arg) for arg in args])
+
+    def for_object_expr(self, args: List) -> str:
+        args = self.strip_new_line_tokens(args)
+        for_expr = " ".join([str(arg) for arg in args[1:-1]])
+        return '{%s}' % for_expr
+
     def strip_new_line_tokens(self, args: List) -> List:
         """
         Remove new line and Discard tokens.
