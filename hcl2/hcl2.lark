@@ -34,6 +34,8 @@ expr_term : "(" expression ")"
             | heredoc_template
             | attr_splat_expr_term
             | full_splat_expr_term
+            | for_tuple_expr
+            | for_object_expr
 
 
 STRING_LIT : "\"" (STRING_CHARS | INTERPOLATION)* "\""
@@ -67,6 +69,10 @@ full_splat_expr_term : expr_term full_splat
 ?attr_splat : ".*" get_attr*
 ?full_splat : "[" "*" "]" (get_attr | index)*
 
+!for_tuple_expr : "[" new_line_or_comment? for_intro new_line_or_comment? expression new_line_or_comment? for_cond? new_line_or_comment? "]"
+!for_object_expr : "{" new_line_or_comment? for_intro expression "=>" expression "..."? for_cond? new_line_or_comment? "}"
+!for_intro : "for" new_line_or_comment? IDENTIFIER ("," IDENTIFIER new_line_or_comment?)? new_line_or_comment? "in" new_line_or_comment? expression ":" new_line_or_comment?
+!for_cond : "if" new_line_or_comment? expression
 
 %ignore /[ \t]+/
 %ignore /\/\*(.|\n)*?(\*\/)/
