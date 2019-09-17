@@ -6,7 +6,7 @@ one_line_block : IDENTIFIER (IDENTIFIER | STRING_LIT)* "{" (IDENTIFIER "=" expre
 new_line_and_or_comma: new_line_or_comment | "," | "," new_line_or_comment
 new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ )+
 
-IDENTIFIER : /[a-zA-Z][a-zA-Z0-9_-]*/
+IDENTIFIER : /[a-zA-Z_][a-zA-Z0-9_-]*/
 
 ?expression : expr_term | operation | conditional
 
