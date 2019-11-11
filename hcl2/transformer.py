@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 
 from lark import Transformer, Discard
 
-HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z0-9]+)\n((.|\n)*?)\n\s*\1', re.S)
+HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
 
 
 # pylint: disable=missing-docstring,unused-argument
