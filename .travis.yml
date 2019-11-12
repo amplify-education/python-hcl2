@@ -9,6 +9,7 @@ script:
   - pip install -r requirements.pip -e .
   - python hcl2/parser.py
 deploy:
+  skip_cleanup: true
   provider: pypi
   user: $PYPI_USER
   password: $PYPI_PASSWORD
