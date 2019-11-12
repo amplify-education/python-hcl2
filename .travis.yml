@@ -6,6 +6,7 @@ install:
 script:
   - bash bin/versionCheck.sh $TRAVIS_BRANCH $TRAVIS_PULL_REQUEST
   - tox
+  - bin/create_parser
 deploy:
   provider: pypi
   user: $PYPI_USER

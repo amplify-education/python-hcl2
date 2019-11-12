@@ -1,0 +1,4 @@
+#!/usr/bin/env python
+
+# importing hcl2 will generate the parser
+from hcl2.parser import hcl2
