@@ -1,10 +1,12 @@
 """A Lark Transformer for transforming a Lark parse tree into a Python dict"""
 import re
+import sys
 from typing import List, Dict, Any
 
 from lark import Transformer, Discard
 
 HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
+HEREDOC_TRIM_PATTERN = re.compile(r'<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
 
 
 # pylint: disable=missing-docstring,unused-argument
@@ -152,6 +154,29 @@ class DictTransformer(Transformer):
         if not match:
             raise RuntimeError("Invalid Heredoc token: %s" % args[0])
         return '"%s"' % match.group(2)
+
+    def heredoc_template_trim(self, args: List) -> str:
+        # See https://github.com/hashicorp/hcl2/blob/master/hcl/hclsyntax/spec.md#template-expressions
+        # This is a special version of heredocs that are declared with "<<-"
+        # This will calculate the minimum number of leading spaces in each line of a heredoc
+        # and then remove that number of spaces from each line
+        match = HEREDOC_TRIM_PATTERN.match(str(args[0]))
+        if not match:
+            raise RuntimeError("Invalid Heredoc token: %s" % args[0])
+
+        text = match.group(2)
+        lines = text.split('\n')
+
+        # calculate the min number of leading spaces in each line
+        min_spaces = sys.maxsize
+        for line in lines:
+            leading_spaces = len(line) - len(line.lstrip(' '))
+            min_spaces = min(min_spaces, leading_spaces)
+
+        # trim off that number of leading spaces from each line
+        lines = [line[min_spaces:] for line in lines]
+
+        return '"%s"' % '\n'.join(lines)
 
     def new_line_or_comment(self, args: List) -> Discard:
         return Discard()
