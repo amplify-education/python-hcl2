@@ -7,6 +7,18 @@
             "name"
           ],
           "event_pattern": [
+            "    {\n      \"foo\": \"bar\"\n    }"
+          ]
+        }
+      }
+    },
+    {
+      "aws_cloudwatch_event_rule": {
+        "aws_cloudwatch_event_rule2": {
+          "name": [
+            "name"
+          ],
+          "event_pattern": [
             "{\n  \"foo\": \"bar\"\n}"
           ]
         }
