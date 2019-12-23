@@ -27,6 +27,7 @@ if __name__ == '__main__':
             print(in_path)
             json.dump(hcl2.parse(in_file.read()), out_file)
     elif os.path.isdir(in_path):
+        processed_files = set()
         for current_dir, dirs, files in os.walk(in_path):
             dir_prefix = os.path.commonpath([in_path, current_dir])
             relative_current_dir = current_dir.replace(dir_prefix, '')
@@ -35,6 +36,13 @@ if __name__ == '__main__':
                 in_file_path = os.path.join(current_dir, file_name)
                 out_file_path = os.path.join(current_out_path, file_name)
                 out_file_path = os.path.splitext(out_file_path)[0] + '.json'
+
+                # skip any files that we already processed or generated to avoid loops and file lock errors
+                if in_file_path in processed_files or out_file_path in processed_files:
+                    continue
+
+                processed_files.add(in_file_path)
+                processed_files.add(out_file_path)
 
                 with open(in_file_path, 'r') as in_file, open(out_file_path, 'w') as out_file:
                     print(in_file_path)
