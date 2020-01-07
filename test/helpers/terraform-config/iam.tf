@@ -25,13 +25,13 @@ data "aws_iam_policy_document" "s3_proxy_policy" {
     ]
 
     resources = [
-    for
-    bucket_name
-    in
-    local.buckets_to_proxy :
-    "arn:aws:s3:::${bucket_name}/*"
-    if
-    substr(bucket_name, 0, 1) == "l"
+      for
+      bucket_name
+      in
+      local.buckets_to_proxy :
+      "arn:aws:s3:::${bucket_name}/*"
+      if
+      substr(bucket_name, 0, 1) == "l"
     ]
   }
 }
