@@ -220,3 +220,10 @@ class DictTransformer(Transformer):
             if value.startswith('"') and value.endswith('"'):
                 return str(value)[1:-1]
         return value
+
+    def identifier(self, value: Any) -> Any:
+        # Making identifier a token by capitalizing it to IDENTIFIER
+        # seems to return a token object instead of the str
+        # So treat it like a regular rule
+        # In this case we just convert the whole thing to a string
+        return str(value[0])
