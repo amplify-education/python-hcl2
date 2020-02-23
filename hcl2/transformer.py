@@ -27,6 +27,7 @@ class DictTransformer(Transformer):
         return None
 
     def expr_term(self, args: List) -> Any:
+        args = self.strip_new_line_tokens(args)
         # if the expression starts with a paren then unwrap it
         if args[0] == "(":
             return args[1]
@@ -34,7 +35,12 @@ class DictTransformer(Transformer):
         return args[0]
 
     def index_expr_term(self, args: List) -> str:
-        return "%s[%s]" % (str(args[0]), str(args[1]))
+        args = self.strip_new_line_tokens(args)
+        return "%s%s" % (str(args[0]), str(args[1]))
+
+    def index(self, args: List) -> str:
+        args = self.strip_new_line_tokens(args)
+        return "[%s]" % (str(args[0]))
 
     def get_attr_expr_term(self, args: List) -> str:
         return "%s.%s" % (str(args[0]), str(args[1]))
@@ -117,6 +123,7 @@ class DictTransformer(Transformer):
         return "".join([str(arg) for arg in args])
 
     def binary_term(self, args: List) -> str:
+        args = self.strip_new_line_tokens(args)
         return " ".join([str(arg) for arg in args])
 
     def body(self, args: List) -> Dict[str, List]:
