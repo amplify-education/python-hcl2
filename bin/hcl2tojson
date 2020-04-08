@@ -24,7 +24,7 @@ if __name__ == '__main__':
     out_path = arguments["OUT_PATH"]
     if os.path.isfile(in_path):
         with open(in_path, 'r') as in_file, open(out_path, 'w') as out_file:
-            print(in_path)
+            print(in_path, file=sys.stderr, flush=True)
             json.dump(hcl2.parse(in_file.read()), out_file)
     elif os.path.isdir(in_path):
         processed_files = set()
@@ -45,7 +45,7 @@ if __name__ == '__main__':
                 processed_files.add(out_file_path)
 
                 with open(in_file_path, 'r') as in_file, open(out_file_path, 'w') as out_file:
-                    print(in_file_path)
+                    print(in_file_path, file=sys.stderr, flush=True)
                     json.dump(load(in_file), out_file)
     else:
         raise RuntimeError('Invalid Path %s', in_path)
