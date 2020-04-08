@@ -10,6 +10,7 @@ Options:
     OUT_PATH    The path to write files to
 """
 import json
+import sys
 import os
 
 from docopt import docopt
@@ -28,10 +29,14 @@ if __name__ == '__main__':
             json.dump(hcl2.parse(in_file.read()), out_file)
     elif os.path.isdir(in_path):
         processed_files = set()
+        if not os.path.exists(out_path):
+            os.mkdir(out_path)
         for current_dir, dirs, files in os.walk(in_path):
             dir_prefix = os.path.commonpath([in_path, current_dir])
-            relative_current_dir = current_dir.replace(dir_prefix, '')
-            current_out_path = os.path.join(out_path, relative_current_dir)
+            relative_current_dir = os.path.relpath(current_dir, dir_prefix)
+            current_out_path = os.path.normpath(os.path.join(out_path, relative_current_dir))
+            if not os.path.exists(current_out_path):
+                os.mkdir(current_out_path)
             for file_name in files:
                 in_file_path = os.path.join(current_dir, file_name)
                 out_file_path = os.path.join(current_out_path, file_name)
