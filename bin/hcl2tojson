@@ -3,9 +3,10 @@
 This script recursively converts hcl2 files to json
 
 Usage:
-    hcl2tojson PATH OUT_PATH
+    hcl2tojson [-s] PATH OUT_PATH
 
 Options:
+    -s          Skip un-parsable files
     PATH        The path to convert
     OUT_PATH    The path to write files to
 """
@@ -18,9 +19,11 @@ from docopt import docopt
 from hcl2 import load
 from hcl2.parser import hcl2
 from hcl2.version import __version__
+from lark import UnexpectedToken
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version=__version__)
+    skip = arguments["-s"]
     in_path = arguments["PATH"]
     out_path = arguments["OUT_PATH"]
     if os.path.isfile(in_path):
@@ -49,8 +52,15 @@ if __name__ == '__main__':
                 processed_files.add(in_file_path)
                 processed_files.add(out_file_path)
 
-                with open(in_file_path, 'r') as in_file, open(out_file_path, 'w') as out_file:
+                with open(in_file_path, 'r') as in_file:
                     print(in_file_path, file=sys.stderr, flush=True)
-                    json.dump(load(in_file), out_file)
+                    try:
+                        parsed_data = load(in_file)
+                    except UnexpectedToken:
+                        if skip:
+                            continue
+                        raise
+                    with open(out_file_path, 'w') as out_file:
+                        json.dump(parsed_data, out_file)
     else:
         raise RuntimeError('Invalid Path %s', in_path)
