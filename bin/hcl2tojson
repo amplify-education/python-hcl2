@@ -3,7 +3,7 @@
 This script recursively converts hcl2 files to json
 
 Usage:
-    hcl2tojson [-s] PATH OUT_PATH
+    hcl2tojson [-s] PATH [OUT_PATH]
 
 Options:
     -s          Skip un-parsable files
@@ -27,11 +27,17 @@ if __name__ == '__main__':
     in_path = arguments["PATH"]
     out_path = arguments["OUT_PATH"]
     if os.path.isfile(in_path):
-        with open(in_path, 'r') as in_file, open(out_path, 'w') as out_file:
+        with open(in_path, 'r') as in_file:
+            out_file = sys.stdout if out_path is None else open(out_path, 'w')
             print(in_path, file=sys.stderr, flush=True)
             json.dump(hcl2.parse(in_file.read()), out_file)
+            if out_path is None:
+                out_file.write('\n')
+                out_file.close()
     elif os.path.isdir(in_path):
         processed_files = set()
+        if out_path is None:
+            raise RuntimeError("Positional OUT_PATH parameter shouldn't be empty")
         if not os.path.exists(out_path):
             os.mkdir(out_path)
         for current_dir, dirs, files in os.walk(in_path):
