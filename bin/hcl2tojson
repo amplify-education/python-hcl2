@@ -3,13 +3,15 @@
 This script recursively converts hcl2 files to json
 
 Usage:
-    hcl2tojson PATH OUT_PATH
+    hcl2tojson [-s] PATH [OUT_PATH]
 
 Options:
+    -s          Skip un-parsable files
     PATH        The path to convert
     OUT_PATH    The path to write files to
 """
 import json
+import sys
 import os
 
 from docopt import docopt
@@ -17,21 +19,33 @@ from docopt import docopt
 from hcl2 import load
 from hcl2.parser import hcl2
 from hcl2.version import __version__
+from lark import UnexpectedToken
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version=__version__)
+    skip = arguments["-s"]
     in_path = arguments["PATH"]
     out_path = arguments["OUT_PATH"]
     if os.path.isfile(in_path):
-        with open(in_path, 'r') as in_file, open(out_path, 'w') as out_file:
-            print(in_path)
+        with open(in_path, 'r') as in_file:
+            out_file = sys.stdout if out_path is None else open(out_path, 'w')
+            print(in_path, file=sys.stderr, flush=True)
             json.dump(hcl2.parse(in_file.read()), out_file)
+            if out_path is None:
+                out_file.write('\n')
+                out_file.close()
     elif os.path.isdir(in_path):
         processed_files = set()
+        if out_path is None:
+            raise RuntimeError("Positional OUT_PATH parameter shouldn't be empty")
+        if not os.path.exists(out_path):
+            os.mkdir(out_path)
         for current_dir, dirs, files in os.walk(in_path):
             dir_prefix = os.path.commonpath([in_path, current_dir])
-            relative_current_dir = current_dir.replace(dir_prefix, '')
-            current_out_path = os.path.join(out_path, relative_current_dir)
+            relative_current_dir = os.path.relpath(current_dir, dir_prefix)
+            current_out_path = os.path.normpath(os.path.join(out_path, relative_current_dir))
+            if not os.path.exists(current_out_path):
+                os.mkdir(current_out_path)
             for file_name in files:
                 in_file_path = os.path.join(current_dir, file_name)
                 out_file_path = os.path.join(current_out_path, file_name)
@@ -44,8 +58,15 @@ if __name__ == '__main__':
                 processed_files.add(in_file_path)
                 processed_files.add(out_file_path)
 
-                with open(in_file_path, 'r') as in_file, open(out_file_path, 'w') as out_file:
-                    print(in_file_path)
-                    json.dump(load(in_file), out_file)
+                with open(in_file_path, 'r') as in_file:
+                    print(in_file_path, file=sys.stderr, flush=True)
+                    try:
+                        parsed_data = load(in_file)
+                    except UnexpectedToken:
+                        if skip:
+                            continue
+                        raise
+                    with open(out_file_path, 'w') as out_file:
+                        json.dump(parsed_data, out_file)
     else:
         raise RuntimeError('Invalid Path %s', in_path)
