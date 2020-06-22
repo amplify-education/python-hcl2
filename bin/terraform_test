@@ -6,7 +6,8 @@ Usage:
     terraform_test.py [PATH]
 
 Options:
-    PATH        The directory to check. Defaults to the TERRAFORM_CONFIG environment variable
+    PATH    The directory to check. Defaults to the TERRAFORM_CONFIG environment variable
+
 """
 import argparse
 import os

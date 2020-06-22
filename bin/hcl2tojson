@@ -3,7 +3,7 @@
 This script recursively converts hcl2 files to json
 
 Usage:
-    hcl2tojson [-s] PATH [OUT_PATH] [--version]
+    hcl2tojson [-s] PATH [OUT_PATH]
 
 Options:
     -s          Skip un-parsable files
@@ -15,11 +15,10 @@ import json
 import os
 import sys
 
-from lark import UnexpectedToken
-
 from hcl2 import load
 from hcl2.parser import hcl2
 from hcl2.version import __version__
+from lark import UnexpectedToken
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This script recursively converts hcl2 files to json')
@@ -45,7 +44,7 @@ if __name__ == '__main__':
     elif os.path.isdir(args.PATH):
         processed_files = set()
         if args.OUT_PATH is None:
-            raise RuntimeError("Positional args.OUT_PATH parameter shouldn't be empty")
+            raise RuntimeError("Positional OUT_PATH parameter shouldn't be empty")
         if not os.path.exists(args.OUT_PATH):
             os.mkdir(args.OUT_PATH)
         for current_dir, dirs, files in os.walk(args.PATH):
