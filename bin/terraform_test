@@ -9,21 +9,24 @@ Options:
     PATH    The directory to check. Defaults to the TERRAFORM_CONFIG environment variable
 
 """
+import argparse
 import os
 
-from docopt import docopt
-
 from hcl2 import load
-from hcl2.parser import hcl2
 from hcl2.version import __version__
 
 if __name__ == '__main__':
-    arguments = docopt(__doc__, version=__version__)
-    target_dir = arguments["PATH"] if arguments["PATH"] else os.environ['TERRAFORM_CONFIG']
-    for current_dir, dirs, files in os.walk(target_dir):
+    parser = argparse.ArgumentParser(description='This script recursively converts hcl2 files to json')
+    parser.add_argument('PATH', nargs='?', default=None, help='The path to convert')
+    parser.add_argument('--version', action='version', version=__version__)
+
+    args = parser.parse_args()
+
+    target_dir = args.PATH if args.PATH else os.environ['TERRAFORM_CONFIG']
+    for curr_dir, dirs, files in os.walk(target_dir):
         for file_name in files:
-            if ".terraform" not in current_dir and (file_name.endswith(".tf") or file_name.endswith('tfvars')):
-                file_path = os.path.join(current_dir, file_name)
+            if ".terraform" not in curr_dir and (file_name.endswith(".tf") or file_name.endswith('tfvars')):
+                file_path = os.path.join(curr_dir, file_name)
 
                 with open(file_path, 'r') as file:
                     print(file_path)
