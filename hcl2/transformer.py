@@ -100,9 +100,6 @@ class DictTransformer(Transformer):
 
         return result
 
-    def one_line_block(self, args: List) -> Dict:
-        return self.block(args)
-
     def attribute(self, args: List) -> Dict:
         key = str(args[0])
         if key.startswith('"') and key.endswith('"'):
