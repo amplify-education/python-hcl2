@@ -66,12 +66,12 @@ arguments : (expression (new_line_or_comment? "," new_line_or_comment?  expressi
 index_expr_term : expr_term index
 get_attr_expr_term : expr_term get_attr
 attr_splat_expr_term : expr_term attr_splat
-single_attr_splat_expr_term : expr_term sintle_attr_splat
+single_attr_splat_expr_term : expr_term single_attr_splat
 full_splat_expr_term : expr_term full_splat
 index : "[" new_line_or_comment? expression new_line_or_comment? "]"
 ?get_attr : "." identifier
 ?attr_splat : ".*" get_attr*
-?single_attr_splat : "." DECIMAL* "." get_attr*
+?single_attr_splat : "." DECIMAL* get_attr*
 ?full_splat : "[" "*" "]" (get_attr | index)*
 
 !for_tuple_expr : "[" new_line_or_comment? for_intro new_line_or_comment? expression new_line_or_comment? for_cond? new_line_or_comment? "]"
