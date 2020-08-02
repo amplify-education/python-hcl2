@@ -10,14 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.7
-      - uses: dschep/install-pipenv-action@v1
-      - name: Install dependencies
-        run: |
-          pipenv install --dev
       - name: update docs and bump version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -47,15 +39,13 @@ jobs:
         with:
           python-version: 3.7
       - uses: dschep/install-pipenv-action@v1
-      - name: Install dependencies
-        run: |
-          pipenv install --dev
       - name: create python package
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git fetch --tags
           git pull
+          pipenv install -r requirements.pip
           pipenv run python setup.py sdist bdist_wheel
       - name: Publish a Python distribution to PyPI
         uses: pypa/gh-action-pypi-publish@master
