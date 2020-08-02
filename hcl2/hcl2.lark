@@ -66,7 +66,7 @@ index_expr_term : expr_term index
 get_attr_expr_term : expr_term get_attr
 attr_splat_expr_term : expr_term attr_splat
 full_splat_expr_term : expr_term full_splat
-index : "[" new_line_or_comment? expression new_line_or_comment? "]"
+index : "[" new_line_or_comment? expression new_line_or_comment? "]" | "." DECIMAL+
 ?get_attr : "." identifier
 ?attr_splat : ".*" get_attr*
 ?full_splat : "[" "*" "]" (get_attr | index)*
