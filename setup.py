@@ -35,7 +35,7 @@ def get_requirements():
 
 
 setup(
-    name='python-hcl2',
+    name='bc-python-hcl2',
     python_requires='>=3.6.0',
     version=get_version(),
     description="A parser for HCL2",

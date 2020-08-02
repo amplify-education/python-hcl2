@@ -8,7 +8,7 @@ IS_PULL_REQUEST=$2  # false if not a pull request,
 
 # Makes sure travis does not check version if doing a pull request
 if [ "$IS_PULL_REQUEST" != "false" ]; then
-    if git diff --quiet "origin/${TARGET_BRANCH}...HEAD" 'python-hcl2' "test" setup.* ./*.pip; then
+    if git diff --quiet "origin/${TARGET_BRANCH}...HEAD" 'bc-python-hcl2' "test" setup.* ./*.pip; then
         echo "No changes found to main code or dependencies: no version change needed"
         exit 0
     fi
