@@ -115,5 +115,3 @@ node_modules/
 # Mypy
 .mypy_cache/
 
-# Don't commit the generated parser
-lark_parser.py
