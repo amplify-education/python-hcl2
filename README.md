@@ -8,7 +8,7 @@
 
 # Python HCL2
 
-A parser for [HCL2](https://github.com/hashicorp/hcl2/blob/master/hcl/spec.md) written in Python using 
+A parser for [HCL2](https://github.com/hashicorp/hcl/blob/hcl2/hclsyntax/spec.md) written in Python using
 [Lark](https://github.com/lark-parser/lark). This parser only supports HCL2 and isn't backwards compatible
 with HCL v1. It can be used to parse any HCL2 config file such as Terraform.
 
