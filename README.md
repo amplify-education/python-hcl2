@@ -1,5 +1,5 @@
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/dbdef52c39fb47c896aa1d7876a3a965)](https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=amplify-education/python-hcl2&amp;utm_campaign=Badge_Grade)
-[![Codacy Badge](https://api.codacy.com/project/badge/Coverage/dbdef52c39fb47c896aa1d7876a3a965)](https://www.codacy.com?utm_source=github.com&utm_medium=referral&utm_content=amplify-education/python-hcl2&utm_campaign=Badge_Coverage)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/9c7cdf082b044abdab378fa82795b5a5)](https://www.codacy.com/gh/amplify-education/python-hcl2/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=amplify-education/python-hcl2&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/9c7cdf082b044abdab378fa82795b5a5)](https://www.codacy.com/gh/amplify-education/python-hcl2/dashboard?utm_source=github.com&utm_medium=referral&utm_content=amplify-education/python-hcl2&utm_campaign=Badge_Coverage)
 [![Build Status](https://travis-ci.org/amplify-education/python-hcl2.svg?branch=master)](https://travis-ci.org/amplify-education/python-hcl2)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/amplify-education/python-hcl2/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/python-hcl2.svg)](https://pypi.org/project/python-hcl2/)
