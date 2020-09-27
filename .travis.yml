@@ -4,7 +4,11 @@ python: 3.6
 install:
   - pip install tox-travis codacy-coverage
 script:
-  - bash bin/versionCheck.sh $TRAVIS_BRANCH $TRAVIS_PULL_REQUEST
+  # Only deploy if the version number has changed
+  - |
+    if git diff --unified=0 $TRAVIS_COMMIT_RANGE hcl2/version.py | grep version ; then
+      export VERSION_CHANGED="yes"
+    fi
   - tox
   - pip install -r requirements.pip -e .
   - python hcl2/parser.py
@@ -15,6 +19,7 @@ deploy:
   password: $PYPI_PASSWORD
   on:
     branch: master
+    condition: "$VERSION_CHANGED == 'yes'"
 before_deploy:
   - sed --expression "s|GIT_HASH|$TRAVIS_COMMIT|g" --in-place **/version.py
 after_success:
