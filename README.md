@@ -37,7 +37,7 @@ pip3 install python-hcl2
 ### Usage
 ```python
 import hcl2
-with(open('foo.tf', 'r')) as file:
+with open('foo.tf', 'r') as file:
     dict = hcl2.load(file)
 ```
 
