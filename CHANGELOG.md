@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
     without being aware of the breaking change. 
     Thank you @arielkru ([#35](https://github.com/amplify-education/python-hcl2/pull/35))
 
+## \[0.3.2] - 2020-09-29
+
+### Changed
+  - Added support for colon separators in object definitions as specified in the [spec](https://github.com/hashicorp/hcl/blob/hcl2/hclsyntax/spec.md#collection-values) 
+
 ## \[0.3.1] - 2020-09-27
 
 ### Changed
