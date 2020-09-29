@@ -27,6 +27,11 @@
     {
       "foo": [
         "${var.account}_bar"
+      ],
+      "bar": [
+        {
+          "baz": 1
+        }
       ]
     },
     {
