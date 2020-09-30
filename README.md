@@ -62,6 +62,7 @@ You can reach us at <mailto:github@amplify.com>
 
 ## Contributing
 We welcome pull requests! For your pull request to be accepted smoothly, we suggest that you:
-1. For any sizable change, first open a GitHub issue to discuss your idea.
-2. Create a pull request.  Explain why you want to make the change and what it’s for.
+ 1. For any sizable change, first open a GitHub issue to discuss your idea.
+ 2. Create a pull request.  Explain why you want to make the change and what it’s for.
+
 We’ll try to answer any PR’s promptly.
