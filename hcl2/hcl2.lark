@@ -41,7 +41,7 @@ expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
 STRING_LIT : "\"" (STRING_CHARS | INTERPOLATION)* "\""
 STRING_CHARS : /(?:(?!\${)([^"\\]|\\.))+/+ // any character except '"" unless inside a interpolation string
 NESTED_INTERPOLATION : "${" /[^}]+/ "}"
-INTERPOLATION : "${" (NESTED_INTERPOLATION|/([^\${}]+)/)* "}"
+INTERPOLATION : "${" (/(?:(?!\${)([^}]))+/ | NESTED_INTERPOLATION)+ "}"
 
 true_lit : "true"
 false_lit : "false"
