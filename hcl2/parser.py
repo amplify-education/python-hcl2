@@ -11,17 +11,13 @@ from hcl2.transformer import DictTransformer
 PARSER_FILE = os.path.join(dirname(__file__), 'lark_parser.py')
 
 PARSER_FILE_TEMPLATE = """
-from sre_constants import MAXREPEAT
-from lark.grammar import Rule
-from lark.lexer import TerminalDef
 from lark import Lark
 
 DATA = (%s)
 MEMO = (%s)
 
-def Lark_StandAlone(transformer=None, postlex=None):
-  namespace = {'Rule': Rule, 'TerminalDef': TerminalDef}
-  return Lark.deserialize(DATA, namespace, MEMO, transformer=transformer, postlex=postlex)
+def Lark_StandAlone(**kwargs):
+  return Lark._load_from_dict(DATA, MEMO, **kwargs)
 """
 
 

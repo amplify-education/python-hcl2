@@ -17,17 +17,17 @@ class DictTransformer(Transformer):
     def int_lit(self, args: List) -> int:
         return int("".join([str(arg) for arg in args]))
 
-    def true_lit(self, args: List) -> bool:
-        return True
-
-    def false_lit(self, args: List) -> bool:
-        return False
-
-    def null_lit(self, args: List) -> None:
-        return None
-
     def expr_term(self, args: List) -> Any:
         args = self.strip_new_line_tokens(args)
+
+        #
+        if args[0] == "true":
+            return True
+        if args[0] == "false":
+            return False
+        if args[0] == "null":
+            return None
+
         # if the expression starts with a paren then unwrap it
         if args[0] == "(":
             return args[1]
