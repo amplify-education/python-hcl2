@@ -114,6 +114,7 @@ class DictTransformer(Transformer):
         }
 
     def conditional(self, args: List) -> str:
+        args = self.strip_new_line_tokens(args)
         return "%s ? %s : %s" % (args[0], args[1], args[2])
 
     def binary_op(self, args: List) -> str:
