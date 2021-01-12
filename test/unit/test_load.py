@@ -1,11 +1,11 @@
 """ Test parsing a variety of hcl files"""
+
 import json
 import os
 from os.path import dirname
 from unittest import TestCase
 
 import hcl2
-from hcl2.parser import PARSER_FILE, create_parser_file
 
 HCL2_DIR = 'terraform-config'
 JSON_DIR = 'terraform-config-json'
@@ -21,8 +21,6 @@ class TestLoad(TestCase):
     def test_load_terraform(self):
         """Test parsing a set of hcl2 files and force recreating the parser file"""
         # delete the parser file to force it to be recreated
-        os.remove(os.path.join(dirname(hcl2.__file__), PARSER_FILE))
-        create_parser_file()
         self._load_test_files()
 
     def test_load_terraform_from_cache(self):
