@@ -14,19 +14,19 @@ class DictTransformer(Transformer):
 
     def and_test(self, args: List):
         args = self.strip_new_line_tokens(args)
-        a, b = args
-        if isinstance(a, int) and isinstance(b, int):
-            return a and b
+        left, right = args
+        if isinstance(left, int) and isinstance(right, int):
+            return left and right
 
-        return '%s && %s' % (a, b)
+        return '%s && %s' % (left, right)
 
     def or_test(self, args: List):
         args = self.strip_new_line_tokens(args)
-        a, b = args
-        if isinstance(a, int) and isinstance(b, int):
-            return a or b
+        left, right = args
+        if isinstance(left, int) and isinstance(right, int):
+            return left or right
 
-        return '%s || %s' % (a, b)
+        return '%s || %s' % (left, right)
 
     def not_test(self, args):
         return '!%s' % self._one_child(args)
@@ -52,8 +52,7 @@ class DictTransformer(Transformer):
 
     def compare(self, args: List):
         args = self.strip_new_line_tokens(args)
-        a, op, b = args
-        return '%s %s %s' % (a, op, b)
+        return '%s %s %s' % tuple(args)
 
     def float_lit(self, args: List) -> float:
         return float("".join([str(arg) for arg in args]))
