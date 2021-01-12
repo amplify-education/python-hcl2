@@ -11,6 +11,54 @@ HEREDOC_TRIM_PATTERN = re.compile(r'<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s
 
 # pylint: disable=missing-docstring,unused-argument
 class DictTransformer(Transformer):
+
+    def and_test(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        a, b = args
+        if isinstance(a, int) and isinstance(b, int):
+            return a and b
+
+        return '%s && %s' % (a, b)
+
+    def or_test(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        a, b = args
+        if isinstance(a, int) and isinstance(b, int):
+            return a or b
+
+        return '%s || %s' % (a, b)
+
+    def not_test(self, args):
+        n ,= args
+        return '!%s' % n
+
+    def add_expr(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        a, op, b = args
+        return '%s %s %s' % (a, op, b)
+
+    def term(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        a, op, b = args
+        return '%s %s %s' % (a, op, b)
+
+    def neg(self, args):
+        n ,= args
+        return '-%s' % n
+
+    def _one_child(self, args):
+        a ,= args
+        return a
+
+    comp_op = _one_child
+    add_op = _one_child
+    mul_op = _one_child
+
+    def compare(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        a, op, b = args
+        return '%s %s %s' % (a, op, b)
+
     def float_lit(self, args: List) -> float:
         return float("".join([str(arg) for arg in args]))
 
@@ -115,7 +163,14 @@ class DictTransformer(Transformer):
 
     def conditional(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return "%s ? %s : %s" % (args[0], args[1], args[2])
+        cond, then, else_ = args
+        if isinstance(cond, int):
+            if cond:
+                return then
+            else:
+                return else_
+
+        return "%s ? %s : %s" % (cond, then, else_)
 
     def binary_op(self, args: List) -> str:
         return " ".join([str(arg) for arg in args])
