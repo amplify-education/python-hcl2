@@ -1,10 +1,8 @@
 """A parser for HCL2 implemented using the Lark parser"""
 import os
-from os.path import exists, dirname
+from os.path import dirname
 
 from lark import Lark
-from lark.grammar import Rule
-from lark.lexer import TerminalDef
 
 from hcl2.transformer import DictTransformer
 

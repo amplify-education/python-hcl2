@@ -2,7 +2,6 @@
 
 import json
 import os
-from os.path import dirname
 from unittest import TestCase
 
 import hcl2
