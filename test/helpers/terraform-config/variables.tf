@@ -24,6 +24,11 @@ variable "azs" {
   }
 }
 
+variable "options" {
+  default = {
+  }
+}
+
 locals {
   route53_forwarding_rule_shares = {
     for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) :
