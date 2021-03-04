@@ -21,6 +21,11 @@
           }
         ]
       }
+    },
+    {
+      "options": {
+        "default": [{}]
+      }
     }
   ],
   "locals": [
