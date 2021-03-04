@@ -46,7 +46,7 @@ DECIMAL : "0".."9"
 EXP_MARK : ("e" | "E") ("+" | "-")?
 
 tuple : "[" (new_line_or_comment? expression (new_line_or_comment? "," new_line_or_comment? expression)* new_line_or_comment? ","?)? new_line_or_comment? "]"
-object : "{" (new_line_or_comment? object_elem (new_line_and_or_comma object_elem )* new_line_and_or_comma?)? "}"
+object : "{" new_line_or_comment? (object_elem (new_line_and_or_comma object_elem )* new_line_and_or_comma?)? "}"
 object_elem : (identifier | expression) ("=" | ":") expression
 
 heredoc_template : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)+?\n+\s*(?P=heredoc)/
