@@ -18,7 +18,7 @@ import sys
 from hcl2 import load
 from hcl2.parser import hcl2
 from hcl2.version import __version__
-from lark import UnexpectedToken
+from lark import UnexpectedToken, UnexpectedCharacters
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This script recursively converts hcl2 files to json')
@@ -33,6 +33,13 @@ if __name__ == '__main__':
     parser.add_argument('--version', action='version', version=__version__)
 
     args = parser.parse_args()
+
+    skippable_exceptions = (
+        UnexpectedToken,
+        UnexpectedCharacters,
+        UnicodeDecodeError
+    )
+
     if os.path.isfile(args.PATH):
         with open(args.PATH, 'r') as in_file:
             out_file = sys.stdout if args.OUT_PATH is None else open(args.OUT_PATH, 'w')
@@ -69,7 +76,7 @@ if __name__ == '__main__':
                     print(in_file_path, file=sys.stderr, flush=True)
                     try:
                         parsed_data = load(in_file)
-                    except UnexpectedToken:
+                    except skippable_exceptions:
                         if args.skip:
                             continue
                         raise
