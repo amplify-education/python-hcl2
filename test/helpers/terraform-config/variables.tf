@@ -6,6 +6,9 @@ variable "account" {
 
 locals {
   foo = "${var.account}_bar"
+  bar = {
+    baz : 1
+  }
 }
 
 variable "azs" {
