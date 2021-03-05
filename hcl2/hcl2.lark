@@ -1,8 +1,7 @@
 start : new_line_or_comment? body new_line_or_comment?
-body : (attribute | block | one_line_block)*
+body : (attribute | block )*
 attribute : (identifier | null_lit) "=" expression (new_line_or_comment)?
 block : identifier (identifier | STRING_LIT)* "{" (new_line_or_comment)? body "}" new_line_or_comment
-one_line_block : identifier (identifier | STRING_LIT)* "{" (identifier "=" expression)? "}" new_line_or_comment
 new_line_and_or_comma: new_line_or_comment | "," | "," new_line_or_comment
 new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ )+
 
