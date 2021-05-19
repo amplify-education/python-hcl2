@@ -1,4 +1,5 @@
 # Manifest file for the egg
+include LICENSE
 include *.pip
 include *.md
 include *.rst
