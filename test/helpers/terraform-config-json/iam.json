@@ -5,29 +5,19 @@
         "policy": {
           "statement": [
             {
-              "effect": [
-                "Deny"
-              ],
+              "effect": "Deny",
               "principals": [
                 {
-                  "type": [
-                    "AWS"
-                  ],
+                  "type": "AWS",
                   "identifiers": [
-                    [
-                      "*"
-                    ]
+                    "*"
                   ]
                 }
               ],
               "actions": [
-                [
-                  "s3:PutObjectAcl"
-                ]
+                "s3:PutObjectAcl"
               ],
-              "resources": [
-                "${aws_s3_bucket.bucket.*.arn}"
-              ]
+              "resources": "${aws_s3_bucket.bucket.*.arn}"
             }
           ]
         }
@@ -39,13 +29,9 @@
           "statement": [
             {
               "actions": [
-                [
-                  "s3:GetObject"
-                ]
+                "s3:GetObject"
               ],
-              "resources": [
-                "${[for bucket_name in local.buckets_to_proxy : \"arn:aws:s3:::${bucket_name}/*\" if substr(bucket_name,0,1) == \"l\"]}"
-              ]
+              "resources": "${[for bucket_name in local.buckets_to_proxy : \"arn:aws:s3:::${bucket_name}/*\" if substr(bucket_name,0,1) == \"l\"]}"
             }
           ]
         }
