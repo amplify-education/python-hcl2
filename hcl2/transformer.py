@@ -1,12 +1,15 @@
 """A Lark Transformer for transforming a Lark parse tree into a Python dict"""
 import re
 import sys
+from collections import namedtuple
 from typing import List, Dict, Any
 
 from lark import Transformer, Discard
 
 HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
 HEREDOC_TRIM_PATTERN = re.compile(r'<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
+
+Attribute = namedtuple("Attribute", ("key", "value"))
 
 
 # pylint: disable=missing-docstring,unused-argument
@@ -103,15 +106,12 @@ class DictTransformer(Transformer):
     def one_line_block(self, args: List) -> Dict:
         return self.block(args)
 
-    def attribute(self, args: List) -> Dict:
+    def attribute(self, args: List) -> Attribute:
         key = str(args[0])
         if key.startswith('"') and key.endswith('"'):
             key = key[1:-1]
         value = self.to_string_dollar(args[1])
-
-        return {
-            key: value
-        }
+        return Attribute(key, value)
 
     def conditional(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
@@ -128,26 +128,42 @@ class DictTransformer(Transformer):
         return " ".join([str(arg) for arg in args])
 
     def body(self, args: List) -> Dict[str, List]:
-        # A body can have multiple attributes with the same name
-        # For example multiple Statement attributes in a IAM resource body
-        # So This returns a dict of attribute names to lists
-        # The attribute values will always be lists even if they aren't repeated
-        # and only contain a single entry
+        # See https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#bodies
+        # ---
+        # A body is a collection of associated attributes and blocks.
+        #
+        # An attribute definition assigns a value to a particular attribute
+        # name within a body. Each distinct attribute name may be defined no
+        # more than once within a single body.
+        #
+        # A block creates a child body that is annotated with a block type and
+        # zero or more block labels. Blocks create a structural hierarchy which
+        # can be interpreted by the calling application.
+        # ---
+        #
+        # There can be more than one child body with the same block type and
+        # labels. This means that all blocks (even when there is only one)
+        # should be transformed into lists of blocks.
         args = self.strip_new_line_tokens(args)
+        attributes = set()
         result: Dict[str, Any] = {}
         for arg in args:
-            for key, value in arg.items():
-                key = str(key)
-                if key not in result:
-                    result[key] = [value]
-                else:
-                    if isinstance(result[key], list):
-                        if isinstance(value, list):
-                            result[key].extend(value)
-                        else:
-                            result[key].append(value)
+            if isinstance(arg, Attribute):
+                if arg.key in result:
+                    raise RuntimeError("{} already defined".format(arg.key))
+                result[arg.key] = arg.value
+                attributes.add(arg.key)
+            else:
+                # This is a block.
+                for key, value in arg.items():
+                    key = str(key)
+                    if key in result:
+                        if key in attributes:
+                            raise RuntimeError("{} already defined".format(key))
+                        result[key].append(value)
                     else:
-                        result[key] = [result[key], value]
+                        result[key] = [value]
+
         return result
 
     def start(self, args: List) -> Dict:
