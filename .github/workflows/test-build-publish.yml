@@ -38,6 +38,10 @@ jobs:
           uses: actions/setup-python@v2
           with:
             python-version: 3.7
+        - name: Generate Lark Parser
+          run: |
+            pip install -r requirements.pip -e .
+            python hcl2/parser.py
         - name: Build tarball
           run: python setup.py sdist
         - name: Publish to Test PyPI
