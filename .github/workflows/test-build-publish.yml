@@ -70,7 +70,10 @@ jobs:
             pip install -r requirements.pip -e .
             python hcl2/parser.py
         - name: Build tarball
-          run: python setup.py sdist
+          run: |
+            python setup.py sdist
+            ls -al python-hcl2-3.0.0.tar.gz
+            tar -xzvf python-hcl2-3.0.0.tar.gz
         - name: Publish to Test PyPI
           uses: pypa/gh-action-pypi-publish@master
           with:
