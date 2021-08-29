@@ -33,9 +33,9 @@ jobs:
     needs: bump-version
     runs-on: [self-hosted, public, linux, x64]
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v2
       - name: Set up Python 3.7
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
           python-version: 3.7
       - uses: dschep/install-pipenv-action@v1
