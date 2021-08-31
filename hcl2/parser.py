@@ -43,7 +43,7 @@ def create_parser_file():
         print(PARSER_FILE_TEMPLATE % (data, memo), file=parser_file)
 
 
-if not exists(PARSER_FILE):
+if not exists(PARSER_FILE) or not os.stat(PARSER_FILE).st_size:
     create_parser_file()
 
 # pylint: disable=wrong-import-position

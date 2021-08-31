@@ -6,3 +6,7 @@ data "terraform_remote_state" "map" {
   }
   backend = "s3"
 }
+
+data "aws_secretsmanager_secret_version" "nested_interpolation" {
+  secret_id = "${module.special_constants.aws_accounts["aaa-${local.foo}-${local.bar}"]}/us-west-2/key_foo"
+}
