@@ -37,7 +37,7 @@
               "source": "hashicorp/aws"
             }
           ],
-          "null": [
+          "None": [
             {
               "source": "hashicorp/null"
             }
