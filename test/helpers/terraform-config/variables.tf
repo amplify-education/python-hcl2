@@ -25,6 +25,7 @@ variable "azs" {
 }
 
 variable "options" {
+  type = string
   default = {
   }
 }

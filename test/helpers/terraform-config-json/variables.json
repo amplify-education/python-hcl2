@@ -22,6 +22,7 @@
     },
     {
       "options": {
+        "type": "${string}",
         "default": {}
       }
     }
