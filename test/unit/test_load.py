@@ -42,8 +42,17 @@ class TestLoad(TestCase):
                 json_file_path = os.path.splitext(json_file_path)[0] + '.json'
 
                 with self.subTest(msg=file_path):
-                    with open(file_path, 'r') as hcl2_file, open(json_file_path, 'r') as json_file:
-                        hcl2_dict = hcl2.load(hcl2_file)
-                        json_dict = json.load(json_file)
+                    if file_name.startswith('bad_'):
+                        with open(file_path, 'r') as hcl2_file:
+                            try:
+                                hcl2.load(hcl2_file)
+                                self.fail("Should throw parsing error for file")
+                            except Exception as e:
+                                if not str(e).startswith('Line has unclosed quote marks'):
+                                    self.fail(f'Got an unexpected error, {e}')
+                    else:
+                        with open(file_path, 'r') as hcl2_file, open(json_file_path, 'r') as json_file:
+                            hcl2_dict = hcl2.load(hcl2_file)
+                            json_dict = json.load(json_file)
 
-                        self.assertDictEqual(hcl2_dict, json_dict)
+                            self.assertDictEqual(hcl2_dict, json_dict)
