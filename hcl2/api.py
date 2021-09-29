@@ -15,4 +15,10 @@ def loads(text: str) -> dict:
     # Lark doesn't support a EOF token so our grammar can't look for "new line or end of file"
     # This means that all blocks must end in a new line even if the file ends
     # Append a new line as a temporary fix
+
+    # Avoid catastrophic backtracking on missing quote marks
+    for line in text.split('\n'):
+        if line.replace('\\"', '').count('"') % 2 != 0:
+            raise ValueError(f"Line has unclosed quote marks: {line}")
+
     return hcl2.parse(text + "\n")
