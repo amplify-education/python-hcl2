@@ -22,7 +22,7 @@ def loads(text: str) -> dict:
     for line in text.split('\n'):
         if '= <<' in line:
             multi_line_string_denominator = line.split('= <<')[1]
-        elif re.match(rf'\s*{multi_line_string_denominator}', line):
+        elif multi_line_string_denominator and re.match(rf'\s*{multi_line_string_denominator}', line):
             multi_line_string_denominator = ""
         elif multi_line_string_denominator == "" and line.replace('\\"', '').count('"') % 2 != 0:
             raise ValueError(f"Line has unclosed quote marks: {line}")
