@@ -51,6 +51,9 @@ class DictTransformer(Transformer):
     def attr_splat_expr_term(self, args: List) -> str:
         return "%s.*.%s" % (args[0], args[1])
 
+    def full_splat_expr_term(self, args: List) -> str:
+        return "%s[*].%s" % (args[0], args[1])
+
     def tuple(self, args: List) -> List:
         return [self.to_string_dollar(arg) for arg in self.strip_new_line_tokens(args)]
 
