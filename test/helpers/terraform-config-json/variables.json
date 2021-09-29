@@ -33,6 +33,10 @@
           {
             "condition": "${!contains([for v in flatten(var.var_with_validation[*].id) : can(regex(\"^(A|B)$\",v))],False)}",
             "error_message": "The property `id` must be one of value [A, B]."
+          },
+          {
+            "condition": "${!contains([for v in flatten(var.var_with_validation[*].nested[*].type) : can(regex(\"^(A|B)$\",v))],False)}",
+            "error_message": "The property `nested.type` must be one of value [A, B]."
           }
         ]
       }
@@ -98,7 +102,9 @@
           ]
         }
       ],
-      "ids_level_1": "${distinct(local.nested_data[*].id)}"
+      "ids_level_1": "${distinct(local.nested_data[*].id)}",
+      "ids_level_2": "${flatten(local.nested_data[*].nested[*].id)}",
+      "ids_level_3": "${flatten(local.nested_data[*].nested[*].again[*].id)}"
     }
   ]
 }

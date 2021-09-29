@@ -44,7 +44,10 @@ variable "var_with_validation" {
     condition     = !contains([for v in flatten(var.var_with_validation[*].id) : can(regex("^(A|B)$", v))], false)
     error_message = "The property `id` must be one of value [A, B]."
   }
-
+  validation {
+    condition     = !contains([for v in flatten(var.var_with_validation[*].nested[*].type) : can(regex("^(A|B)$", v))], false)
+    error_message = "The property `nested.type` must be one of value [A, B]."
+  }
 }
 
 locals {
@@ -103,4 +106,6 @@ locals {
   ]
 
   ids_level_1 = distinct(local.nested_data[*].id)
+  ids_level_2 = flatten(local.nested_data[*].nested[*].id)
+  ids_level_3 = flatten(local.nested_data[*].nested[*].again[*].id)
 }
