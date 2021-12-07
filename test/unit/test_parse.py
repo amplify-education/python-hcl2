@@ -1,10 +1,7 @@
-import json
-import os
-from os.path import dirname
 from unittest import TestCase
 
 import hcl2
-from hcl2.parser import PARSER_FILE, create_parser_file, strip_line_comment
+from hcl2.parser import strip_line_comment
 
 
 class TestParse(TestCase):
@@ -89,7 +86,7 @@ class TestParse(TestCase):
         for test_string in test_strings:
             try:
                 hcl2.loads(test_string)
-            except:
+            except ValueError as e:
                 self.fail(f'The parser threw an exception for the string: {test_string}')
 
         # failure scenarios are handled in the other tests
