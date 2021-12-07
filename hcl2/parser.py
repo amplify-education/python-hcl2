@@ -48,22 +48,22 @@ if not exists(PARSER_FILE):
 
 
 def strip_line_comment(line: str):
-    comment_tokens = ['#', '//']
+    """Finds the start of a comment in the line, if any, and returns the line up to the comment, the token that
+    started the comment (#, //, or /*), and the line after the comment token"""
+    comment_tokens = ['#', '//', '/*']
 
-
-def strip_line_comment_by_token(line: str, comment_token):
-    if comment_token not in line:
-        return line
-
-    index = -len(comment_token)
-    while True:
-        if comment_token not in line[index + len(comment_token):]:
-            return line
-        index = line.index(comment_token, index + len(comment_token))
-        if line[0:index].replace('\\"', '').count('"') % 2 == 0:
-            # we are not in a string
-            return line[0:index]
-
+    # manual iteration; trying to avoid a bunch of repeated "in" searches
+    index = 0
+    while index < len(line):
+        for token in comment_tokens:
+            if index > len(line) - len(token):
+                continue
+            if line[index:index + len(token)] == token and line[0:index].replace('\\"', '').count('"') % 2 == 0:
+                # we are not in a string, so this marks the start of a comment
+                return line[0:index], token, line[index + len(token):]
+        index += 1
+# abcd#
+    return line, None, None
 
 
 # pylint: disable=wrong-import-position
