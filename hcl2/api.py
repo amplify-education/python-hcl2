@@ -2,7 +2,7 @@
 import re
 from typing import TextIO
 
-from hcl2.parser import hcl2
+from hcl2.parser import hcl2, strip_line_comment_by_token
 
 
 def load(file: TextIO) -> dict:
@@ -24,7 +24,15 @@ def loads(text: str) -> dict:
             multi_line_string_denominator = line.split('= <<')[1]
         elif multi_line_string_denominator and re.match(rf'\s*{multi_line_string_denominator}', line):
             multi_line_string_denominator = ""
+        elif line != strip_line_comment_by_token(line, '/*'):
+            in_multi_line_comment = True
         elif multi_line_string_denominator == "" and line.replace('\\"', '').count('"') % 2 != 0:
-            raise ValueError(f"Line has unclosed quote marks: {line}")
+            # it's possible that this is in a comment, so double check (but we dont want to do this for every line if it's not necessary)
+            comment_tokens = ['#', '//']
+            for token in comment_tokens:
+                stripped = strip_line_comment_by_token(line, token)
+                if line != stripped and line.replace('\\"', '').count('"') % 2 != 0:
+                    # the stripped off comment is still an unclosed string, so now we have a real error
+                    raise ValueError(f"Line has unclosed quote marks: {line}")
 
     return hcl2.parse(text + "\n")

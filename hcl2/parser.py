@@ -46,6 +46,26 @@ def create_parser_file():
 if not exists(PARSER_FILE):
     create_parser_file()
 
+
+def strip_line_comment(line: str):
+    comment_tokens = ['#', '//']
+
+
+def strip_line_comment_by_token(line: str, comment_token):
+    if comment_token not in line:
+        return line
+
+    index = -len(comment_token)
+    while True:
+        if comment_token not in line[index + len(comment_token):]:
+            return line
+        index = line.index(comment_token, index + len(comment_token))
+        if line[0:index].replace('\\"', '').count('"') % 2 == 0:
+            # we are not in a string
+            return line[0:index]
+
+
+
 # pylint: disable=wrong-import-position
 # Lark_StandAlone needs to be imported after the above block of code because lark_parser.py might not exist
 from hcl2.lark_parser import Lark_StandAlone
