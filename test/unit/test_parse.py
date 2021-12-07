@@ -75,6 +75,14 @@ class TestParse(TestCase):
     bucket = "123" # /* this is the start of a not actually multi line comment "with an unclosed quote
 }""", """resource "aws_s3_bucket" "b" {
     bucket = "123" /* this is a one line comment "with an unclosed quote */
+}""", """resource "aws_s3_bucket" "b" {
+     /* this is a one line comment "with an unclosed quote */
+     bucket = "123"
+}""", """resource "aws_s3_bucket" "b" {
+    /* this is the start of a multi line comment
+    here is an "unclosed quote
+    (well, it's closed here) " */
+    bucket = "123"
 }"""
         ]
 
