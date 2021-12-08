@@ -47,6 +47,30 @@ def create_parser_file():
 if not exists(PARSER_FILE):
     create_parser_file()
 
+
+def strip_line_comment(line: str):
+    """
+    Finds the start of a comment in the line, if any, and returns the line
+    up to the comment, the token that started the comment (#, //, or /*),
+    and the line after the comment token
+    """
+    comment_tokens = ['#', '//', '/*']
+
+    # manual iteration; trying to avoid a bunch of repeated "in" searches
+    index = 0
+    while index < len(line):
+        for token in comment_tokens:
+            if index > len(line) - len(token):
+                continue
+            if line[index:index + len(token)] == token and \
+                    line[0:index].replace('\\"', '').count('"') % 2 == 0:
+                # we are not in a string, so this marks the start of a comment
+                return line[0:index], token, line[index + len(token):]
+        index += 1
+# abcd#
+    return line, None, None
+
+
 # pylint: disable=wrong-import-position
 # Lark_StandAlone needs to be imported after the above block of code because lark_parser.py might not exist
 from hcl2.lark_parser import Lark_StandAlone
