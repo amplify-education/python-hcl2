@@ -62,7 +62,7 @@ def loads(text: str) -> dict:
 
         if found_multi_line_comment_start:
             found_multi_line_comment_start = False
-            in_multi_line_comment = '*/' not in comment
+            in_multi_line_comment = comment is not None and '*/' not in comment
             # check whether this "multiline" comment closed on the same line
 
     return hcl2.parse(text + "\n")
