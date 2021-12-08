@@ -20,8 +20,10 @@ def loads(text: str) -> dict:
     # Avoid catastrophic backtracking on missing quote marks
     multi_line_string_denominator = ""
 
-    # this will be a mostly-complete multi-line comment approach. It will pick up lines that include a comment start (/*),
-    # and it will check whether the comment ends on the same line. But it will not handle weird things like code that
+    # this will be a mostly-complete multi-line comment approach.
+    # It will pick up lines that include a comment start (/*),
+    # and it will check whether the comment ends on the same line.
+    # But it will not handle weird things like code that
     # starts on the same line after closing a multi line comment:
     # a = 123 /* ....      <- this will get checked
     # ....
@@ -32,9 +34,12 @@ def loads(text: str) -> dict:
     for line in text.split('\n'):
         token = None
         comment = None
-        if not multi_line_string_denominator and not in_multi_line_comment and '/*' in line:
+        if not multi_line_string_denominator and \
+                not in_multi_line_comment and '/*' in line:
             line, token, comment = strip_line_comment(line)
-            if token == '/*':  # handle a comment that includes a /* (e.g., `... # ... /*` which is not a multi-line comment
+            if token == '/*':
+                # handle a comment that includes a /* (e.g., `... # ... /*`
+                # which is not a multi-line comment
                 # first we will complete this loop and consider any part of the line that still remains
                 found_multi_line_comment_start = True
         elif not multi_line_string_denominator and in_multi_line_comment and '*/' in line:
@@ -43,9 +48,11 @@ def loads(text: str) -> dict:
 
         if not in_multi_line_comment and '= <<' in line:
             multi_line_string_denominator = line.split('= <<')[1]
-        elif not in_multi_line_comment and multi_line_string_denominator and re.match(rf'\s*{multi_line_string_denominator}', line):
+        elif not in_multi_line_comment and multi_line_string_denominator \
+                and re.match(rf'\s*{multi_line_string_denominator}', line):
             multi_line_string_denominator = ""
-        elif not in_multi_line_comment and multi_line_string_denominator == "" and line.replace('\\"', '').count('"') % 2 != 0:
+        elif not in_multi_line_comment and multi_line_string_denominator == "" \
+                and line.replace('\\"', '').count('"') % 2 != 0:
             # it's possible that the unclosed quote is in a comment, so double check
             # (but we don't want to do this for every line if it's not necessary)
             stripped = strip_line_comment(line)[0] if not comment else line  # maybe we already stripped it
@@ -55,6 +62,7 @@ def loads(text: str) -> dict:
 
         if found_multi_line_comment_start:
             found_multi_line_comment_start = False
-            in_multi_line_comment = '*/' not in comment  # check whether this "multiline" comment closed on the same line
+            in_multi_line_comment = '*/' not in comment
+            # check whether this "multiline" comment closed on the same line
 
     return hcl2.parse(text + "\n")

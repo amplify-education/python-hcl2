@@ -1,3 +1,4 @@
+"""Test the parsing of lines and files"""
 from unittest import TestCase
 
 import hcl2
@@ -8,7 +9,9 @@ class TestParse(TestCase):
     """ Test parsing a variety of hcl files"""
 
     def test_strip_line_comment(self):
-
+        """
+        Test comment stripping from lines
+        """
         test_strings = [
             ('x = "123"', 'x = "123"'),
             ('# a basic "comment', ''),
@@ -37,9 +40,11 @@ class TestParse(TestCase):
             self.assertEqual(result, expected)
 
     def test_parse_comments(self):
-
-        # test different combinations of unclosed quotes in regular comments. Each of these should pass parsing
-        # the actual line stripping logic is tested above, so these can be basic
+        """
+        test different combinations of unclosed quotes in regular comments.
+        Each of these should pass parsing the actual line stripping logic
+        is tested above, so these can be basic
+        """
         test_strings = [
             '# a basic "comment',
             'x = "123" # an end of line "comment',
@@ -48,8 +53,8 @@ class TestParse(TestCase):
         for test_string in test_strings:
             try:
                 hcl2.loads(test_string)
-            except:
-                self.fail(f'The parser threw an exception for the line: {test_string}')
+            except Exception as err:
+                self.fail(f'The parser threw an exception for the line: {test_string}, {err}')
 
         # now test multiline comment cases that should all pass parsing
         test_strings = [
@@ -86,7 +91,7 @@ class TestParse(TestCase):
         for test_string in test_strings:
             try:
                 hcl2.loads(test_string)
-            except ValueError as e:
-                self.fail(f'The parser threw an exception for the string: {test_string}')
+            except ValueError as err:
+                self.fail(f'The parser threw an exception for the string: {test_string}. {err}')
 
         # failure scenarios are handled in the other tests

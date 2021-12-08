@@ -23,7 +23,7 @@ jobs:
           echo "new tag: $new_tag"
 
           ## update python version
-          echo "__version__ = '$new_tag'" > 'hcl2/version.py'
+          echo "\"\"\"Version module\"\"\"\n__version__ = '$new_tag'" > 'hcl2/version.py'
 
           git commit --reuse-message=HEAD@{1} hcl2/version.py || echo "No changes to commit"
           git push origin
