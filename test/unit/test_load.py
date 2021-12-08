@@ -43,15 +43,16 @@ class TestLoad(TestCase):
 
                 with self.subTest(msg=file_path):
                     if file_name.startswith('bad_'):
-                        with open(file_path, 'r') as hcl2_file:
+                        with open(file_path, 'r', encoding='utf8') as hcl2_file:
                             try:
                                 hcl2.load(hcl2_file)
                                 self.fail("Should throw parsing error for file")
-                            except Exception as e:
-                                if not str(e).startswith('Line has unclosed quote marks'):
-                                    self.fail(f'Got an unexpected error, {e}')
+                            except Exception as err:
+                                if not str(err).startswith('Line has unclosed quote marks'):
+                                    self.fail(f'Got an unexpected error, {err}')
                     else:
-                        with open(file_path, 'r') as hcl2_file, open(json_file_path, 'r') as json_file:
+                        with open(file_path, 'r', encoding='utf8') as hcl2_file, \
+                                open(json_file_path, 'r', encoding='utf8') as json_file:
                             hcl2_dict = hcl2.load(hcl2_file)
                             json_dict = json.load(json_file)
 
