@@ -46,4 +46,9 @@ locals {
     length(var.forwarding_rules_template.replace_with_target_ips) > 0 &&
     length(var.forwarding_rules_template.exclude_cidrs) > 0
   )
+
+  for_whitespace = { for i in [1, 2, 3] :
+    i =>
+    i
+  }
 }
