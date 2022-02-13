@@ -150,7 +150,7 @@ class DictTransformer(Transformer):
         for arg in args:
             if isinstance(arg, Attribute):
                 if arg.key in result:
-                    raise RuntimeError("{} already defined".format(arg.key))
+                    raise RuntimeError(f"{arg.key} already defined")
                 result[arg.key] = arg.value
                 attributes.add(arg.key)
             else:
@@ -159,7 +159,7 @@ class DictTransformer(Transformer):
                     key = str(key)
                     if key in result:
                         if key in attributes:
-                            raise RuntimeError("{} already defined".format(key))
+                            raise RuntimeError(f"{key} already defined")
                         result[key].append(value)
                     else:
                         result[key] = [value]
