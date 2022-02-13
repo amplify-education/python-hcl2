@@ -18,9 +18,6 @@ binary_op : expression binary_term
 binary_term : binary_operator new_line_or_comment? expression
 
 expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
-            | true_lit
-            | false_lit
-            | null_lit
             | float_lit
             | int_lit
             | STRING_LIT
@@ -43,9 +40,6 @@ STRING_CHARS : /(?:(?!\${)([^"\\]|\\.))+/+ // any character except '"" unless in
 NESTED_INTERPOLATION : "${" /[^}]+/ "}"
 INTERPOLATION : "${" (/(?:(?!\${)([^}]))+/ | NESTED_INTERPOLATION)+ "}"
 
-true_lit : "true"
-false_lit : "false"
-null_lit : "null"
 int_lit : DECIMAL+
 !float_lit: DECIMAL+ "." DECIMAL+ (EXP_MARK DECIMAL+)?
             | DECIMAL+ ("." DECIMAL+)? EXP_MARK DECIMAL+
