@@ -1,3 +1,2 @@
-"""Place of record for the package version"""
-
-__version__ = "3.0.1"
+"""Version module"""
+__version__ = '0.3.29'
