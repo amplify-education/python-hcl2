@@ -3,9 +3,11 @@
     {
       "required_providers": [
         {
-          "null": {
+          "null": [
+            {
             "source": "hashicorp/null"
           }
+            ]
         }
       ]
     }
