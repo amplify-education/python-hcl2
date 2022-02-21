@@ -24,6 +24,32 @@ variable "azs" {
   }
 }
 
+variable "options" {
+  type = string
+  default = {
+  }
+}
+
+variable "var_with_validation" {
+  type = list(object({
+    id = string
+    nested = list(
+      object({
+        id   = string
+        type = string
+      })
+    )
+  }))
+  validation {
+    condition     = !contains([for v in flatten(var.var_with_validation[*].id) : can(regex("^(A|B)$", v))], false)
+    error_message = "The property `id` must be one of value [A, B]."
+  }
+  validation {
+    condition     = !contains([for v in flatten(var.var_with_validation[*].nested[*].type) : can(regex("^(A|B)$", v))], false)
+    error_message = "The property `nested.type` must be one of value [A, B]."
+  }
+}
+
 locals {
   route53_forwarding_rule_shares = {
     for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) :
@@ -41,4 +67,50 @@ locals {
     length(var.forwarding_rules_template.replace_with_target_ips) > 0 &&
     length(var.forwarding_rules_template.exclude_cidrs) > 0
   )
+
+  for_whitespace = { for i in [1, 2, 3] :
+    i =>
+    i
+  }
+}
+
+locals {
+  nested_data = [
+    {
+      id = 1,
+      nested = [
+        {
+          id = "a"
+          again = [
+            { id = "a1" },
+            { id = "b1" }
+          ]
+        },
+        { id = "c" }
+      ]
+    },
+    {
+      id = 1
+      nested = [
+        {
+          id = "a"
+          again = [
+            { id = "a2" },
+            { id = "b2" }
+          ]
+        },
+        {
+          id = "b"
+          again = [
+            { id = "a" },
+            { id = "b" }
+          ]
+        }
+      ]
+    }
+  ]
+
+  ids_level_1 = distinct(local.nested_data[*].id)
+  ids_level_2 = flatten(local.nested_data[*].nested[*].id)
+  ids_level_3 = flatten(local.nested_data[*].nested[*].again[*][0].foo.bar[0])
 }
