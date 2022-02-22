@@ -43,7 +43,10 @@ class TestLoad(TestCase):
 
                 with self.subTest(msg=file_path):
                     with open(file_path, 'r') as hcl2_file, open(json_file_path, 'r') as json_file:
-                        hcl2_dict = hcl2.load(hcl2_file)
+                        try:
+                            hcl2_dict = hcl2.load(hcl2_file)
+                        except Exception as ex:
+                            raise RuntimeError(f"failed to tokenize terraform in `{file_path}`") from ex
                         json_dict = json.load(json_file)
 
-                        self.assertDictEqual(hcl2_dict, json_dict)
+                        self.assertDictEqual(hcl2_dict, json_dict, f"failed comparing {file_path}")
