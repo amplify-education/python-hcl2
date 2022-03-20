@@ -113,4 +113,11 @@ locals {
   ids_level_1 = distinct(local.nested_data[*].id)
   ids_level_2 = flatten(local.nested_data[*].nested[*].id)
   ids_level_3 = flatten(local.nested_data[*].nested[*].again[*][0].foo.bar[0])
+  bindings_by_role = distinct(flatten([
+    for name in local.real_entities
+    : [
+      for role, members in var.bindings
+      : { name = name, role = role, members = members }
+    ]
+  ]))
 }
