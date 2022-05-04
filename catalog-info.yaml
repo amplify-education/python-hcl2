@@ -1,0 +1,9 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: python-hcl2
+  annotations:
+    github.com/project-slug: amplify-education/python-hcl2
+spec:
+  type: other
+  lifecycle: unknown
