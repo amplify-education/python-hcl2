@@ -20,10 +20,12 @@ jobs:
           with:
             python-version: ${{ matrix.python-version }}
         - name: Install dependencies
-          run: python -m pip install --upgrade "tox>=4.0.9,<5" build
-        - name: Generate parser file
-          run: python hcl2/parser.py
+          run: python -m pip install --upgrade "tox>=4.0.9,<5" build lark
+        - name: Generate parser file as a side effect
+          run: python -m hcl2.parser
         - name: Build to generate the version file
           run: python3 -m build
+        - name: Install package
+          run: python3 -m pip install --upgrade ./dist/*.whl
         - name: Test with Tox
           run: tox

@@ -1,6 +1,6 @@
 """A parser for HCL2 implemented using the Lark parser"""
 import os
-from os.path import exists, dirname
+from os.path import dirname, exists
 
 from lark import Lark
 from lark.grammar import Rule
@@ -35,6 +35,7 @@ def create_parser_file():
     The below code copies some of the standalone parser generator code in a way that we can use
     """
     lark_file = os.path.join(dirname(__file__), 'hcl2.lark')
+    with open(lark_file, 'r') as lark_file, open(PARSER_FILE, 'w') as parser_file:
         import lark.tools.standalone  # needed only if standalone parser is not yet compiled.
 
         lark_inst = Lark(lark_file.read(), parser="lalr", lexer="contextual")
