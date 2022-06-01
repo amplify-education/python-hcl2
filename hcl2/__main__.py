@@ -15,12 +15,12 @@ import json
 import os
 import sys
 
-from hcl2 import load
-from hcl2.parser import hcl2
-from hcl2.version import __version__
+from . import load
+from .parser import hcl2
+from .version import __version__
 from lark import UnexpectedToken, UnexpectedCharacters
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='This script recursively converts hcl2 files to json')
     parser.add_argument('-s', dest='skip', action='store_true', help='Skip un-parsable files')
     parser.add_argument('PATH', help='The file or directory to convert')
@@ -84,3 +84,6 @@ if __name__ == '__main__':
                         json.dump(parsed_data, out_file)
     else:
         raise RuntimeError('Invalid Path %s', args.PATH)
+
+if __name__ == '__main__':
+    main()
