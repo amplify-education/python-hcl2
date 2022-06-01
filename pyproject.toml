@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.2.0", "wheel"]
+requires = ["setuptools>=61.2.0", "wheel", "setuptools_scm[toml]>=3.4.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -40,6 +40,5 @@ packages = ["hcl2"]
 zip-safe = false
 include-package-data = true
 
-[tool.setuptools.dynamic]
-version = {attr = "hcl2.version:__version__"}
-
+[tool.setuptools_scm]
+write_to = "hcl2/version.py"
