@@ -4,7 +4,7 @@ import sys
 from collections import namedtuple
 from typing import List, Dict, Any
 
-from lark import Transformer, Discard
+from lark.visitors import Transformer, Discard, _DiscardType
 
 HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
 HEREDOC_TRIM_PATTERN = re.compile(r'<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
@@ -89,14 +89,14 @@ class DictTransformer(Transformer):
         args = self.strip_new_line_tokens(args)
         args_str = ''
         if len(args) > 1:
-            args_str = ", ".join([str(arg) for arg in args[1]])
+            args_str = ", ".join([str(arg) for arg in args[1] if arg is not Discard])
         return f"{args[0]}({args_str})"
 
     def arguments(self, args: List) -> List:
         return args
 
-    def new_line_and_or_comma(self, args: List) -> Discard:
-        return Discard()
+    def new_line_and_or_comma(self, args: List) -> _DiscardType:
+        return Discard
 
     def block(self, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
@@ -216,8 +216,8 @@ class DictTransformer(Transformer):
 
         return '"%s"' % '\n'.join(lines)
 
-    def new_line_or_comment(self, args: List) -> Discard:
-        return Discard()
+    def new_line_or_comment(self, args: List) -> _DiscardType:
+        return Discard
 
     def for_tuple_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
@@ -245,7 +245,7 @@ class DictTransformer(Transformer):
         Remove new line and Discard tokens.
         The parser will sometimes include these in the tree so we need to strip them out here
         """
-        return [arg for arg in args if arg != "\n" and not isinstance(arg, Discard)]
+        return [arg for arg in args if arg != "\n" and arg is not Discard]
 
     def to_string_dollar(self, value: Any) -> Any:
         """Wrap a string in ${ and }"""
