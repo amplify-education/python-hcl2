@@ -87,7 +87,7 @@ class DictTransformer(Transformer):
         args = self.strip_new_line_tokens(args)
         args_str = ''
         if len(args) > 1:
-            args_str = ",".join([str(arg) for arg in args[1]])
+            args_str = ", ".join([str(arg) for arg in args[1]])
         return "%s(%s)" % (str(args[0]), args_str)
 
     def arguments(self, args: List) -> List:
