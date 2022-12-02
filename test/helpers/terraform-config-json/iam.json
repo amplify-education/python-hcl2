@@ -31,7 +31,7 @@
               "actions": [
                 "s3:GetObject"
               ],
-              "resources": "${[for bucket_name in local.buckets_to_proxy : \"arn:aws:s3:::${bucket_name}/*\" if substr(bucket_name,0,1) == \"l\"]}"
+              "resources": "${[for bucket_name in local.buckets_to_proxy : \"arn:aws:s3:::${bucket_name}/*\" if substr(bucket_name, 0, 1) == \"l\"]}"
             }
           ]
         }
