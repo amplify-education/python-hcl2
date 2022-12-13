@@ -7,15 +7,26 @@ new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ )+
 
 identifier : /[a-zA-Z_][a-zA-Z0-9_-]*/
 
-?expression : expr_term | operation | conditional
+?expression : conditional
 
-conditional : expression "?" new_line_or_comment? expression new_line_or_comment? ":" new_line_or_comment? expression
+?conditional : or_test "?" new_line_or_comment? or_test new_line_or_comment? ":" new_line_or_comment? or_test
+             | or_test
 
-?operation : unary_op | binary_op
-!unary_op : ("-" | "!") expr_term
-binary_op : expression binary_term
-!binary_operator : "==" | "!=" | "<" | ">" | "<=" | ">=" | "-" | "*" | "/" | "%" | "&&" | "||" | "+"
-binary_term : binary_operator new_line_or_comment? expression
+?or_test: (or_test "||")? and_test
+?and_test: (and_test "&&" new_line_and_or_comma?)? not_test
+?not_test: "!" not_test -> not_test
+         | compare
+?compare: (compare comp_op new_line_and_or_comma?)? add_expr
+!comp_op : "==" | "!=" | "<" | ">" | "<=" | ">="
+
+?add_expr: (add_expr add_op new_line_and_or_comma?)? term
+?term: (term mul_op new_line_and_or_comma?)? unary
+
+!add_op: "+"|"-"
+!mul_op: "*"|"/"|"%"|"/"
+
+?unary: expr_term
+      | "-" unary -> neg
 
 expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
             | float_lit

@@ -14,6 +14,49 @@ Attribute = namedtuple("Attribute", ("key", "value"))
 
 # pylint: disable=missing-docstring,unused-argument
 class DictTransformer(Transformer):
+
+    def and_test(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        left, right = args
+        if isinstance(left, int) and isinstance(right, int):
+            return left and right
+
+        return '%s && %s' % (left, right)
+
+    def or_test(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        left, right = args
+        if isinstance(left, int) and isinstance(right, int):
+            return left or right
+
+        return '%s || %s' % (left, right)
+
+    def not_test(self, args):
+        return '!%s' % self._one_child(args)
+
+    def add_expr(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        return '%s %s %s' % tuple(args)
+
+    def term(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        return '%s %s %s' % tuple(args)
+
+    def neg(self, args):
+        return '-%s' % self._one_child(args)
+
+    def _one_child(self, args):
+        assert len(args) == 1
+        return args[0]
+
+    comp_op = _one_child
+    add_op = _one_child
+    mul_op = _one_child
+
+    def compare(self, args: List):
+        args = self.strip_new_line_tokens(args)
+        return '%s %s %s' % tuple(args)
+
     def float_lit(self, args: List) -> float:
         return float("".join([str(arg) for arg in args]))
 
@@ -127,7 +170,13 @@ class DictTransformer(Transformer):
 
     def conditional(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return "%s ? %s : %s" % (args[0], args[1], args[2])
+        cond, then, else_ = args
+        if isinstance(cond, int):
+            if cond:
+                return then
+            return else_
+
+        return "%s ? %s : %s" % (cond, then, else_)
 
     def binary_op(self, args: List) -> str:
         return " ".join([str(arg) for arg in args])
