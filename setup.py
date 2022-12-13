@@ -20,7 +20,7 @@ def get_long_description():
 
 def get_version():
     """Reads the version from the package"""
-    with open(VERSION_FILE) as handle:
+    with open(VERSION_FILE, encoding="utf-8") as handle:
         lines = handle.read()
         result = VERSION_REGEX.search(lines)
         if result:
@@ -30,7 +30,7 @@ def get_version():
 
 def get_requirements():
     """Reads the installation requirements from requirements.pip"""
-    with open("requirements.pip") as reqfile:
+    with open("requirements.pip", encoding="utf-8") as reqfile:
         return [line for line in reqfile.read().split("\n") if not line.startswith(('#', '-'))]
 
 
