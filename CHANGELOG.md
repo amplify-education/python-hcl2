@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## \[4.0.0] - 2022-13-12
+## \[4.0.0] - 2022-12-14
 -   Dropped support of python 3.6
 -   Setup tox-gh-actions 
 
