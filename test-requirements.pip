@@ -3,8 +3,7 @@ pylint
 pycodestyle
 mypy
 # Testing tools
-nose>=1.1,<2
-nose-cov>=1.5,<2
+nose2[coverage_plugin]>=0.12,<1
 mock>=1.0.1,<2
-coverage>=4.5.1,<5
+coverage>=6.5,<7
 # Additional libraries

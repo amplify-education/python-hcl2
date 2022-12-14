@@ -39,29 +39,31 @@ class DictTransformer(Transformer):
 
     def index_expr_term(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return "%s%s" % (str(args[0]), str(args[1]))
+        return f"{args[0]}{args[1]}"
 
     def index(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return "[%s]" % (str(args[0]))
+        return f"[{args[0]}]"
 
     def get_attr_expr_term(self, args: List) -> str:
-        return "%s%s" % (str(args[0]), str(args[1]))
+        return f"{args[0]}{args[1]}"
 
     def get_attr(self, args: List) -> str:
-        return ".%s" % args[0]
+        return f".{args[0]}"
 
     def attr_splat_expr_term(self, args: List) -> str:
-        return "%s%s" % (args[0], args[1])
+        return f"{args[0]}{args[1]}"
 
     def attr_splat(self, args: List) -> str:
-        return ".*%s" % ("".join(args))
+        args_str = "".join(str(arg) for arg in args)
+        return f".*{args_str}"
 
     def full_splat_expr_term(self, args: List) -> str:
-        return "%s%s" % (str(args[0]), str(args[1]))
+        return f"{args[0]}{args[1]}"
 
     def full_splat(self, args: List) -> str:
-        return "[*]%s" % ("".join(args))
+        args_str = "".join(str(arg) for arg in args)
+        return f"[*]{args_str}"
 
     def tuple(self, args: List) -> List:
         return [self.to_string_dollar(arg) for arg in self.strip_new_line_tokens(args)]
@@ -88,7 +90,7 @@ class DictTransformer(Transformer):
         args_str = ''
         if len(args) > 1:
             args_str = ", ".join([str(arg) for arg in args[1]])
-        return "%s(%s)" % (str(args[0]), args_str)
+        return f"{args[0]}({args_str})"
 
     def arguments(self, args: List) -> List:
         return args
@@ -127,7 +129,7 @@ class DictTransformer(Transformer):
 
     def conditional(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return "%s ? %s : %s" % (args[0], args[1], args[2])
+        return f"{args[0]} ? {args[1]} : {args[2]}"
 
     def binary_op(self, args: List) -> str:
         return " ".join([str(arg) for arg in args])
@@ -162,7 +164,7 @@ class DictTransformer(Transformer):
         for arg in args:
             if isinstance(arg, Attribute):
                 if arg.key in result:
-                    raise RuntimeError("{} already defined".format(arg.key))
+                    raise RuntimeError(f"{arg.key} already defined")
                 result[arg.key] = arg.value
                 attributes.add(arg.key)
             else:
@@ -171,7 +173,7 @@ class DictTransformer(Transformer):
                     key = str(key)
                     if key in result:
                         if key in attributes:
-                            raise RuntimeError("{} already defined".format(key))
+                            raise RuntimeError(f"{key} already defined")
                         result[key].append(value)
                     else:
                         result[key] = [value]
@@ -188,8 +190,8 @@ class DictTransformer(Transformer):
     def heredoc_template(self, args: List) -> str:
         match = HEREDOC_PATTERN.match(str(args[0]))
         if not match:
-            raise RuntimeError("Invalid Heredoc token: %s" % args[0])
-        return '"%s"' % match.group(2)
+            raise RuntimeError(f"Invalid Heredoc token: {args[0]}")
+        return f"\"{match.group(2)}\""
 
     def heredoc_template_trim(self, args: List) -> str:
         # See https://github.com/hashicorp/hcl2/blob/master/hcl/hclsyntax/spec.md#template-expressions
@@ -198,7 +200,7 @@ class DictTransformer(Transformer):
         # and then remove that number of spaces from each line
         match = HEREDOC_TRIM_PATTERN.match(str(args[0]))
         if not match:
-            raise RuntimeError("Invalid Heredoc token: %s" % args[0])
+            raise RuntimeError(f"Invalid Heredoc token: {args[0]}")
 
         text = match.group(2)
         lines = text.split('\n')
@@ -220,7 +222,7 @@ class DictTransformer(Transformer):
     def for_tuple_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
         for_expr = " ".join([str(arg) for arg in args[1:-1]])
-        return '[%s]' % for_expr
+        return f"[{for_expr}]"
 
     def for_intro(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
@@ -233,7 +235,10 @@ class DictTransformer(Transformer):
     def for_object_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
         for_expr = " ".join([str(arg) for arg in args[1:-1]])
-        return '{%s}' % for_expr
+        # doubled curly braces stands for inlining the braces
+        # and the third pair of braces is for the interpolation
+        # e.g. f"{2 + 2} {{2 + 2}}" == "4 {2 + 2}"
+        return f"{{{for_expr}}}"
 
     def strip_new_line_tokens(self, args: List) -> List:
         """
@@ -247,7 +252,7 @@ class DictTransformer(Transformer):
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
                 return str(value)[1:-1]
-            return '${%s}' % value
+            return f"${{{value}}}"
         return value
 
     def strip_quotes(self, value: Any) -> Any:

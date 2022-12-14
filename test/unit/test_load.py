@@ -42,7 +42,8 @@ class TestLoad(TestCase):
                 json_file_path = os.path.splitext(json_file_path)[0] + '.json'
 
                 with self.subTest(msg=file_path):
-                    with open(file_path, 'r') as hcl2_file, open(json_file_path, 'r') as json_file:
+                    with open(file_path, 'r', encoding="utf-8") as hcl2_file,\
+                         open(json_file_path, 'r', encoding="utf-8") as json_file:
                         try:
                             hcl2_dict = hcl2.load(hcl2_file)
                         except Exception as ex:
