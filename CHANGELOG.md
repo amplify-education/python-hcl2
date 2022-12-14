@@ -6,7 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[4.0.0] - 2022-12-14
 -   Dropped support of python 3.6
+-   Added support of python 3.10
 -   Setup tox-gh-actions 
+-   Migrated from nose to nose2
 
 ## \[3.0.5] - 2022-03-21
 -   Fixed parsing of for expressions when there is a new line before the colon
