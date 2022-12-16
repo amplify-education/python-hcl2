@@ -23,7 +23,7 @@ jobs:
           with:
             python-version: ${{ matrix.python-version }}
         - name: Install dependencies
-          run: python -m pip install --upgrade tox tox-gh-actions wheel setuptools setuptools_scm build
+          run: python -m pip install --upgrade "tox>=4.0.9,<5" tox-gh-actions wheel setuptools setuptools_scm build
         - name: Build to generate the version file
           run: python3 -m build -nwx
         - name: Test with Tox

@@ -45,8 +45,9 @@ def main():
     )
 
     if os.path.isfile(args.PATH):
-        with open(args.PATH, 'r') as in_file:
-            out_file = sys.stdout if args.OUT_PATH is None else open(args.OUT_PATH, 'w')
+        with open(args.PATH, 'r', encoding="utf-8") as in_file:
+            # pylint: disable=R1732
+            out_file = sys.stdout if args.OUT_PATH is None else open(args.OUT_PATH, 'w', encoding="utf-8")
             print(args.PATH, file=sys.stderr, flush=True)
             json.dump(hcl2.parse(in_file.read()), out_file)
             if args.OUT_PATH is None:
@@ -76,7 +77,7 @@ def main():
                 processed_files.add(in_file_path)
                 processed_files.add(out_file_path)
 
-                with open(in_file_path, 'r') as in_file:
+                with open(in_file_path, 'r', encoding="utf-8") as in_file:
                     print(in_file_path, file=sys.stderr, flush=True)
                     try:
                         parsed_data = load(in_file)
@@ -84,7 +85,7 @@ def main():
                         if args.skip:
                             continue
                         raise
-                    with open(out_file_path, 'w') as out_file:
+                    with open(out_file_path, 'w', encoding="utf-8") as out_file:
                         json.dump(parsed_data, out_file)
     else:
         raise RuntimeError("Invalid Path", args.PATH)
