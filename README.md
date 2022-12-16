@@ -24,7 +24,7 @@ Learn more at <https://www.amplify.com>
 ## Getting Started
 ### Prerequisites
 
-python-hcl2 requires Python 3.6.0 or higher to run.
+python-hcl2 requires Python 3.7 or higher to run.
 
 ### Installing
 

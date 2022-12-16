@@ -5,50 +5,66 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## \[4.0.1] - 2022-12-16
--   Moved from setup.py to pyproject.toml ([#98](https://github.com/amplify-education/python-hcl2/pull/98))
--   Changed sourcing of a version from the source tree to svm e.g. git tag ([#98](https://github.com/amplify-education/python-hcl2/pull/98))
--   Moved script from a bin folder to `hcl2/__main__.py` ([#98](https://github.com/amplify-education/python-hcl2/pull/98))
--   Updated and restriced tox version in github actions to >=4.0.9,<5.
+
+### Changed
+-   Moved from setup.py to pyproject.toml. Thanks @KOLANICH ([#98](https://github.com/amplify-education/python-hcl2/pull/98))
+-   Updated the tox version in github actions to >=4.0.9,<5.
 
 ## \[4.0.0] - 2022-12-14
--   Dropped support of python 3.6
+
+### Added
+-   Added PEP improvements
 -   Added support of python 3.10
+
+### Changed 
+-   Dropped support of python 3.6
 -   Setup tox-gh-actions 
 -   Migrated from nose to nose2
 
 ## \[3.0.5] - 2022-03-21
+
+### Fixed
 -   Fixed parsing of for expressions when there is a new line before the colon
 
 ## \[3.0.4] - 2022-02-22
+
+### Added 
 -   Handle nested interpolations. Thanks @arielkru and @matt-land ([#61](https://github.com/amplify-education/python-hcl2/pull/61))
 
 ## \[3.0.3] - 2022-02-20
--   Fix nested splat statements. Thanks josh-barker ([#80](https://github.com/amplify-education/python-hcl2/pull/80))
+
+### Fixed
+-   Fixed nested splat statements. Thanks @josh-barker ([#80](https://github.com/amplify-education/python-hcl2/pull/80))
 
 ## \[3.0.2] - 2022-02-20
--   Fix issue of whitespace around for expressions. Thanks @ryanking and @matchaxnb ([#87](https://github.com/amplify-education/python-hcl2/pull/87))
+
+### Fixed
+-   Fixed an issue of whitespace around for expressions. Thanks @ryanking and @matchaxnb ([#87](https://github.com/amplify-education/python-hcl2/pull/87))
 
 ## \[3.0.1] - 2021-07-15
--   Include the generated parser in distribution
+
+### Changed 
+-   Included the generated parser in the distribution.
 
 ## \[3.0.0] - 2021-07-14
-BREAKING CHANGES:
--   Attributes in blocks are no longer transformed into Python lists. Thanks @raymondbutcher ([#73](https://github.com/amplify-education/python-hcl2/pull/73))
+
+### Changed
+-   BREAKING CHANGES: Attributes in blocks are no longer transformed into Python lists. Thanks @raymondbutcher ([#73](https://github.com/amplify-education/python-hcl2/pull/73))
 
 ## \[2.0.3] - 2021-03-04
 
 ### Changed
--   Skip more exceptions for un-parsable files. Thanks @tanasegabriel ([#60](https://github.com/amplify-education/python-hcl2/pull/60))
+-   Skipped more exceptions for un-parsable files. Thanks @tanasegabriel ([#60](https://github.com/amplify-education/python-hcl2/pull/60))
 
 ## \[2.0.2] - 2021-03-04
 
 ### Changed
--   Allow empty objects. Thanks @santoshankr ([#59](https://github.com/amplify-education/python-hcl2/pull/59))
+-   Allowed empty objects. Thanks @santoshankr ([#59](https://github.com/amplify-education/python-hcl2/pull/59))
 
 ## \[2.0.1] - 2020-12-24
 
 ### Changed
--   Allow multiline conditional statements. Thanks @stpierre ([#51](https://github.com/amplify-education/python-hcl2/pull/51))
+-   Allowed multiline conditional statements. Thanks @stpierre ([#51](https://github.com/amplify-education/python-hcl2/pull/51))
 
 ## \[2.0.0] - 2020-11-02
 
