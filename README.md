@@ -43,7 +43,7 @@ with open('foo.tf', 'r') as file:
 
 ## Building From Source
 
-For development, `tox>=2.9.1` is recommended.
+For development, `tox>=4.0.9` is recommended.
 
 ### Running Tests
 

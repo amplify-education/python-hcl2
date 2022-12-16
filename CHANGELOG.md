@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## \[4.0.1] - 2022-12-16
+-   Moved from setup.py to pyproject.toml ([#98](https://github.com/amplify-education/python-hcl2/pull/98))
+-   Changed sourcing of a version from the source tree to svm e.g. git tag ([#98](https://github.com/amplify-education/python-hcl2/pull/98))
+-   Moved script from a bin folder to `hcl2/__main__.py` ([#98](https://github.com/amplify-education/python-hcl2/pull/98))
+-   Updated and restriced tox version in github actions to >=4.0.9,<5.
+
 ## \[4.0.0] - 2022-12-14
 -   Dropped support of python 3.6
 -   Added support of python 3.10
