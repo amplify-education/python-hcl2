@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 -   Moved from setup.py to pyproject.toml. Thanks @KOLANICH ([#98](https://github.com/amplify-education/python-hcl2/pull/98))
 -   Updated the tox version in github actions to >=4.0.9,<5.
+-   Dropped completely python 3.6.  
 
 ## \[4.0.0] - 2022-12-14
 
