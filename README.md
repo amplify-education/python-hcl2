@@ -57,7 +57,9 @@ For example, `tox -e py37-unit` will run the unit tests for python 3.7
 To see all the available options, run `tox -l`.
 
 ## Releasing
-To create a new release update CHANGELOG.md and follow (github instructions on adding a release)[https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release]. Create a new tag with a version you want to release. Github actions will take care of publishing it to PyPi.
+To create a new releaes go to Releases page, press 'Draft a new release', create a tag
+with a version you want to be released, fill the release notes and press 'Publish release'. 
+Github actions will take care of publishing it to PyPi.
 
 ## Responsible Disclosure
 If you have any security issue to report, contact project maintainers privately.
