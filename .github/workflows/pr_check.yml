@@ -1,0 +1,27 @@
+name: Test
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+jobs:
+    test:
+        name: Check code against linter/unit tests
+        runs-on: ubuntu-22.04
+        strategy:
+          matrix:
+            python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+        steps:
+        - uses: actions/checkout@master
+        - name: Set up Python ${{ matrix.python-version }}
+          uses: actions/setup-python@v4
+          with:
+            python-version: ${{ matrix.python-version }}
+        - name: Install dependencies
+          run: python -m pip install --upgrade "tox>=4.0.9,<5" build
+        - name: Build to generate the version file
+          run: python3 -m build
+        - name: Test with Tox
+          run: tox

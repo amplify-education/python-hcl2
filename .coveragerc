@@ -1,5 +1,6 @@
 [run]
 branch = true
+omit = hcl2/__main__.py
 
 [report]
 show_missing = true
