@@ -17,7 +17,7 @@ jobs:
           run: python -m pip install --upgrade pip build
         - name: Generate Lark Parser
           run: |
-            pip install -r requirements.pip -e .
+            pip install -r requirements.txt -e .
             python hcl2/parser.py
         - name: Build tarball
           run: python3 -m build
