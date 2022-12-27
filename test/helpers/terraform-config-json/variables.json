@@ -28,7 +28,7 @@
     },
     {
       "var_with_validation": {
-        "type": "${list(object({'id': '${string}', 'nested': \"${list(object({'id': '${string}', 'type': '${string}'}), )}\"}))}",
+        "type": "${list(object({'id': '${string}', 'nested': \"${list(object({'id': '${string}', 'type': '${string}'}))}\"}))}",
         "validation": [
           {
             "condition": "${!contains([for v in flatten(var.var_with_validation[*].id) : can(regex(\"^(A|B)$\", v))], False)}",
