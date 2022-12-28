@@ -2,17 +2,35 @@
 import json
 import os
 from os.path import dirname
-from unittest import TestCase
+from unittest import TestCase, skip
+from warnings import warn
 
 import hcl2
-from hcl2.parser import PARSER_FILE, create_parser_file
+from hcl2.lark_version import lark_version
+from hcl2.parser import PARSER_FILE, create_parser_file, STANDALONE_GENERATION_SUPPORTED
 
 HCL2_DIR = 'terraform-config'
 JSON_DIR = 'terraform-config-json'
 
 
+def _get_by_path(root, path):
+    cur = root
+    for component in path:
+        cur = cur[component]
+    return cur
+
+
+def _set_by_path(root, path, value):
+    _get_by_path(root, path[:-1])[path[-1]] = value
+
+
+PATCH_PATH = ("variable", 4, "var_with_validation", "type")
+
+
 class TestLoad(TestCase):
     """ Test parsing a variety of hcl files"""
+
+    maxDiff = None
 
     def setUp(self):
         self.prev_dir = os.getcwd()
@@ -24,6 +42,13 @@ class TestLoad(TestCase):
         os.remove(os.path.join(dirname(hcl2.__file__), PARSER_FILE))
         create_parser_file()
         self._load_test_files()
+
+    if not STANDALONE_GENERATION_SUPPORTED:
+        _UNSUP_GENER_MSG = (
+            "Old version of lark (" + repr(lark_version) + "), parser will not be recreated by the tests."
+        )
+        warn(_UNSUP_GENER_MSG)
+        test_load_terraform = skip(_UNSUP_GENER_MSG)(test_load_terraform)
 
     def test_load_terraform_from_cache(self):
         """Test parsing a set of hcl2 files from a cached parser file"""
@@ -49,5 +74,12 @@ class TestLoad(TestCase):
                         except Exception as ex:
                             raise RuntimeError(f"failed to tokenize terraform in `{file_path}`") from ex
                         json_dict = json.load(json_file)
+
+                        if lark_version[0] == 0 and file_name == "variables.tf":
+                            _set_by_path(
+                                json_dict,
+                                PATCH_PATH,
+                                _get_by_path(json_dict, PATCH_PATH).replace(')}"}))}', ', )}"}))}'),
+                            )
 
                         self.assertDictEqual(hcl2_dict, json_dict, f"failed comparing {file_path}")
