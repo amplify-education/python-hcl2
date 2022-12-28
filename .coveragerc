@@ -1,6 +1,8 @@
 [run]
 branch = true
-omit = hcl2/__main__.py
+omit =
+    hcl2/__main__.py
+    hcl2/lark_parser.py
 
 [report]
 show_missing = true
