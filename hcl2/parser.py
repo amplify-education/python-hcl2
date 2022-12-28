@@ -37,6 +37,8 @@ if not PARSER_FILE.exists():
 
 # pylint: disable=wrong-import-position
 # Lark_StandAlone needs to be imported after the above block of code because lark_parser.py might not exist
-from hcl2.lark_parser import Lark_StandAlone
+from hcl2.lark_parser import Lark_StandAlone, __version__ as lark_parser_version_str
+
+lark_parser_version = tuple(int(el) for el in lark_parser_version_str.split("."))
 
 hcl2 = Lark_StandAlone(transformer=DictTransformer())

@@ -5,6 +5,7 @@ from collections import namedtuple
 from typing import List, Dict, Any
 
 from lark.visitors import Transformer, Discard, _DiscardType
+from .lark_version import lark_version
 
 HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
 HEREDOC_TRIM_PATTERN = re.compile(r'<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
