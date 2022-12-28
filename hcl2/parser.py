@@ -28,6 +28,7 @@ def create_parser_file(parser_file: Path = PARSER_FILE) -> None:
     lark_file = THIS_DIR / "hcl2.lark"
     with open(parser_file, "w", encoding="utf-8") as parser_file_stream:
         lark_inst = Lark(lark_file.read_text(), parser="lalr", lexer="contextual")
+        parser_file_stream.write("# mypy: ignore-errors\n")
         gen_standalone(lark_inst, out=parser_file_stream)
 
 
