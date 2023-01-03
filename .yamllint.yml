@@ -1,0 +1,8 @@
+---
+# https://yamllint.readthedocs.io/en/stable/configuration.html#extending-the-default-configuration
+
+extends: relaxed
+rules:
+  line-length:
+    max: 120
+  hyphens: disable
