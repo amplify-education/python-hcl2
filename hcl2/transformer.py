@@ -6,8 +6,10 @@ from typing import List, Dict, Any
 
 from lark.visitors import Transformer, Discard, _DiscardType
 
-HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
-HEREDOC_TRIM_PATTERN = re.compile(r'<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
+HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1", re.S)
+HEREDOC_TRIM_PATTERN = re.compile(
+    r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1", re.S
+)
 
 Attribute = namedtuple("Attribute", ("key", "value"))
 
@@ -74,9 +76,7 @@ class DictTransformer(Transformer):
         key = self.strip_quotes(args[0])
         value = self.to_string_dollar(args[1])
 
-        return {
-            key: value
-        }
+        return {key: value}
 
     def object(self, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
@@ -87,7 +87,7 @@ class DictTransformer(Transformer):
 
     def function_call(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        args_str = ''
+        args_str = ""
         if len(args) > 1:
             args_str = ", ".join([str(arg) for arg in args[1] if arg is not Discard])
         return f"{args[0]}({args_str})"
@@ -191,7 +191,7 @@ class DictTransformer(Transformer):
         match = HEREDOC_PATTERN.match(str(args[0]))
         if not match:
             raise RuntimeError(f"Invalid Heredoc token: {args[0]}")
-        return f"\"{match.group(2)}\""
+        return f'"{match.group(2)}"'
 
     def heredoc_template_trim(self, args: List) -> str:
         # See https://github.com/hashicorp/hcl2/blob/master/hcl/hclsyntax/spec.md#template-expressions
@@ -203,18 +203,18 @@ class DictTransformer(Transformer):
             raise RuntimeError(f"Invalid Heredoc token: {args[0]}")
 
         text = match.group(2)
-        lines = text.split('\n')
+        lines = text.split("\n")
 
         # calculate the min number of leading spaces in each line
         min_spaces = sys.maxsize
         for line in lines:
-            leading_spaces = len(line) - len(line.lstrip(' '))
+            leading_spaces = len(line) - len(line.lstrip(" "))
             min_spaces = min(min_spaces, leading_spaces)
 
         # trim off that number of leading spaces from each line
         lines = [line[min_spaces:] for line in lines]
 
-        return '"%s"' % '\n'.join(lines)
+        return '"%s"' % "\n".join(lines)
 
     def new_line_or_comment(self, args: List) -> _DiscardType:
         return Discard

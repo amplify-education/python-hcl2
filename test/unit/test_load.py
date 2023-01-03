@@ -34,7 +34,9 @@ class TestLoad(TestCase):
         hcl_path = (HCL2_DIR / hcl_path_str).absolute()
         json_path = JSON_DIR / hcl_path.relative_to(HCL2_DIR).with_suffix(".json")
         if not json_path.exists():
-            assert False, f"Expected json equivalent of the hcl file doesn't exist {json_path}"
+            assert (
+                False
+            ), f"Expected json equivalent of the hcl file doesn't exist {json_path}"
 
         with hcl_path.open("r") as hcl_file, json_path.open("r") as json_file:
             try:
@@ -43,4 +45,6 @@ class TestLoad(TestCase):
                 assert False, f"failed to tokenize terraform in `{hcl_path_str}`: {exc}"
 
             json_dict = json.load(json_file)
-            self.assertDictEqual(hcl2_dict, json_dict, f"failed comparing {hcl_path_str}")
+            self.assertDictEqual(
+                hcl2_dict, json_dict, f"failed comparing {hcl_path_str}"
+            )
