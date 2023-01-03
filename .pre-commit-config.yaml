@@ -41,5 +41,5 @@ repos:
         entry: pylint
         language: system
         types: [python]
-        files: ^({{ cookiecutter.pkg_name }}|test)/
+        files: ^(hcl2|test)/
         args: [--rcfile=pylintrc, --output-format=colorized, --score=no]
