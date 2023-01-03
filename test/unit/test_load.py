@@ -1,53 +1,46 @@
 """ Test parsing a variety of hcl files"""
 import json
-import os
-from os.path import dirname
+from pathlib import Path
 from unittest import TestCase
 
 import hcl2
 from hcl2.parser import PARSER_FILE, create_parser_file
 
-HCL2_DIR = 'terraform-config'
-JSON_DIR = 'terraform-config-json'
+
+HELPERS_DIR = Path(__file__).absolute().parent.parent / "helpers"
+HCL2_DIR = HELPERS_DIR / "terraform-config"
+JSON_DIR = HELPERS_DIR / "terraform-config-json"
+HCL2_FILES = [str(file.relative_to(HCL2_DIR)) for file in HCL2_DIR.iterdir()]
 
 
 class TestLoad(TestCase):
-    """ Test parsing a variety of hcl files"""
-
-    def setUp(self):
-        self.prev_dir = os.getcwd()
-        os.chdir(os.path.join(os.path.dirname(__file__), '../helpers'))
+    """Test parsing a variety of hcl files"""
 
     def test_load_terraform(self):
         """Test parsing a set of hcl2 files and force recreating the parser file"""
-        # delete the parser file to force it to be recreated
-        os.remove(os.path.join(dirname(hcl2.__file__), PARSER_FILE))
+        parser_file = Path(hcl2.__file__).absolute().parent / PARSER_FILE
+        parser_file.unlink()
         create_parser_file()
-        self._load_test_files()
+        for hcl_path in HCL2_FILES:
+            yield self.check_terraform, hcl_path
 
     def test_load_terraform_from_cache(self):
         """Test parsing a set of hcl2 files from a cached parser file"""
-        self._load_test_files()
+        for hcl_path in HCL2_FILES:
+            yield self.check_terraform, hcl_path
 
-    def _load_test_files(self):
-        """Recursively parse all files in a directory"""
-        # pylint: disable=unused-variable
-        for current_dir, dirs, files in os.walk("terraform-config"):
-            dir_prefix = os.path.commonpath([HCL2_DIR, current_dir])
-            relative_current_dir = current_dir.replace(dir_prefix, '')
-            current_out_dir = os.path.join(JSON_DIR, relative_current_dir)
-            for file_name in files:
-                file_path = os.path.join(current_dir, file_name)
-                json_file_path = os.path.join(current_out_dir, file_name)
-                json_file_path = os.path.splitext(json_file_path)[0] + '.json'
+    def check_terraform(self, hcl_path_str: str):
+        """Loads a single hcl2 file, parses it and compares with the expected json"""
+        hcl_path = (HCL2_DIR / hcl_path_str).absolute()
+        json_path = JSON_DIR / hcl_path.relative_to(HCL2_DIR).with_suffix(".json")
+        if not json_path.exists():
+            assert False, f"Expected json equivalent of the hcl file doesn't exist {json_path}"
 
-                with self.subTest(msg=file_path):
-                    with open(file_path, 'r', encoding="utf-8") as hcl2_file,\
-                         open(json_file_path, 'r', encoding="utf-8") as json_file:
-                        try:
-                            hcl2_dict = hcl2.load(hcl2_file)
-                        except Exception as ex:
-                            raise RuntimeError(f"failed to tokenize terraform in `{file_path}`") from ex
-                        json_dict = json.load(json_file)
+        with hcl_path.open("r") as hcl_file, json_path.open("r") as json_file:
+            try:
+                hcl2_dict = hcl2.load(hcl_file)
+            except Exception as exc:
+                assert False, f"failed to tokenize terraform in `{hcl_path_str}`: {exc}"
 
-                        self.assertDictEqual(hcl2_dict, json_dict, f"failed comparing {file_path}")
+            json_dict = json.load(json_file)
+            self.assertDictEqual(hcl2_dict, json_dict, f"failed comparing {hcl_path_str}")
