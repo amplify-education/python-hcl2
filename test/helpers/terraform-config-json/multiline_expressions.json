@@ -1,0 +1,32 @@
+{
+  "resource": [
+    {
+      "null_resource": {
+        "multiline_comment_multiline": {
+          "triggers": []
+        }
+      }
+    },
+    {
+      "null_resource": {
+        "multiline_comment_single_line_before_closing_bracket": {
+          "triggers": []
+        }
+      }
+    },
+    {
+      "null_resource": {
+        "multiline_comment_single_line_between_brackets": {
+          "triggers": []
+        }
+      }
+    },
+    {
+      "null_resource": {
+        "multiline_comment_single_line_after_opening_bracket": {
+          "triggers": []
+        }
+      }
+    }
+  ]
+}
