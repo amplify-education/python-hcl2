@@ -6,10 +6,8 @@ from typing import List, Dict, Any
 
 from lark.visitors import Transformer, Discard, _DiscardType
 
-HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n*\s*\1", re.S)
-HEREDOC_TRIM_PATTERN = re.compile(
-    r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n*\s*\1", re.S
-)
+HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*)\1", re.S)
+HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*)\1", re.S)
 
 Attribute = namedtuple("Attribute", ("key", "value"))
 
@@ -191,7 +189,9 @@ class DictTransformer(Transformer):
         match = HEREDOC_PATTERN.match(str(args[0]))
         if not match:
             raise RuntimeError(f"Invalid Heredoc token: {args[0]}")
-        return f'"{match.group(2)}"'
+
+        trim_chars = "\n\t "
+        return f'"{match.group(2).rstrip(trim_chars)}"'
 
     def heredoc_template_trim(self, args: List) -> str:
         # See https://github.com/hashicorp/hcl2/blob/master/hcl/hclsyntax/spec.md#template-expressions
@@ -202,7 +202,8 @@ class DictTransformer(Transformer):
         if not match:
             raise RuntimeError(f"Invalid Heredoc token: {args[0]}")
 
-        text = match.group(2)
+        trim_chars = "\n\t "
+        text = match.group(2).rstrip(trim_chars)
         lines = text.split("\n")
 
         # calculate the min number of leading spaces in each line
