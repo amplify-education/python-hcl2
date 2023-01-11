@@ -27,6 +27,30 @@
           "triggers": []
         }
       }
+    },
+    {
+      "null_resource": {
+        "multiline_comment_multiple_single_element": {
+          "triggers": [
+            2
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "some_var2": {
+        "description": "description",
+        "type": "${string}",
+        "default": "${cidrsubnets(\"10.0.0.0/24\", 2, 2)}"
+      }
+    },
+    {
+      "some_var2": {
+        "description": "description",
+        "default": "${concat([{'1': '1'}], [{'2': '2'}])}"
+      }
     }
   ]
 }

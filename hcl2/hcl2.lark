@@ -46,7 +46,8 @@ int_lit : DECIMAL+
 DECIMAL : "0".."9"
 EXP_MARK : ("e" | "E") ("+" | "-")?
 
-tuple : "[" (new_line_or_comment? expression (new_line_or_comment? "," new_line_or_comment? expression)* new_line_or_comment? ","?)? new_line_or_comment? "]"
+// tuple : "[" (new_line_or_comment? expression (new_line_or_comment? "," new_line_or_comment? expression)* new_line_or_comment? ","?)? new_line_or_comment? "]"
+tuple : "[" (new_line_or_comment* expression new_line_or_comment* ",")* (new_line_or_comment* expression)? new_line_or_comment* "]"
 object : "{" new_line_or_comment? (object_elem (new_line_and_or_comma object_elem )* new_line_and_or_comma?)? "}"
 object_elem : (identifier | expression) ("=" | ":") expression
 
@@ -54,7 +55,7 @@ heredoc_template : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?(?P=heredo
 heredoc_template_trim : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?(?P=heredoc_trim)/
 
 function_call : identifier "(" new_line_or_comment? arguments? new_line_or_comment? ")"
-arguments : (expression (new_line_or_comment? "," new_line_or_comment?  expression)* ("," | "...")? new_line_or_comment?)
+arguments : (expression (new_line_or_comment* "," new_line_or_comment*  expression)* ("," | "...")? new_line_or_comment*)
 
 index_expr_term : expr_term index
 get_attr_expr_term : expr_term get_attr
