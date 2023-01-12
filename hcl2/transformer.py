@@ -1,12 +1,15 @@
 """A Lark Transformer for transforming a Lark parse tree into a Python dict"""
 import re
 import sys
+from collections import namedtuple
 from typing import List, Dict, Any
 
-from lark import Transformer, Discard
+from lark.visitors import Transformer, Discard, _DiscardType
 
-HEREDOC_PATTERN = re.compile(r'<<([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
-HEREDOC_TRIM_PATTERN = re.compile(r'<<-([a-zA-Z][a-zA-Z0-9._-]+)\n((.|\n)*?)\n\s*\1', re.S)
+HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
+HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
+
+Attribute = namedtuple("Attribute", ("key", "value"))
 
 
 # pylint: disable=missing-docstring,unused-argument
@@ -36,17 +39,31 @@ class DictTransformer(Transformer):
 
     def index_expr_term(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return "%s%s" % (str(args[0]), str(args[1]))
+        return f"{args[0]}{args[1]}"
 
     def index(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return "[%s]" % (str(args[0]))
+        return f"[{args[0]}]"
 
     def get_attr_expr_term(self, args: List) -> str:
-        return "%s.%s" % (str(args[0]), str(args[1]))
+        return f"{args[0]}{args[1]}"
+
+    def get_attr(self, args: List) -> str:
+        return f".{args[0]}"
 
     def attr_splat_expr_term(self, args: List) -> str:
-        return "%s.*.%s" % (args[0], args[1])
+        return f"{args[0]}{args[1]}"
+
+    def attr_splat(self, args: List) -> str:
+        args_str = "".join(str(arg) for arg in args)
+        return f".*{args_str}"
+
+    def full_splat_expr_term(self, args: List) -> str:
+        return f"{args[0]}{args[1]}"
+
+    def full_splat(self, args: List) -> str:
+        args_str = "".join(str(arg) for arg in args)
+        return f"[*]{args_str}"
 
     def tuple(self, args: List) -> List:
         return [self.to_string_dollar(arg) for arg in self.strip_new_line_tokens(args)]
@@ -57,9 +74,7 @@ class DictTransformer(Transformer):
         key = self.strip_quotes(args[0])
         value = self.to_string_dollar(args[1])
 
-        return {
-            key: value
-        }
+        return {key: value}
 
     def object(self, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
@@ -70,16 +85,16 @@ class DictTransformer(Transformer):
 
     def function_call(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        args_str = ''
+        args_str = ""
         if len(args) > 1:
-            args_str = ",".join([str(arg) for arg in args[1]])
-        return "%s(%s)" % (str(args[0]), args_str)
+            args_str = ", ".join([str(arg) for arg in args[1] if arg is not Discard])
+        return f"{args[0]}({args_str})"
 
     def arguments(self, args: List) -> List:
         return args
 
-    def new_line_and_or_comma(self, args: List) -> Discard:
-        return Discard()
+    def new_line_and_or_comma(self, args: List) -> _DiscardType:
+        return Discard
 
     def block(self, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
@@ -103,19 +118,16 @@ class DictTransformer(Transformer):
     def one_line_block(self, args: List) -> Dict:
         return self.block(args)
 
-    def attribute(self, args: List) -> Dict:
+    def attribute(self, args: List) -> Attribute:
         key = str(args[0])
         if key.startswith('"') and key.endswith('"'):
             key = key[1:-1]
         value = self.to_string_dollar(args[1])
-
-        return {
-            key: value
-        }
+        return Attribute(key, value)
 
     def conditional(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return "%s ? %s : %s" % (args[0], args[1], args[2])
+        return f"{args[0]} ? {args[1]} : {args[2]}"
 
     def binary_op(self, args: List) -> str:
         return " ".join([str(arg) for arg in args])
@@ -128,26 +140,42 @@ class DictTransformer(Transformer):
         return " ".join([str(arg) for arg in args])
 
     def body(self, args: List) -> Dict[str, List]:
-        # A body can have multiple attributes with the same name
-        # For example multiple Statement attributes in a IAM resource body
-        # So This returns a dict of attribute names to lists
-        # The attribute values will always be lists even if they aren't repeated
-        # and only contain a single entry
+        # See https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#bodies
+        # ---
+        # A body is a collection of associated attributes and blocks.
+        #
+        # An attribute definition assigns a value to a particular attribute
+        # name within a body. Each distinct attribute name may be defined no
+        # more than once within a single body.
+        #
+        # A block creates a child body that is annotated with a block type and
+        # zero or more block labels. Blocks create a structural hierarchy which
+        # can be interpreted by the calling application.
+        # ---
+        #
+        # There can be more than one child body with the same block type and
+        # labels. This means that all blocks (even when there is only one)
+        # should be transformed into lists of blocks.
         args = self.strip_new_line_tokens(args)
+        attributes = set()
         result: Dict[str, Any] = {}
         for arg in args:
-            for key, value in arg.items():
-                key = str(key)
-                if key not in result:
-                    result[key] = [value]
-                else:
-                    if isinstance(result[key], list):
-                        if isinstance(value, list):
-                            result[key].extend(value)
-                        else:
-                            result[key].append(value)
+            if isinstance(arg, Attribute):
+                if arg.key in result:
+                    raise RuntimeError(f"{arg.key} already defined")
+                result[arg.key] = arg.value
+                attributes.add(arg.key)
+            else:
+                # This is a block.
+                for key, value in arg.items():
+                    key = str(key)
+                    if key in result:
+                        if key in attributes:
+                            raise RuntimeError(f"{key} already defined")
+                        result[key].append(value)
                     else:
-                        result[key] = [result[key], value]
+                        result[key] = [value]
+
         return result
 
     def start(self, args: List) -> Dict:
@@ -160,8 +188,10 @@ class DictTransformer(Transformer):
     def heredoc_template(self, args: List) -> str:
         match = HEREDOC_PATTERN.match(str(args[0]))
         if not match:
-            raise RuntimeError("Invalid Heredoc token: %s" % args[0])
-        return '"%s"' % match.group(2)
+            raise RuntimeError(f"Invalid Heredoc token: {args[0]}")
+
+        trim_chars = "\n\t "
+        return f'"{match.group(2).rstrip(trim_chars)}"'
 
     def heredoc_template_trim(self, args: List) -> str:
         # See https://github.com/hashicorp/hcl2/blob/master/hcl/hclsyntax/spec.md#template-expressions
@@ -170,29 +200,30 @@ class DictTransformer(Transformer):
         # and then remove that number of spaces from each line
         match = HEREDOC_TRIM_PATTERN.match(str(args[0]))
         if not match:
-            raise RuntimeError("Invalid Heredoc token: %s" % args[0])
+            raise RuntimeError(f"Invalid Heredoc token: {args[0]}")
 
-        text = match.group(2)
-        lines = text.split('\n')
+        trim_chars = "\n\t "
+        text = match.group(2).rstrip(trim_chars)
+        lines = text.split("\n")
 
         # calculate the min number of leading spaces in each line
         min_spaces = sys.maxsize
         for line in lines:
-            leading_spaces = len(line) - len(line.lstrip(' '))
+            leading_spaces = len(line) - len(line.lstrip(" "))
             min_spaces = min(min_spaces, leading_spaces)
 
         # trim off that number of leading spaces from each line
         lines = [line[min_spaces:] for line in lines]
 
-        return '"%s"' % '\n'.join(lines)
+        return '"%s"' % "\n".join(lines)
 
-    def new_line_or_comment(self, args: List) -> Discard:
-        return Discard()
+    def new_line_or_comment(self, args: List) -> _DiscardType:
+        return Discard
 
     def for_tuple_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
         for_expr = " ".join([str(arg) for arg in args[1:-1]])
-        return '[%s]' % for_expr
+        return f"[{for_expr}]"
 
     def for_intro(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
@@ -205,21 +236,24 @@ class DictTransformer(Transformer):
     def for_object_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
         for_expr = " ".join([str(arg) for arg in args[1:-1]])
-        return '{%s}' % for_expr
+        # doubled curly braces stands for inlining the braces
+        # and the third pair of braces is for the interpolation
+        # e.g. f"{2 + 2} {{2 + 2}}" == "4 {2 + 2}"
+        return f"{{{for_expr}}}"
 
     def strip_new_line_tokens(self, args: List) -> List:
         """
         Remove new line and Discard tokens.
         The parser will sometimes include these in the tree so we need to strip them out here
         """
-        return [arg for arg in args if arg != "\n" and not isinstance(arg, Discard)]
+        return [arg for arg in args if arg != "\n" and arg is not Discard]
 
     def to_string_dollar(self, value: Any) -> Any:
         """Wrap a string in ${ and }"""
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
                 return str(value)[1:-1]
-            return '${%s}' % value
+            return f"${{{value}}}"
         return value
 
     def strip_quotes(self, value: Any) -> Any:

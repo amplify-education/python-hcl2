@@ -1,5 +1,6 @@
+---
 engines:
-    coverage:
-        enabled: true
-        excluded_paths:
-            - test/**
+  coverage:
+    enabled: true
+    excluded_paths:
+      - test/**
