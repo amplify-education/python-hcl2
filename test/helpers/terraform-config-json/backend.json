@@ -2,25 +2,19 @@
   "provider": [
     {
       "aws": {
-        "region": "${var.region}",
-        "__start_line__": 2,
-        "__end_line__": 7
+        "region": "${var.region}"
       }
     },
     {
       "aws": {
         "region": "${var.backup_region}",
-        "alias": "backup",
-        "__start_line__": 7,
-        "__end_line__": 15
+        "alias": "backup"
       }
     }
   ],
   "terraform": [
     {
-      "required_version": "0.12",
-      "__start_line__": 15,
-      "__end_line__": 17
+      "required_version": "0.12"
     },
     {
       "backend": [
@@ -40,9 +34,7 @@
             "source": "hashicorp/template"
           }
         }
-      ],
-      "__start_line__": 17,
-      "__end_line__": 32
+      ]
     }
   ]
 }

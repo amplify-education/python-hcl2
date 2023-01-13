@@ -9,6 +9,7 @@ Options:
     -s          Skip un-parsable files
     PATH        The path to convert
     OUT_PATH    The path to write files to
+    --with-meta If set add meta parameters to the output_json like __start_line__ and __end_line__
 """
 import argparse
 import json
@@ -38,6 +39,11 @@ def main():
         "Output is printed to stdout if OUT_PATH is blank",
     )
     parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument(
+        "--with-meta",
+        action="store_true",
+        help="If set add meta parameters to the output_json like __start_line__ and __end_line__",
+    )
 
     args = parser.parse_args()
 
@@ -52,7 +58,7 @@ def main():
                 else open(args.OUT_PATH, "w", encoding="utf-8")
             )
             print(args.PATH, file=sys.stderr, flush=True)
-            json.dump(load(in_file), out_file)
+            json.dump(load(in_file, with_meta=args.with_meta), out_file)
             if args.OUT_PATH is None:
                 out_file.write("\n")
                 out_file.close()

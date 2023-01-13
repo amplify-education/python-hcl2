@@ -11,12 +11,9 @@ from lark.visitors import Transformer, Discard, _DiscardType, v_args
 HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
 HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
 
+
 START_LINE = "__start_line__"
 END_LINE = "__end_line__"
-
-NO_BLOCK_LABEL_TYPES = {"locals", "terraform"}
-ONE_BLOCK_LABEL_TYPES = {"module", "provider", "variable"}
-TWO_BLOCK_LABEL_TYPES = {"data", "resource"}
 
 
 Attribute = namedtuple("Attribute", ("key", "value"))
@@ -24,6 +21,17 @@ Attribute = namedtuple("Attribute", ("key", "value"))
 
 # pylint: disable=missing-docstring,unused-argument
 class DictTransformer(Transformer):
+
+    with_meta: bool
+
+    def __init__(self, with_meta: bool = False):
+        """
+        :param with_meta: If set to true then adds `__start_line__` and `__end_line__`
+        parameters to the output dict. Default to false.
+        """
+        self.with_meta = with_meta
+        super().__init__()
+
     def float_lit(self, args: List) -> float:
         return float("".join([str(arg) for arg in args]))
 
@@ -116,28 +124,20 @@ class DictTransformer(Transformer):
         if isinstance(args[-1], str):
             args.append({})
 
-        result: Dict[str, Any] = {}
-        current_level = result
-        for arg in args[0:-2]:
-            current_level[self.strip_quotes(arg)] = {}
-            current_level = current_level[self.strip_quotes(arg)]
+        *block_labels, block_body = args
+        result: Dict[str, Any] = block_body
+        if self.with_meta:
+            result.update(
+                {
+                    START_LINE: meta.line,
+                    END_LINE: meta.end_line,
+                }
+            )
 
-        current_level[self.strip_quotes(args[-2])] = args[-1]
-
-        if args[0] in TWO_BLOCK_LABEL_TYPES:
-            label_1 = self.strip_quotes(args[1])
-            label_2 = self.strip_quotes(args[2])
-            result[args[0]][label_1][label_2][START_LINE] = meta.line
-            result[args[0]][label_1][label_2][END_LINE] = meta.end_line
-
-        if args[0] in ONE_BLOCK_LABEL_TYPES:
-            label_1 = self.strip_quotes(args[1])
-            result[args[0]][label_1][START_LINE] = meta.line
-            result[args[0]][label_1][END_LINE] = meta.end_line
-
-        if args[0] in NO_BLOCK_LABEL_TYPES:
-            result[args[0]][START_LINE] = meta.line
-            result[args[0]][END_LINE] = meta.end_line
+        # create nested dict. i.e. {label1: {label2: {labelN: result}}}
+        for label in reversed(block_labels):
+            label_str = self.strip_quotes(label)
+            result = {label_str: result}
 
         return result
 

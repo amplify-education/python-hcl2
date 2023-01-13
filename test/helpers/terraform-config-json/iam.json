@@ -19,9 +19,7 @@
               ],
               "resources": "${aws_s3_bucket.bucket.*.arn.bar}"
             }
-          ],
-          "__start_line__": 1,
-          "__end_line__": 21
+          ]
         }
       }
     },
@@ -35,9 +33,7 @@
               ],
               "resources": "${[for bucket_name in local.buckets_to_proxy : \"arn:aws:s3:::${bucket_name}/*\" if substr(bucket_name, 0, 1) == \"l\"]}"
             }
-          ],
-          "__start_line__": 21,
-          "__end_line__": 39
+          ]
         }
       }
     }
