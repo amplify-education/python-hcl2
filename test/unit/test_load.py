@@ -20,7 +20,7 @@ class TestLoad(TestCase):
     def test_load_terraform(self):
         """Test parsing a set of hcl2 files and force recreating the parser file"""
         # delete the parser file to force it to be recreated
-        Path(PARSER_FILE).resolve().unlink()
+        PARSER_FILE.unlink()
         for hcl_path in HCL2_FILES:
             yield self.check_terraform, hcl_path
 
