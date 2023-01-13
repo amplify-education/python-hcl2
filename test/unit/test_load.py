@@ -1,10 +1,11 @@
 """ Test parsing a variety of hcl files"""
+
 import json
 from pathlib import Path
 from unittest import TestCase
 
+from hcl2.parser import PARSER_FILE
 import hcl2
-from hcl2.parser import PARSER_FILE, create_parser_file
 
 
 HELPERS_DIR = Path(__file__).absolute().parent.parent / "helpers"
@@ -18,9 +19,8 @@ class TestLoad(TestCase):
 
     def test_load_terraform(self):
         """Test parsing a set of hcl2 files and force recreating the parser file"""
-        parser_file = Path(hcl2.__file__).absolute().parent / PARSER_FILE
-        parser_file.unlink()
-        create_parser_file()
+        # delete the parser file to force it to be recreated
+        PARSER_FILE.unlink()
         for hcl_path in HCL2_FILES:
             yield self.check_terraform, hcl_path
 
