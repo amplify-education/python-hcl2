@@ -1,10 +1,16 @@
 {
   "variable": [
     {
-      "region": {}
+      "region": {
+        "__start_line__": 1,
+        "__end_line__": 4
+      }
     },
     {
-      "account": {}
+      "account": {
+        "__start_line__": 4,
+        "__end_line__": 7
+      }
     },
     {
       "azs": {
@@ -17,13 +23,17 @@
           "ap-northeast-1": "ap-northeast-1a,ap-northeast-1c,ap-northeast-1d",
           "ap-southeast-1": "ap-southeast-1a,ap-southeast-1b,ap-southeast-1c",
           "ap-southeast-2": "ap-southeast-2a,ap-southeast-2b,ap-southeast-2c"
-        }
+        },
+        "__start_line__": 14,
+        "__end_line__": 27
       }
     },
     {
       "options": {
         "type": "${string}",
-        "default": {}
+        "default": {},
+        "__start_line__": 27,
+        "__end_line__": 33
       }
     },
     {
@@ -38,7 +48,9 @@
             "condition": "${!contains([for v in flatten(var.var_with_validation[*].nested[*].type) : can(regex(\"^(A|B)$\", v))], False)}",
             "error_message": "The property `nested.type` must be one of value [A, B]."
           }
-        ]
+        ],
+        "__start_line__": 33,
+        "__end_line__": 53
       }
     }
   ],
@@ -47,12 +59,16 @@
       "foo": "${var.account}_bar",
       "bar": {
         "baz": 1
-      }
+      },
+      "__start_line__": 7,
+      "__end_line__": 14
     },
     {
       "route53_forwarding_rule_shares": "${{for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) : \"${forwarding_rule_key}\" => {'aws_account_ids': '${[for account_name in var.route53_resolver_forwarding_rule_shares[forwarding_rule_key].aws_account_names : module.remote_state_subaccounts.map[account_name].outputs[\"aws_account_id\"]]}'}}}",
       "has_valid_forwarding_rules_template_inputs": "${length(keys(var.forwarding_rules_template.copy_resolver_rules)) > 0 && length(var.forwarding_rules_template.replace_with_target_ips) > 0 && length(var.forwarding_rules_template.exclude_cidrs) > 0}",
-      "for_whitespace": "${{for i in [1, 2, 3] : i => i}}"
+      "for_whitespace": "${{for i in [1, 2, 3] : i => i}}",
+      "__start_line__": 53,
+      "__end_line__": 77
     },
     {
       "nested_data": [
@@ -106,7 +122,9 @@
       "ids_level_1": "${distinct(local.nested_data[*].id)}",
       "ids_level_2": "${flatten(local.nested_data[*].nested[*].id)}",
       "ids_level_3": "${flatten(local.nested_data[*].nested[*].again[*][0].foo.bar[0])}",
-      "bindings_by_role": "${distinct(flatten([for name in local.real_entities : [for role , members in var.bindings : {'name': '${name}', 'role': '${role}', 'members': '${members}'}]]))}"
+      "bindings_by_role": "${distinct(flatten([for name in local.real_entities : [for role , members in var.bindings : {'name': '${name}', 'role': '${role}', 'members': '${members}'}]]))}",
+      "__start_line__": 77,
+      "__end_line__": 125
     }
   ]
 }

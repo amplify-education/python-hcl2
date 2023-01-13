@@ -3,28 +3,36 @@
     {
       "null_resource": {
         "multiline_comment_multiline": {
-          "triggers": []
+          "triggers": [],
+          "__start_line__": 1,
+          "__end_line__": 8
         }
       }
     },
     {
       "null_resource": {
         "multiline_comment_single_line_before_closing_bracket": {
-          "triggers": []
+          "triggers": [],
+          "__start_line__": 8,
+          "__end_line__": 13
         }
       }
     },
     {
       "null_resource": {
         "multiline_comment_single_line_between_brackets": {
-          "triggers": []
+          "triggers": [],
+          "__start_line__": 13,
+          "__end_line__": 19
         }
       }
     },
     {
       "null_resource": {
         "multiline_comment_single_line_after_opening_bracket": {
-          "triggers": []
+          "triggers": [],
+          "__start_line__": 19,
+          "__end_line__": 24
         }
       }
     },
@@ -33,7 +41,9 @@
         "multiline_comment_multiple_single_element": {
           "triggers": [
             2
-          ]
+          ],
+          "__start_line__": 24,
+          "__end_line__": 32
         }
       }
     }
@@ -43,13 +53,17 @@
       "some_var2": {
         "description": "description",
         "type": "${string}",
-        "default": "${cidrsubnets(\"10.0.0.0/24\", 2, 2)}"
+        "default": "${cidrsubnets(\"10.0.0.0/24\", 2, 2)}",
+        "__start_line__": 32,
+        "__end_line__": 50
       }
     },
     {
       "some_var2": {
         "description": "description",
-        "default": "${concat([{'1': '1'}], [{'2': '2'}])}"
+        "default": "${concat([{'1': '1'}], [{'2': '2'}])}",
+        "__start_line__": 50,
+        "__end_line__": 62
       }
     }
   ]

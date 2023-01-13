@@ -25,7 +25,9 @@
             {
               "enabled": true
             }
-          ]
+          ],
+          "__start_line__": 1,
+          "__end_line__": 25
         }
       }
     }
@@ -36,7 +38,9 @@
         "source": "s3_bucket_name",
         "name": "audit",
         "account": "${var.account}",
-        "region": "${var.region}"
+        "region": "${var.region}",
+        "__start_line__": 25,
+        "__end_line__": 33
       }
     }
   ]

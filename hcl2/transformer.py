@@ -4,10 +4,20 @@ import sys
 from collections import namedtuple
 from typing import List, Dict, Any
 
-from lark.visitors import Transformer, Discard, _DiscardType
+from lark.tree import Meta
+from lark.visitors import Transformer, Discard, _DiscardType, v_args
+
 
 HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
 HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
+
+START_LINE = "__start_line__"
+END_LINE = "__end_line__"
+
+NO_BLOCK_LABEL_TYPES = {"locals", "terraform"}
+ONE_BLOCK_LABEL_TYPES = {"module", "provider", "variable"}
+TWO_BLOCK_LABEL_TYPES = {"data", "resource"}
+
 
 Attribute = namedtuple("Attribute", ("key", "value"))
 
@@ -96,7 +106,8 @@ class DictTransformer(Transformer):
     def new_line_and_or_comma(self, args: List) -> _DiscardType:
         return Discard
 
-    def block(self, args: List) -> Dict:
+    @v_args(meta=True)
+    def block(self, meta: Meta, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
 
         # if the last token is a string instead of an object then the block is empty
@@ -113,10 +124,22 @@ class DictTransformer(Transformer):
 
         current_level[self.strip_quotes(args[-2])] = args[-1]
 
-        return result
+        if args[0] in TWO_BLOCK_LABEL_TYPES:
+            label_1 = self.strip_quotes(args[1])
+            label_2 = self.strip_quotes(args[2])
+            result[args[0]][label_1][label_2][START_LINE] = meta.line
+            result[args[0]][label_1][label_2][END_LINE] = meta.end_line
 
-    def one_line_block(self, args: List) -> Dict:
-        return self.block(args)
+        if args[0] in ONE_BLOCK_LABEL_TYPES:
+            label_1 = self.strip_quotes(args[1])
+            result[args[0]][label_1][START_LINE] = meta.line
+            result[args[0]][label_1][END_LINE] = meta.end_line
+
+        if args[0] in NO_BLOCK_LABEL_TYPES:
+            result[args[0]][START_LINE] = meta.line
+            result[args[0]][END_LINE] = meta.end_line
+
+        return result
 
     def attribute(self, args: List) -> Attribute:
         key = str(args[0])

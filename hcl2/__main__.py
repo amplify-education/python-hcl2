@@ -18,7 +18,6 @@ import sys
 from lark import UnexpectedCharacters, UnexpectedToken
 
 from . import load
-from .parser import hcl2
 from .version import __version__
 
 
@@ -53,7 +52,7 @@ def main():
                 else open(args.OUT_PATH, "w", encoding="utf-8")
             )
             print(args.PATH, file=sys.stderr, flush=True)
-            json.dump(hcl2.parse(in_file.read()), out_file)
+            json.dump(load(in_file), out_file)
             if args.OUT_PATH is None:
                 out_file.write("\n")
                 out_file.close()

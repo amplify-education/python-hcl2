@@ -2,6 +2,7 @@
 from typing import TextIO
 
 from hcl2.parser import hcl2
+from hcl2.transformer import DictTransformer
 
 
 def load(file: TextIO) -> dict:
@@ -15,7 +16,5 @@ def loads(text: str) -> dict:
     # Lark doesn't support a EOF token so our grammar can't look for "new line or end of file"
     # This means that all blocks must end in a new line even if the file ends
     # Append a new line as a temporary fix
-    # Ignoring type as the type-annotation of Lark.parse() claims that it always returns a Tree,
-    # but in the docs of the parse() said that it returns whatever the supplied transformer returns.
-    # We supply DictTransformer so the return type is Dict.
-    return hcl2.parse(text + "\n")  # type: ignore
+    tree = hcl2.parse(text + "\n")
+    return DictTransformer().transform(tree)

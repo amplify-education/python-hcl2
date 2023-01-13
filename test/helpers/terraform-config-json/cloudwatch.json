@@ -4,7 +4,9 @@
       "aws_cloudwatch_event_rule": {
         "aws_cloudwatch_event_rule": {
           "name": "name",
-          "event_pattern": "    {\n      \"foo\": \"bar\"\n    }"
+          "event_pattern": "    {\n      \"foo\": \"bar\"\n    }",
+          "__start_line__": 1,
+          "__end_line__": 10
         }
       }
     },
@@ -12,7 +14,9 @@
       "aws_cloudwatch_event_rule": {
         "aws_cloudwatch_event_rule2": {
           "name": "name",
-          "event_pattern": "{\n  \"foo\": \"bar\"\n}"
+          "event_pattern": "{\n  \"foo\": \"bar\"\n}",
+          "__start_line__": 10,
+          "__end_line__": 19
         }
       }
     },
@@ -20,7 +24,9 @@
       "aws_cloudwatch_event_rule": {
         "aws_cloudwatch_event_rule2": {
           "name": "name",
-          "event_pattern": "${jsonencode(var.cloudwatch_pattern_deploytool)}"
+          "event_pattern": "${jsonencode(var.cloudwatch_pattern_deploytool)}",
+          "__start_line__": 19,
+          "__end_line__": 24
         }
       }
     }
