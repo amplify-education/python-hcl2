@@ -119,14 +119,6 @@ class DictTransformer(Transformer):
 
     @v_args(meta=True)
     def block(self, meta: Meta, args: List) -> Dict:
-        args = self.strip_new_line_tokens(args)
-
-        # if the last token is a string instead of an object then the block is empty
-        # such as 'foo "bar" "baz" {}'
-        # in that case append an empty object
-        if isinstance(args[-1], str):
-            args.append({})
-
         *block_labels, block_body = args
         result: Dict[str, Any] = block_body
         if self.with_meta:
