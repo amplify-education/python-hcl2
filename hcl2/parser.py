@@ -3,8 +3,6 @@ from pathlib import Path
 
 from lark import Lark
 
-from hcl2.transformer import DictTransformer
-
 
 PARSER_FILE = Path(__file__).absolute().resolve().parent / ".lark_cache.bin"
 
@@ -14,5 +12,5 @@ hcl2 = Lark.open(
     parser="lalr",
     cache=str(PARSER_FILE),  # Disable/Delete file to effect changes to the grammar
     rel_to=__file__,
-    transformer=DictTransformer(),
+    propagate_positions=True,
 )
