@@ -63,8 +63,8 @@ locals {
     }
   }
   has_valid_forwarding_rules_template_inputs = (
-    length(keys(var.forwarding_rules_template.copy_resolver_rules)) > 0 &&
-    length(var.forwarding_rules_template.replace_with_target_ips) > 0 &&
+    length(keys(var.forwarding_rules_template.copy_resolver_rules)) > 0
+    && length(var.forwarding_rules_template.replace_with_target_ips) > 0 &&
     length(var.forwarding_rules_template.exclude_cidrs) > 0
   )
 
