@@ -1,4 +1,4 @@
-// test new line curly braces style
+// test new line braces style
 provider "aws"
 {
   region = var.region
