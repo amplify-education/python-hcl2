@@ -9,10 +9,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
-- Add test case for braces in next line ([#131](https://github.com/amplify-education/python-hcl2/pull/131))
-
-### Fixed
-
 - Support braces in next line. Thanks @rout39574 ([#129](https://github.com/amplify-education/python-hcl2/pull/129))
 - Support and add tests for ternary multi-line expression. Thanks @seksham ([#128](https://github.com/amplify-education/python-hcl2/pull/128))
 
