@@ -1,5 +1,6 @@
-// a comment
-provider "aws" {
+// test new line braces style
+provider "aws"
+{
   region = var.region
 }
 
