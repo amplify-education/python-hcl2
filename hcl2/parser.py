@@ -14,3 +14,10 @@ hcl2 = Lark.open(
     rel_to=__file__,
     propagate_positions=True,
 )
+
+hcl2_earley = Lark.open(
+    "hcl2.lark",
+    parser="earley",
+    rel_to=__file__,
+    propagate_positions=True,
+)
