@@ -22,12 +22,12 @@ class TestLoad(TestCase):
         # delete the parser file to force it to be recreated
         PARSER_FILE.unlink()
         for hcl_path in HCL2_FILES:
-            yield self.check_terraform, hcl_path
+            self.check_terraform(hcl_path)
 
     def test_load_terraform_from_cache(self):
         """Test parsing a set of hcl2 files from a cached parser file"""
         for hcl_path in HCL2_FILES:
-            yield self.check_terraform, hcl_path
+            self.check_terraform(hcl_path)
 
     def check_terraform(self, hcl_path_str: str):
         """Loads a single hcl2 file, parses it and compares with the expected json"""
@@ -40,7 +40,7 @@ class TestLoad(TestCase):
 
         with hcl_path.open("r") as hcl_file, json_path.open("r") as json_file:
             try:
-                hcl2_dict = hcl2.load(hcl_file)
+                hcl2_dict = hcl2.load(hcl_file, use_earley=True)
             except Exception as exc:
                 assert False, f"failed to tokenize terraform in `{hcl_path_str}`: {exc}"
 
