@@ -58,3 +58,12 @@ variable "some_var2" {
     # comment 5
   )
 }
+
+
+variable "some_var3" {
+  value = {
+    for i in range(length([1, 2, 3])) :
+    i
+    => i * 2
+  }
+}

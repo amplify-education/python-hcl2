@@ -51,6 +51,11 @@
         "description": "description",
         "default": "${concat([{'1': '1'}], [{'2': '2'}])}"
       }
+    },
+    {
+      "some_var3": {
+        "value": "${{for i in range(length([1, 2, 3])) : i => i * 2}}"
+      }
     }
   ]
 }
