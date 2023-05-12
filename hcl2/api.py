@@ -5,13 +5,13 @@ from hcl2.parser import hcl2, hcl2_earley
 from hcl2.transformer import DictTransformer
 
 
-def load(file: TextIO, with_meta=False) -> dict:
+def load(file: TextIO, with_meta=False, use_earley=False) -> dict:
     """Load a HCL2 file.
     :param file: File with hcl2 to be loaded as a dict.
     :param with_meta: If set to true then adds `__start_line__` and `__end_line__`
     parameters to the output dict. Default to false.
     """
-    return loads(file.read(), with_meta=with_meta)
+    return loads(file.read(), with_meta=with_meta, use_earley=use_earley)
 
 
 def loads(text: str, with_meta=False, use_earley=False) -> dict:
