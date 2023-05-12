@@ -19,5 +19,5 @@ class TestLoadWithMeta(TestCase):
         with TF_FILE_PATH.open("r") as tf_file, JSON_FILE_PATH.open("r") as json_file:
             self.assertDictEqual(
                 json.load(json_file),
-                hcl2.load(tf_file, with_meta=True),
+                hcl2.load(tf_file, with_meta=True, use_earley=True),
             )
