@@ -1,0 +1,11 @@
+{
+	"a": [{
+		"a": "\tabc\n\tdef"
+	}],
+	"b": [{
+		"b": "\tabcEOFdef\n\t123"
+	}],
+	"c": [{
+		"c": "\tabcEOFdef\n\t123 EOF 456"
+	}]
+}

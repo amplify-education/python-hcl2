@@ -48,8 +48,8 @@ tuple : "[" (expression ",")* expression? "]"
 object : "{" (object_elem (new_line_and_or_comma object_elem )* new_line_and_or_comma?)? "}"
 object_elem : (identifier | expression) ("=" | ":") expression
 
-heredoc_template : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?(?P=heredoc)/
-heredoc_template_trim : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?(?P=heredoc_trim)/
+heredoc_template : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)(?:.|\n)*?\n\s*(?P=heredoc)(?=\s*\n)/
+heredoc_template_trim : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)(?:.|\n)*?\n\s*(?P=heredoc_trim)(?=\s*\n)/
 
 function_call : identifier "(" arguments? ")"
 arguments : (expression ("," expression)* ("," | "...")?)
