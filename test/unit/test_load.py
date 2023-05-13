@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest import TestCase
 
 from hcl2.parser import PARSER_FILE
+from lark.exceptions import LarkError
 import hcl2
 
 
@@ -33,17 +34,18 @@ class TestLoad(TestCase):
         """Loads a single hcl2 file, parses it and compares with the expected json"""
         hcl_path = (HCL2_DIR / hcl_path_str).absolute()
         json_path = JSON_DIR / hcl_path.relative_to(HCL2_DIR).with_suffix(".json")
-        if not json_path.exists():
-            assert (
-                False
-            ), f"Expected json equivalent of the hcl file doesn't exist {json_path}"
+        expected_success = json_path.exists()
 
-        with hcl_path.open("r") as hcl_file, json_path.open("r") as json_file:
+        with hcl_path.open("r") as hcl_file:
             try:
                 hcl2_dict = hcl2.load(hcl_file, use_earley=True)
+            except LarkError as exc:
+                assert not expected_success, f"failed to parse {hcl_path_str}"
+                return
             except Exception as exc:
                 assert False, f"failed to tokenize terraform in `{hcl_path_str}`: {exc}"
 
+        with json_path.open("r") as json_file:
             json_dict = json.load(json_file)
             self.assertDictEqual(
                 hcl2_dict, json_dict, f"failed comparing {hcl_path_str}"
