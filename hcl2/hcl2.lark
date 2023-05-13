@@ -34,7 +34,8 @@ expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
             | for_tuple_expr
             | for_object_expr
 
-STRING_LIT  : "\"" (/[^"]/ | INTERPOLATION)* "\""
+STRING_LIT  : "\"" (STRING_LIT_CHAR | INTERPOLATION)* "\""
+STRING_LIT_CHAR : /[^"\\]|\\./ // Any character except " or \, or an escaped character
 NESTED_INTERPOLATION : "${" /[^}]+/ "}"
 INTERPOLATION : "${" (/(?:(?!\${)([^}]))+/ | NESTED_INTERPOLATION)+ "}"
 
