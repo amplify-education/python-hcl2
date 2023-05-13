@@ -1,7 +1,8 @@
 start : body
-body : (attribute | block)*
+body : (attribute | block)? (/\n/ (attribute | block))*
 attribute : identifier "=" expression
 block : identifier (identifier | STRING_LIT)* "{" body "}"
+new_line_and_or_comma: /(,|\n)/
 
 identifier : /[a-zA-Z_][a-zA-Z0-9_-]*/
 
@@ -44,7 +45,7 @@ DECIMAL : "0".."9"
 EXP_MARK : ("e" | "E") ("+" | "-")?
 
 tuple : "[" (expression ",")* expression? "]"
-object : "{" (object_elem (","? object_elem)* ","?)? "}"
+object : "{" (object_elem (new_line_and_or_comma object_elem )* new_line_and_or_comma?)? "}"
 object_elem : (identifier | expression) ("=" | ":") expression
 
 heredoc_template : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?(?P=heredoc)/
