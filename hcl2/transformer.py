@@ -1,4 +1,5 @@
 """A Lark Transformer for transforming a Lark parse tree into a Python dict"""
+import logging
 import re
 import sys
 from collections import namedtuple
@@ -180,7 +181,8 @@ class DictTransformer(Transformer):
         for arg in args:
             if isinstance(arg, Attribute):
                 if arg.key in result:
-                    raise RuntimeError(f"{arg.key} already defined")
+                    logging.warning(f"{arg.key} already defined, ignoring")
+                    continue
                 result[arg.key] = arg.value
                 attributes.add(arg.key)
             else:
