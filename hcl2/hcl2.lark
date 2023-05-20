@@ -70,5 +70,5 @@ full_splat : "[*]" (get_attr | index)*
 
 %ignore /[ \t]+/
 %ignore /\/\*(.|\n)*?(\*\/)/
-%ignore /#.*\n/ | /\/\/.*\n/
+%ignore /(#|\/\/).*(?=\n)/
 %ignore /\n/

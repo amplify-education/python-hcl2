@@ -45,6 +45,8 @@ class TestLoad(TestCase):
             except Exception as exc:
                 assert False, f"failed to tokenize terraform in `{hcl_path_str}`: {exc}"
 
+        assert expected_success, f"unexpected success parsing {hcl_path_str}"
+
         with json_path.open("r") as json_file:
             json_dict = json.load(json_file)
             self.assertDictEqual(
