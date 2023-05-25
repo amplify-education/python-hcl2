@@ -181,7 +181,7 @@ class DictTransformer(Transformer):
         for arg in args:
             if isinstance(arg, Attribute):
                 if arg.key in result:
-                    logging.warning(f"{arg.key} already defined, ignoring")
+                    logging.warning(f"{arg.key} already defined in attribute, ignoring")
                     continue
                 result[arg.key] = arg.value
                 attributes.add(arg.key)
@@ -191,7 +191,8 @@ class DictTransformer(Transformer):
                     key = str(key)
                     if key in result:
                         if key in attributes:
-                            raise RuntimeError(f"{key} already defined")
+                            logging.warning(f"{key} already defined in block, ignoring")
+                            continue
                         result[key].append(value)
                     else:
                         result[key] = [value]
