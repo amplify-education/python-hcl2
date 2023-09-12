@@ -41,6 +41,12 @@ class DictTransformer(Transformer):
     def int_lit(self, args: List) -> int:
         return int("".join([str(arg) for arg in args]))
 
+    def string_lit(self, args: List) -> str:
+        return '"' + "".join([str(arg) for arg in args]) + '"'
+
+    def interpolation(self, args: List) -> str:
+        return "".join([self.to_string_dollar(arg) for arg in args])
+
     def expr_term(self, args: List) -> Any:
         args = self.strip_new_line_tokens(args)
 
