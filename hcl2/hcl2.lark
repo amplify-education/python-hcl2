@@ -1,7 +1,7 @@
 start : body
 body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
 attribute : identifier "=" expression
-block : identifier (identifier | STRING_LIT)* new_line_or_comment? "{" body "}"
+block : identifier (identifier | string_lit)* new_line_or_comment? "{" body "}"
 new_line_and_or_comma: new_line_or_comment | "," | "," new_line_or_comment
 new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ )+
 
@@ -20,7 +20,7 @@ binary_term : binary_operator new_line_or_comment? expression
 expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
             | float_lit
             | int_lit
-            | STRING_LIT
+            | string_lit
             | tuple
             | object
             | function_call
@@ -35,10 +35,9 @@ expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
             | for_object_expr
 
 
-STRING_LIT : "\"" (STRING_CHARS | INTERPOLATION)* "\""
+string_lit : "\"" (STRING_CHARS | interpolation)* "\""
 STRING_CHARS : /(?:(?!\${)([^"\\]|\\.))+/+ // any character except '"" unless inside a interpolation string
-NESTED_INTERPOLATION : "${" /[^}]+/ "}"
-INTERPOLATION : "${" (/(?:(?!\${)([^}]))+/ | NESTED_INTERPOLATION)+ "}"
+interpolation : "${" expression "}"
 
 int_lit : DECIMAL+
 !float_lit: DECIMAL+ "." DECIMAL+ (EXP_MARK DECIMAL+)?
