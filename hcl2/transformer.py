@@ -111,6 +111,14 @@ class DictTransformer(Transformer):
             args_str = ", ".join([str(arg) for arg in args[1] if arg is not Discard])
         return f"{args[0]}({args_str})"
 
+    def provider_function_call(self, args: List) -> str:
+        args = self.strip_new_line_tokens(args)
+        args_str = ""
+        if len(args) > 5:
+            args_str = ", ".join([str(arg) for arg in args[5] if arg is not Discard])
+        provider_func = "::".join([args[0],args[2],args[4]])
+        return f"{provider_func}({args_str})"
+
     def arguments(self, args: List) -> List:
         return args
 
