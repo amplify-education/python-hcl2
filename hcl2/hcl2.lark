@@ -5,7 +5,8 @@ block : identifier (identifier | STRING_LIT)* new_line_or_comment? "{" body "}"
 new_line_and_or_comma: new_line_or_comment | "," | "," new_line_or_comment
 new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ )+
 
-identifier : /[a-zA-Z_][a-zA-Z0-9_-]*/
+identifier : /[a-zA-Z_][a-zA-Z0-9_-]*/ | IN
+IN : "in"
 
 ?expression : expr_term | operation | conditional
 
@@ -27,7 +28,7 @@ expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
             | index_expr_term
             | get_attr_expr_term
             | identifier
-            | provider_function_call 
+            | provider_function_call
             | heredoc_template
             | heredoc_template_trim
             | attr_splat_expr_term
