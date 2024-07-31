@@ -5,8 +5,9 @@ block : identifier (identifier | STRING_LIT)* new_line_or_comment? "{" body "}"
 new_line_and_or_comma: new_line_or_comment | "," | "," new_line_or_comment
 new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ )+
 
-identifier : /[a-zA-Z_][a-zA-Z0-9_-]*/ | IN
+identifier : /[a-zA-Z_][a-zA-Z0-9_-]*/ | IN | FOR
 IN : "in"
+FOR : "for"
 
 ?expression : expr_term | operation | conditional
 
