@@ -116,7 +116,7 @@ class DictTransformer(Transformer):
         args_str = ""
         if len(args) > 5:
             args_str = ", ".join([str(arg) for arg in args[5] if arg is not Discard])
-        provider_func = "::".join([args[0],args[2],args[4]])
+        provider_func = "::".join([args[0], args[2], args[4]])
         return f"{provider_func}({args_str})"
 
     def arguments(self, args: List) -> List:
