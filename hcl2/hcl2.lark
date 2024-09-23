@@ -3,7 +3,7 @@ body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
 attribute : identifier "=" expression
 block : identifier (identifier | STRING_LIT)* new_line_or_comment? "{" body "}"
 new_line_and_or_comma: new_line_or_comment | "," | "," new_line_or_comment
-new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ )+
+new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ | /\/\*(.|\n)*?(\*\/)/ )+
 
 identifier : /[a-zA-Z_][a-zA-Z0-9_-]*/ | IN | FOR | IF | FOR_EACH
 IF : "if"
@@ -78,4 +78,3 @@ full_splat : "[*]" (get_attr | index)*
 !for_cond : "if" new_line_or_comment? expression
 
 %ignore /[ \t]+/
-%ignore /\/\*(.|\n)*?(\*\/)/
