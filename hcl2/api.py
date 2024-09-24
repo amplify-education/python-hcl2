@@ -1,7 +1,7 @@
 """The API that will be exposed to users of this package"""
 from typing import TextIO
 
-from lark.tree import Tree
+from lark.tree import Tree as AST
 from hcl2.parser import hcl2, hcl2_reconstructor
 from hcl2.transformer import DictTransformer
 
@@ -29,21 +29,21 @@ def loads(text: str, with_meta=False) -> dict:
     return DictTransformer(with_meta=with_meta).transform(tree)
 
 
-def parse(file: TextIO) -> Tree:
+def parse(file: TextIO) -> AST:
     """Load HCL2 syntax tree from a file.
     :param file: File with hcl2 to be loaded as a dict.
     """
     return parses(file.read())
 
 
-def parses(text: str) -> Tree:
+def parses(text: str) -> AST:
     """Load HCL2 syntax tree from a string.
     :param text: Text with hcl2 to be loaded as a dict.
     """
     return hcl2.parse(text + "\n")
 
 
-def writes(ast: Tree) -> str:
+def writes(ast: AST) -> str:
     """Convert an HCL2 syntax tree to a string.
     :param ast: HCL2 syntax tree.
     """

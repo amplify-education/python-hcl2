@@ -4,6 +4,7 @@ from pathlib import Path
 from lark import Lark, Token
 from lark.reconstruct import Reconstructor
 
+from .indenter import TerraformIndenter
 
 PARSER_FILE = Path(__file__).absolute().resolve().parent / ".lark_cache.bin"
 
@@ -15,6 +16,7 @@ hcl2 = Lark.open(
     rel_to=__file__,
     propagate_positions=True,
     maybe_placeholders=False,  # Needed for reconstruction
+    postlex=TerraformIndenter(),
 )
 
 SPACE_AFTER = set(',+-*/~@<>="|:')
@@ -34,16 +36,17 @@ def _postprocess_reconstruct(items):
             actions.append(item.value)
         else:
             if actions:
-                assert (
-                    actions[0] == "_NEWLINE" and "_NEWLINE" not in actions[1:]
-                ), actions
+                assert actions[0] == "_NL", actions
 
                 for a in actions[1:]:
-                    if a == "_INDENT":
-                        stack.append(stack[-1] + " " * 4)
-                    else:
-                        assert a == "_DEDENT"
+                    if a == "_NL":
+                        yield "\n"
+                    elif a == "_INDENT":
+                        stack.append(stack[-1] + " " * 2)
+                    elif a == "_DEDENT":
                         stack.pop()
+                    else:
+                        assert False, a
                 actions.clear()
                 yield stack[-1]
                 last_was_whitespace = True
@@ -64,7 +67,7 @@ class HCLReconstructor:
         self._recons = Reconstructor(
             parser,
             {
-                "_NEWLINE": _special_symbol,
+                "_NL": _special_symbol,
                 "_DEDENT": _special_symbol,
                 "_INDENT": _special_symbol,
             },

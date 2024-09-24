@@ -5,4 +5,4 @@ try:
 except ImportError:
     __version__ = "unknown"
 
-from .api import load, loads, parse, parses, writes
+from .api import load, loads, parse, parses, writes, AST
