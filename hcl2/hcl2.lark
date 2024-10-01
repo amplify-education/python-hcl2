@@ -1,6 +1,6 @@
 start : body
 body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
-attribute : identifier "=" expression
+attribute : identifier EQ expression
 block : identifier (identifier | STRING_LIT)* new_line_or_comment? "{" body "}"
 new_line_and_or_comma: new_line_or_comment | "," | "," new_line_or_comment
 new_line_or_comment: ( /\n[ \t]*/ | /#.*\n/ | /\/\/.*\n/ | /\/\*(.|\n)*?(\*\/)/ )+
@@ -50,10 +50,12 @@ int_lit : DECIMAL+
             | DECIMAL+ ("." DECIMAL+)? EXP_MARK DECIMAL+
 DECIMAL : "0".."9"
 EXP_MARK : ("e" | "E") ("+" | "-")?
+EQ : /[ \t]*=(?!=|>)/
 
 tuple : "[" (new_line_or_comment* expression new_line_or_comment* ",")* (new_line_or_comment* expression)? new_line_or_comment* "]"
 object : "{" new_line_or_comment? (object_elem (new_line_and_or_comma object_elem )* new_line_and_or_comma?)? "}"
-object_elem : (identifier | expression) ("=" | ":") expression
+object_elem : (identifier | expression) ( EQ | ":") expression
+
 
 heredoc_template : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?(?P=heredoc)/
 heredoc_template_trim : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?(?P=heredoc_trim)/

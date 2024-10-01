@@ -90,10 +90,14 @@ class DictTransformer(Transformer):
         return [self.to_string_dollar(arg) for arg in self.strip_new_line_tokens(args)]
 
     def object_elem(self, args: List) -> Dict:
+        print(args)
         # This returns a dict with a single key/value pair to make it easier to merge these
         # into a bigger dict that is returned by the "object" function
         key = self.strip_quotes(args[0])
-        value = self.to_string_dollar(args[1])
+        if len(args) == 3:
+            value = self.to_string_dollar(args[2])
+        else:
+            value = self.to_string_dollar(args[1])
 
         return {key: value}
 
@@ -148,7 +152,7 @@ class DictTransformer(Transformer):
         key = str(args[0])
         if key.startswith('"') and key.endswith('"'):
             key = key[1:-1]
-        value = self.to_string_dollar(args[1])
+        value = self.to_string_dollar(args[2])
         return Attribute(key, value)
 
     def conditional(self, args: List) -> str:

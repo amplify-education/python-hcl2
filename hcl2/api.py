@@ -40,7 +40,7 @@ def parses(text: str) -> AST:
     """Load HCL2 syntax tree from a string.
     :param text: Text with hcl2 to be loaded as a dict.
     """
-    return hcl2.parse(text + "\n")
+    return hcl2.parse(text)
 
 
 def writes(ast: AST) -> str:

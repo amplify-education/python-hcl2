@@ -1,7 +1,7 @@
 """A parser for HCL2 implemented using the Lark parser"""
 from pathlib import Path
 
-from lark import Lark, Token
+from lark import Lark
 from lark.reconstruct import Reconstructor
 from lark.utils import is_id_continue
 
@@ -22,7 +22,7 @@ hcl2 = Lark.open(
 )
 
 SPACE_AFTER = set(',+-*/~@<>="|:')
-SPACE_BEFORE = (SPACE_AFTER - set(",:")) | set("'")
+SPACE_BEFORE = (SPACE_AFTER - set(",:=")) | set("'")
 DIGITS = set("0123456789")
 IDENT_JOINERS = set(".")
 
@@ -34,39 +34,36 @@ def _postprocess_reconstruct(items):
     """
     prev_item = ""
     for item in items:
-        # see if we need to add space after the previous identifier
+        # these rules apply if we need to add space
         if (
-            prev_item
-            and item
-            and prev_item[-1] not in SPACE_AFTER
+            prev_item  # make sure a previous item exists
+            and item  # and that the current item isn't empty
+            # if the last character of the previous item is a space, we abort
             and not prev_item[-1].isspace()
-            and is_id_continue(prev_item[-1])
-            and not item[0] in IDENT_JOINERS
+            # if the previous character was a number we don't want to break up
+            # a numeric literal, abort
             and not prev_item[-1] in DIGITS
+            # if the next item has a space at the beginning, we don't need to
+            # add one, abort
+            and not item[0].isspace()
+            # now the scenarios when we do not abort are
+            and (
+                # scenario 1, the prev token ended with an identifier character
+                # and the next character is not an "IDENT_JOINER" character
+                (is_id_continue(prev_item[-1]) and not item[0] in IDENT_JOINERS)
+                # scenario 2, the prev token ended with a character that should
+                # be followed by a space
+                or (prev_item[-1] in SPACE_AFTER)
+                # scenario 3, the next token begins with a character that needs
+                # a space preceeding it
+                or (item[0] in SPACE_BEFORE)
+            )
         ):
             yield " "
-            prev_item = " "
 
-        # if the next character expects us to add a space before it
-        if (
-            prev_item
-            and not prev_item[-1].isspace()
-            and prev_item[-1] not in SPACE_AFTER
-        ):
-            if item[0] in SPACE_BEFORE:
-                yield " "
-                prev_item = " "
-
-        # print the actual token
+        # print the actual token, and store it for the next iteraction
         yield item
-
-        if item and item[-1] in SPACE_AFTER:
-            yield " "
-
-        # store the previous item as we continue
         prev_item = item
-    yield "\n"
-
 
 class HCLReconstructor:
     def __init__(self, parser):
