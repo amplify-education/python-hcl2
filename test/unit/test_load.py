@@ -19,15 +19,23 @@ class TestLoad(TestCase):
 
     def test_load_terraform(self):
         """Test parsing a set of hcl2 files and force recreating the parser file"""
-        # delete the parser file to force it to be recreated
-        PARSER_FILE.unlink()
+        # Caching must be disabled to allow for reconstruction until lark-parser/lark#1472 is fixed:
+        #
+        #   https://github.com/lark-parser/lark/issues/1472
+        #
+        # # delete the parser file to force it to be recreated
+        # PARSER_FILE.unlink()
         for hcl_path in HCL2_FILES:
             yield self.check_terraform, hcl_path
 
-    def test_load_terraform_from_cache(self):
-        """Test parsing a set of hcl2 files from a cached parser file"""
-        for hcl_path in HCL2_FILES:
-            yield self.check_terraform, hcl_path
+    # Caching must be disabled to allow for reconstruction until lark-parser/lark#1472 is fixed:
+    #
+    #   https://github.com/lark-parser/lark/issues/1472
+    #
+    # def test_load_terraform_from_cache(self):
+    #     """Test parsing a set of hcl2 files from a cached parser file"""
+    #     for hcl_path in HCL2_FILES:
+    #         yield self.check_terraform, hcl_path
 
     def check_terraform(self, hcl_path_str: str):
         """Loads a single hcl2 file, parses it and compares with the expected json"""
