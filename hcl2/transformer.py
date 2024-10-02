@@ -90,7 +90,6 @@ class DictTransformer(Transformer):
         return [self.to_string_dollar(arg) for arg in self.strip_new_line_tokens(args)]
 
     def object_elem(self, args: List) -> Dict:
-        print(args)
         # This returns a dict with a single key/value pair to make it easier to merge these
         # into a bigger dict that is returned by the "object" function
         key = self.strip_quotes(args[0])

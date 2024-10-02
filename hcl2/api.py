@@ -2,7 +2,8 @@
 from typing import TextIO
 
 from lark.tree import Tree as AST
-from hcl2.parser import hcl2, hcl2_reconstructor
+from hcl2.parser import hcl2
+from hcl2.reconstructor import hcl2_reconstructor
 from hcl2.transformer import DictTransformer
 
 
