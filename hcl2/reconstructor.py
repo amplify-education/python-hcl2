@@ -1,7 +1,22 @@
+from lark import Lark
 from lark.reconstruct import Reconstructor
 from lark.utils import is_id_continue
 
-from hcl2.parser import hcl2
+# this is duplicated from `parser` because we need different options here for
+# the reconstructor. please make sure changes are kept in sync between the two
+# if necessary.
+hcl2 = Lark.open(
+    "hcl2.lark",
+    parser="lalr",
+    # Caching must be disabled to allow for reconstruction until lark-parser/lark#1472 is fixed:
+    #
+    #   https://github.com/lark-parser/lark/issues/1472
+    #
+    # cache=str(PARSER_FILE),  # Disable/Delete file to effect changes to the grammar
+    rel_to=__file__,
+    propagate_positions=True,
+    maybe_placeholders=False,  # Needed for reconstruction
+)
 
 CHAR_SPACE_AFTER = set(',~@<>="|?)]:')
 CHAR_SPACE_BEFORE = (CHAR_SPACE_AFTER - set(",=")) | set("'")

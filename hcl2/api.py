@@ -3,7 +3,6 @@ from typing import TextIO
 
 from lark.tree import Tree as AST
 from hcl2.parser import hcl2
-from hcl2.reconstructor import hcl2_reconstructor
 from hcl2.transformer import DictTransformer
 
 
@@ -41,7 +40,11 @@ def parses(text: str) -> AST:
     """Load HCL2 syntax tree from a string.
     :param text: Text with hcl2 to be loaded as a dict.
     """
-    return hcl2.parse(text)
+    # defer this import until this method is called, due to the performance hit
+    # of rebuilding the grammar without cache
+    from hcl2.reconstructor import hcl2 as uncached_hcl2
+
+    return uncached_hcl2.parse(text)
 
 
 def transform(ast: AST, with_meta=False) -> dict:
@@ -55,4 +58,8 @@ def writes(ast: AST) -> str:
     """Convert an HCL2 syntax tree to a string.
     :param ast: HCL2 syntax tree, output from `parse` or `parses`
     """
+    # defer this import until this method is called, due to the performance hit
+    # of rebuilding the grammar without cache
+    from hcl2.reconstructor import hcl2_reconstructor
+
     return hcl2_reconstructor.reconstruct(ast)
