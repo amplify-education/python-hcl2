@@ -44,8 +44,15 @@ def parses(text: str) -> AST:
     return hcl2.parse(text)
 
 
+def transform(ast: AST, with_meta=False) -> dict:
+    """Convert an HCL2 AST to a dictionary.
+    :param ast: HCL2 syntax tree, output from `parse` or `parses`
+    """
+    return DictTransformer(with_meta=with_meta).transform(ast)
+
+
 def writes(ast: AST) -> str:
     """Convert an HCL2 syntax tree to a string.
-    :param ast: HCL2 syntax tree.
+    :param ast: HCL2 syntax tree, output from `parse` or `parses`
     """
     return hcl2_reconstructor.reconstruct(ast)
