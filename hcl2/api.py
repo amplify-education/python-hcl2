@@ -42,7 +42,9 @@ def parses(text: str) -> AST:
     """
     # defer this import until this method is called, due to the performance hit
     # of rebuilding the grammar without cache
-    from hcl2.reconstructor import hcl2 as uncached_hcl2
+    from hcl2.reconstructor import (  # pylint: disable=import-outside-toplevel
+        hcl2 as uncached_hcl2,
+    )
 
     return uncached_hcl2.parse(text)
 
@@ -60,6 +62,8 @@ def writes(ast: AST) -> str:
     """
     # defer this import until this method is called, due to the performance hit
     # of rebuilding the grammar without cache
-    from hcl2.reconstructor import hcl2_reconstructor
+    from hcl2.reconstructor import (  # pylint: disable=import-outside-toplevel
+        hcl2_reconstructor,
+    )
 
     return hcl2_reconstructor.reconstruct(ast)

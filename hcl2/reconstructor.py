@@ -1,3 +1,5 @@
+"""A reconstructor for HCL2 implemented using Lark's experimental reconstruction functionality"""
+
 from lark import Lark
 from lark.reconstruct import Reconstructor
 from lark.utils import is_id_continue
@@ -48,6 +50,57 @@ NEVER_COMMA_BEFORE = set("])}")
 IDENT_NO_SPACE = set("()[]")
 
 
+def _add_extra_space(prev_item, item):
+    # pylint: disable=too-many-boolean-expressions, too-many-return-statements
+
+    ##### the scenarios where explicitly disallow spaces: #####
+
+    # if we already have a space, don't add another
+    if prev_item[-1].isspace() or item[0].isspace():
+        return False
+
+    # none of the following should be separated by spaces:
+    # - groups of digits
+    # - namespaced::function::calls
+    # - characters within an identifier like array[0]()
+    if (
+        (prev_item[-1] in DIGITS and item[0] in DIGITS)
+        or item == "::"
+        or prev_item == "::"
+        or (prev_item[-1] in IDENT_NO_SPACE and item[0] in IDENT_NO_SPACE)
+    ):
+        return False
+
+    # specific characters are also blocklisted from having spaces
+    if prev_item[-1] in NEVER_SPACE_AFTER or item[0] in NEVER_SPACE_BEFORE:
+        return False
+
+    ##### the scenarios where we add spaces: #####
+
+    # scenario 1, the prev token ended with an identifier character
+    # and the next character is not an "IDENT_NO_SPACE" character
+    if is_id_continue(prev_item[-1]) and not item[0] in IDENT_NO_SPACE:
+        return True
+
+    # scenario 2, the prev token or the next token should be followed by a space
+    if (
+        prev_item[-1] in CHAR_SPACE_AFTER
+        or prev_item in KEYWORDS_SPACE_AFTER
+        or item[0] in CHAR_SPACE_BEFORE
+        or item in KEYWORDS_SPACE_BEFORE
+    ):
+        return True
+
+    # scenario 3, the previous token was a block opening brace and
+    # the next token is not a closing brace (so the block is on one
+    # line and not empty)
+    if prev_item[-1] == "{" and item[0] != "}":
+        return True
+
+    ##### otherwise, we don't add a space #####
+    return False
+
+
 def _postprocess_reconstruct(items):
     """
     Postprocess the stream of tokens derived from the AST during reconstruction.
@@ -57,7 +110,7 @@ def _postprocess_reconstruct(items):
     prev_item = ""
     for item in items:
         # first, handle any deferred tokens
-        if type(prev_item) == tuple and prev_item[0] == "_deferred":
+        if isinstance(prev_item, tuple) and prev_item[0] == "_deferred":
             prev_item = prev_item[1]
 
             # if the deferred token was a comma, see if we're ending a block
@@ -67,48 +120,9 @@ def _postprocess_reconstruct(items):
             else:
                 yield prev_item
 
-        # these rules apply if we need to add space prior to the current token
-        if (
-            prev_item  # make sure a previous item exists
-            and item  # and that the current item isn't empty
-            # if the last character of the previous item is a space, we abort
-            and not prev_item[-1].isspace()
-            # if the previous character was a number and the next character is
-            # a number. we don't want to break up a numeric literal, abort
-            and not (prev_item[-1] in DIGITS and item[0] in DIGITS)
-            # if the next item has a space at the beginning, we don't need to
-            # add one, abort
-            and not item[0].isspace()
-            # if the previous character should not have a space after it, abort
-            and not prev_item[-1] in NEVER_SPACE_AFTER
-            # if the next character should not have a space before it, abort
-            and not item[0] in NEVER_SPACE_BEFORE
-            # double colons do not get space as they're part of a call to a
-            # namespaced function
-            and not (item == "::" or prev_item == "::")
-            # if both the last character and the next character are
-            # IDENT_NO_SPACE characters, we don't want a space between them either
-            and not (prev_item[-1] in IDENT_NO_SPACE and item[0] in IDENT_NO_SPACE)
-            # now the scenarios when we do not abort are
-            and (
-                # scenario 1, the prev token ended with an identifier character
-                # and the next character is not an "IDENT_NO_SPACE" character
-                (is_id_continue(prev_item[-1]) and not item[0] in IDENT_NO_SPACE)
-                # scenario 2, the prev token ended with a character that should
-                # be followed by a space
-                or (
-                    prev_item[-1] in CHAR_SPACE_AFTER
-                    or prev_item in KEYWORDS_SPACE_AFTER
-                )
-                # scenario 3, the next token begins with a character that needs
-                # a space preceeding it
-                or (item[0] in CHAR_SPACE_BEFORE or item in KEYWORDS_SPACE_BEFORE)
-                # scenario 4, the previous token was a block opening brace and
-                # the next token is not a closing brace (so the block is on one
-                # line and not empty)
-                or (prev_item[-1] == "{" and item[0] != "}")
-            )
-        ):
+        # if we're between two tokens, determine if we need to add an extra space
+        # we need the previous item and the current item to exist to evaluate these rules
+        if prev_item and item and _add_extra_space(prev_item, item):
             yield " "
 
         # in some cases, we may want to defer printing the next token
@@ -127,15 +141,17 @@ def _postprocess_reconstruct(items):
         prev_item = item
 
     # if the last token was deferred, print it before continuing
-    if type(prev_item) == tuple and prev_item[0] == "_deferred":
+    if isinstance(prev_item, tuple) and prev_item[0] == "_deferred":
         yield prev_item[1]
 
 
 class HCLReconstructor:
+    """This class converts a Lark.Tree AST back into a string representing the underlying HCL code."""
     def __init__(self, parser):
         self._recons = Reconstructor(parser)
 
     def reconstruct(self, tree):
+        """Convert a Lark.Tree AST back into a string representation of HCL."""
         return self._recons.reconstruct(
             tree,
             _postprocess_reconstruct,

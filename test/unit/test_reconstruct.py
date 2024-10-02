@@ -25,14 +25,17 @@ class TestReconstruct(TestCase):
             yield self.check_terraform, hcl_path
 
     def test_write_terraform_exact(self):
-        """Test reconstructing a set of hcl2 files, to make sure they reconstruct exactly the same, including whitespace"""
+        """
+        Test reconstructing a set of hcl2 files, to make sure they
+        reconstruct exactly the same, including whitespace.
+        """
 
         # the reconstruction process is not precise, so some files do not
         # reconstruct their whitespace exactly the same, but they are
         # syntactically equivalent. This list is a target for further
         # improvements to the whitespace handling of the reconstruction
         # algorithm.
-        INEXACT_FILES = [
+        inexact_files = [
             # the reconstructor loses commas on the last element in an array,
             # even if they're in the input file
             "iam.tf",
@@ -46,11 +49,14 @@ class TestReconstruct(TestCase):
         ]
 
         for hcl_path in HCL2_FILES:
-            if hcl_path not in INEXACT_FILES:
+            if hcl_path not in inexact_files:
                 yield self.check_whitespace, hcl_path
 
     def check_terraform(self, hcl_path_str: str):
-        """Loads a single hcl2 file, parses it, reconstructs it, parses the reconstructed file, and compares with the expected json"""
+        """
+        Loads a single hcl2 file, parses it, reconstructs it,
+        parses the reconstructed file, and compares with the expected json
+        """
         hcl_path = (HCL2_DIR / hcl_path_str).absolute()
         json_path = JSON_DIR / hcl_path.relative_to(HCL2_DIR).with_suffix(".json")
         with hcl_path.open("r") as hcl_file, json_path.open("r") as json_file:
@@ -101,5 +107,6 @@ class TestReconstruct(TestCase):
             self.assertMultiLineEqual(
                 hcl_reconstructed,
                 hcl_file_content,
-                f"file {hcl_path_str} does not match its reconstructed version exactly. this is usually whitespace related.",
+                f"file {hcl_path_str} does not match its reconstructed version \
+                    exactly. this is usually whitespace related.",
             )
