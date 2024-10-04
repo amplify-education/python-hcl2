@@ -56,6 +56,19 @@ def transform(ast: AST, with_meta=False) -> dict:
     return DictTransformer(with_meta=with_meta).transform(ast)
 
 
+def reverse_transform(dict: dict) -> AST:
+    """Convert a dictionary to an HCL2 AST.
+    :param dict: a dictionary produced by `load` or `transform`
+    """
+    # defer this import until this method is called, due to the performance hit
+    # of rebuilding the grammar without cache
+    from hcl2.reconstructor import (  # pylint: disable=import-outside-toplevel
+        hcl2_reverse_transformer,
+    )
+
+    return hcl2_reverse_transformer.transform(dict)
+
+
 def writes(ast: AST) -> str:
     """Convert an HCL2 syntax tree to a string.
     :param ast: HCL2 syntax tree, output from `parse` or `parses`
