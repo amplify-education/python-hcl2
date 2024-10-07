@@ -1,11 +1,13 @@
 start : body
 body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
-attribute : identifier "=" expression
+attribute : identifier EQ expression
 block : identifier (identifier | STRING_LIT)* new_line_or_comment? "{" body "}"
 new_line_and_or_comma: new_line_or_comment | "," | "," new_line_or_comment
-new_line_or_comment: ( /\n/ | /#.*\n/ | /\/\/.*\n/ )+
+new_line_or_comment: ( NL_OR_COMMENT )+
+NL_OR_COMMENT: /\n[ \t]*/ | /#.*\n/ | /\/\/.*\n/ | /\/\*(.|\n)*?(\*\/)/
 
-identifier : /[a-zA-Z_][a-zA-Z0-9_-]*/ | IN | FOR | IF | FOR_EACH
+identifier : NAME | IN | FOR | IF | FOR_EACH
+NAME : /[a-zA-Z_][a-zA-Z0-9_-]*/
 IF : "if"
 IN : "in"
 FOR : "for"
@@ -18,8 +20,9 @@ conditional : expression "?" new_line_or_comment? expression new_line_or_comment
 ?operation : unary_op | binary_op
 !unary_op : ("-" | "!") expr_term
 binary_op : expression binary_term new_line_or_comment?
-!binary_operator : "==" | "!=" | "<" | ">" | "<=" | ">=" | "-" | "*" | "/" | "%" | "&&" | "||" | "+"
+!binary_operator : BINARY_OP
 binary_term : binary_operator new_line_or_comment? expression
+BINARY_OP : "==" | "!=" | "<" | ">" | "<=" | ">=" | "-" | "*" | "/" | "%" | "&&" | "||" | "+"
 
 expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
             | float_lit
@@ -50,10 +53,12 @@ int_lit : DECIMAL+
             | DECIMAL+ ("." DECIMAL+)? EXP_MARK DECIMAL+
 DECIMAL : "0".."9"
 EXP_MARK : ("e" | "E") ("+" | "-")?
+EQ : /[ \t]*=(?!=|>)/
 
 tuple : "[" (new_line_or_comment* expression new_line_or_comment* ",")* (new_line_or_comment* expression)? new_line_or_comment* "]"
 object : "{" new_line_or_comment? (object_elem (new_line_and_or_comma object_elem )* new_line_and_or_comma?)? "}"
-object_elem : (identifier | expression) ("=" | ":") expression
+object_elem : (identifier | expression) ( EQ | ":") expression
+
 
 heredoc_template : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?(?P=heredoc)/
 heredoc_template_trim : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?(?P=heredoc_trim)/
@@ -78,4 +83,3 @@ full_splat : "[*]" (get_attr | index)*
 !for_cond : "if" new_line_or_comment? expression
 
 %ignore /[ \t]+/
-%ignore /\/\*(.|\n)*?(\*\/)/
