@@ -181,6 +181,11 @@ class HCLReverseTransformer:
     # the key is the block type
     def _list_is_a_block(self, v: list) -> bool:
         sub_obj = v[0]
+
+        # if the list doesn't contain dictionaries, it's not a block
+        if not isinstance(sub_obj, dict):
+            return False
+
         # if the sub object has "start_line" and "end_line" metadata,
         # the block itself is unlabeled, but it is a block
         if "__start_line__" in sub_obj.keys() or "__end_line__" in sub_obj.keys():
@@ -192,7 +197,7 @@ class HCLReverseTransformer:
             return False
 
         # if the sub object has a single string key whose value is an object
-        label = sub_obj[list(sub_obj)[0]]
+        label = list(sub_obj)[0]
         sub_sub_obj = sub_obj[label]
         if not isinstance(sub_sub_obj, dict):
             return False
