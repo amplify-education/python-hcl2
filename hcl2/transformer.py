@@ -281,7 +281,8 @@ class DictTransformer(Transformer):
         """Wrap a string in ${ and }"""
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
-                return str(value)[1:-1]
+                value = str(value)[1:-1]
+                return self.process_escape_sequences(value)
             return f"${{{value}}}"
         return value
 
@@ -289,7 +290,22 @@ class DictTransformer(Transformer):
         """Remove quote characters from the start and end of a string"""
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
-                return str(value)[1:-1]
+                value = str(value)[1:-1]
+                return self.process_escape_sequences(value)
+        return value
+
+    def process_escape_sequences(self, value: str) -> str:
+        """Process HCL escape sequences within quoted template expressions."""
+        if isinstance(value, str):
+            # normal escape sequences
+            value = value.replace("\\n", "\n")
+            value = value.replace("\\r", "\r")
+            value = value.replace("\\t", "\t")
+            value = value.replace('\\"', '"')
+            value = value.replace("\\\\", "\\")
+
+            # we will leave Unicode escapes (\uNNNN and \UNNNNNNNN) untouched
+            # for now, but this method can be extended in the future
         return value
 
     def identifier(self, value: Any) -> Any:
