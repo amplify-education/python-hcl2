@@ -1,5 +1,6 @@
 """A reconstructor for HCL2 implemented using Lark's experimental reconstruction functionality"""
 
+import re
 import json
 from typing import List
 
@@ -235,6 +236,18 @@ class HCLReverseTransformer:
     def _name_to_identifier(self, name: str) -> Tree:
         return Tree(Token("RULE", "identifier"), [Token("NAME", name)])
 
+    def _escape_interpolated_str(self, s: str) -> str:
+        # begin by doing basic JSON string escaping, to add backslashes
+        s = json.dumps(s)
+
+        # function to remove the backslashes within interpolated portions
+        def reverse_interpolation(matchobj):
+            return matchobj.group(0).replace('\\"', '"')
+
+        # find each interpolation within the string and remove the backslashes
+        s = re.sub(r"\$\{(.*)\}", reverse_interpolation, s)
+        return s
+
     def _transform_dict_to_body(self, d: dict, level: int) -> List[Tree]:
         # we add a newline at the top of a body within a block, not the root body
         if level > 0:
@@ -344,7 +357,8 @@ class HCLReverseTransformer:
         # store strings as single literals
         elif isinstance(v, str):
             return Tree(
-                Token("RULE", "expr_term"), [Token("STRING_LIT", json.dumps(v))]
+                Token("RULE", "expr_term"),
+                [Token("STRING_LIT", self._escape_interpolated_str(v))],
             )
         else:
             raise Exception(f"Unknown type to transform {type(v)}")
