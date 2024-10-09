@@ -1,5 +1,6 @@
 """A reconstructor for HCL2 implemented using Lark's experimental reconstruction functionality"""
 
+import json
 from typing import List
 
 from lark import Lark, Tree, Token
@@ -171,11 +172,19 @@ class HCLReverseTransformer:
         start = Tree(Token("RULE", "start"), [body])
         return start
 
-    def _NL(self, level: int) -> Tree:
-        return Tree(
-            Token("RULE", "new_line_or_comment"),
-            [Token("NL_OR_COMMENT", f"\n{'  ' * level}")],
-        )
+    def _NL(self, level: int, comma: bool = False) -> Tree:
+        # some rules expect the `new_line_and_or_comma` token
+        if comma:
+            return Tree(
+                Token("RULE", "new_line_and_or_comma"),
+                [self._NL(level=level, comma=False)],
+            )
+        # otherwise, return the `new_line_or_comment` token
+        else:
+            return Tree(
+                Token("RULE", "new_line_or_comment"),
+                [Token("NL_OR_COMMENT", f"\n{'  ' * level}")],
+            )
 
     # rules: the value of a block is always an array of dicts,
     # the key is the block type
@@ -218,6 +227,9 @@ class HCLReverseTransformer:
     def _block_has_label(self, b: dict) -> bool:
         return len(b.keys()) == 1
 
+    def _name_to_identifier(self, name: str) -> Tree:
+        return Tree(Token("RULE", "identifier"), [Token("NAME", name)])
+
     def _transform_dict_to_body(self, d: dict, level: int) -> List[Tree]:
         # we add a newline at the top of a body within a block, not the root body
         if level > 0:
@@ -231,7 +243,7 @@ class HCLReverseTransformer:
                 continue
 
             # construct the identifier, whether that be a block type name or an attribute key
-            identifier_name = Tree(Token("RULE", "identifier"), [Token("NAME", k)])
+            identifier_name = self._name_to_identifier(k)
 
             # first, check whether the value is a "block"
             if isinstance(v, list) and self._list_is_a_block(v):
@@ -267,7 +279,7 @@ class HCLReverseTransformer:
 
             # if the value isn't a block, it's an attribute
             else:
-                expr_term = self._transform_value_to_expr_term(v)
+                expr_term = self._transform_value_to_expr_term(v, level)
                 attribute = Tree(
                     Token("RULE", "attribute"),
                     [identifier_name, Token("EQ", " ="), expr_term],
@@ -287,23 +299,60 @@ class HCLReverseTransformer:
 
         return Tree(Token("RULE", "body"), children)
 
-    def _transform_value_to_expr_term(self, v) -> Token:
+    def _transform_value_to_expr_term(self, v, level) -> Token:
         """Transforms a value from a dictionary into an "expr_term" (a value in HCL2)
 
         Anything passed to this function is treated "naively". Any lists passed
-        are assumed to be tuples, and no more checks will be performed to see if
-        they are "bodies" or "blocks". This check happens
+        are assumed to be tuples, and any dicts passed are assumed to be objects.
+        No more checks will be performed for either to see if they are "blocks"
+        as ehis check happens in `_transform_dict_to_body`.
         """
 
+        # for lists, recursively turn the child elements into expr_terms and
+        # store within a tuple
         if isinstance(v, list):
-            # recursively turn the child elements into expr_terms and store within a tuple
             tuple_tree = Tree(
                 Token("RULE", "tuple"),
-                [self._transform_value_to_expr_term(tuple_v) for tuple_v in v],
+                [self._transform_value_to_expr_term(tuple_v, level) for tuple_v in v],
             )
             return Tree(Token("RULE", "expr_term"), [tuple_tree])
+        # for dicts, recursively turn the child k/v pairs into object elements
+        # and store within an object
+        elif isinstance(v, dict):
+            elems = []
+            for k, dict_v in v.items():
+                if k in ["__start_line__", "__end_line__"]:
+                    continue
+                identifier = self._name_to_identifier(k)
+                value_expr_term = self._transform_value_to_expr_term(dict_v, level)
+                elems.append(
+                    Tree(
+                        Token("RULE", "object_elem"),
+                        [identifier, Token("EQ", " ="), value_expr_term],
+                    )
+                )
+                elems.append(self._NL(level, comma=True))
+            return Tree(
+                Token("RULE", "expr_term"), [Tree(Token("RULE", "object"), elems)]
+            )
+        # store integers as literals, digit by digit
+        elif isinstance(v, int):
+            return Tree(
+                Token("RULE", "expr_term"),
+                [
+                    Tree(
+                        Token("RULE", "int_lit"),
+                        [Token("DECIMAL", digit) for digit in str(v)],
+                    )
+                ],
+            )
+        # store strings as single literals
+        elif isinstance(v, str):
+            return Tree(
+                Token("RULE", "expr_term"), [Token("STRING_LIT", json.dumps(v))]
+            )
         else:
-            return Tree(Token("RULE", "expr_term"), [Token("STRING_LIT", f'"{v}"')])
+            raise Exception(f"Unknown type to transform {type(v)}")
 
 
 hcl2_reconstructor = HCLReconstructor(hcl2)
