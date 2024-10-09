@@ -91,7 +91,6 @@ class TestReconstruct(TestCase):
                     False
                 ), f"failed to tokenize 'reconstructed' terraform from AST from `{json_path.name}`: {exc},\n{hcl_reconstructed}"
 
-            json_dict = json.load(json_file)
             self.assertDictEqual(
                 hcl2_dict_reconstructed,
                 hcl2_dict_correct,
