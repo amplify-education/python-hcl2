@@ -205,27 +205,32 @@ class HCLReverseTransformer:
         if len(list(sub_obj)) != 1:
             return False
 
-        # if the sub object has a single string key whose value is an object
+        # if the sub object has a single string key whose value is an object,
+        # it _could_ be a labeled block... but we'd have to check if the sub
+        # object is a block (recurse)
         label = list(sub_obj)[0]
         sub_sub_obj = sub_obj[label]
-        if not isinstance(sub_sub_obj, dict):
-            return False
-
-        # and that object has start_line and end_line metadata, the list is a
-        # block, and the block is labeled by the sub object string key
-        if (
-            "__start_line__" in sub_sub_obj.keys()
-            or "__end_line__" in sub_sub_obj.keys()
-        ):
+        if self._list_is_a_block([sub_sub_obj]):
             return True
 
-        # if the objects in the array have a single key whose child is not an
-        # object, and no metadata, (or some other edge case) the array is just
-        # an array of objects, not a block
+        # if the objects in the array have a single key whose child is not a
+        # block, the array is just an array of objects, not a block
         return False
 
     def _block_has_label(self, b: dict) -> bool:
         return len(b.keys()) == 1
+
+    def _calculate_block_labels(self, b: dict) -> List[str]:
+        curr_label = list(b)[0]
+        potential_body = b[curr_label]
+        if (
+            "__start_line__" in potential_body.keys()
+            or "__end_line__" in potential_body.keys()
+        ):
+            return ([curr_label], potential_body)
+        else:
+            next_label, block_body = self._calculate_block_labels(potential_body)
+            return ([curr_label] + next_label, block_body)
 
     def _name_to_identifier(self, name: str) -> Tree:
         return Tree(Token("RULE", "identifier"), [Token("NAME", name)])
@@ -248,34 +253,24 @@ class HCLReverseTransformer:
             # first, check whether the value is a "block"
             if isinstance(v, list) and self._list_is_a_block(v):
                 for block_v in v:
-                    if self._block_has_label(block_v):
-                        # calculate the block label
-                        block_label = list(block_v)[0]
-                        block_label_token = Token("STRING_LIT", f'"{block_label}"')
+                    block_labels, block_body_dict = self._calculate_block_labels(
+                        block_v
+                    )
+                    block_label_tokens = [
+                        Token("STRING_LIT", f'"{block_label}"')
+                        for block_label in block_labels
+                    ]
+                    block_body = self._transform_dict_to_body(
+                        block_body_dict, level + 1
+                    )
 
-                        # recursively calculate the block body
-                        block_body = self._transform_dict_to_body(
-                            block_v[block_label], level + 1
-                        )
-
-                        # create our actual block to add to our own body
-                        block = Tree(
-                            Token("RULE", "block"),
-                            [identifier_name, block_label_token, block_body],
-                        )
-                        children.append(block)
-                        children.append(self._NL(level))
-                    else:
-                        # recursively calculate the block body
-                        block_body = self._transform_dict_to_body(block_v, level + 1)
-
-                        # this block has no label, so just add it to our own body as is
-                        block = Tree(
-                            Token("RULE", "block"),
-                            [identifier_name, block_body],
-                        )
-                        children.append(block)
-                        children.append(self._NL(level))
+                    # create our actual block to add to our own body
+                    block = Tree(
+                        Token("RULE", "block"),
+                        [identifier_name] + block_label_tokens + [block_body],
+                    )
+                    children.append(block)
+                    children.append(self._NL(level))
 
             # if the value isn't a block, it's an attribute
             else:
