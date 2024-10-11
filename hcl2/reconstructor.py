@@ -202,8 +202,13 @@ class HCLReverseTransformer:
     # rules: the value of a block is always an array of dicts,
     # the key is the block type
     def _list_is_a_block(self, v: list) -> bool:
-        sub_obj = v[0]
+        for obj in v:
+            if not self._dict_is_a_block(obj):
+                return False
 
+        return True
+
+    def _dict_is_a_block(self, sub_obj: any) -> bool:
         # if the list doesn't contain dictionaries, it's not a block
         if not isinstance(sub_obj, dict):
             return False
@@ -223,7 +228,7 @@ class HCLReverseTransformer:
         # object is a block (recurse)
         label = list(sub_obj)[0]
         sub_sub_obj = sub_obj[label]
-        if self._list_is_a_block([sub_sub_obj]):
+        if self._dict_is_a_block(sub_sub_obj):
             return True
 
         # if the objects in the array have a single key whose child is not a
@@ -234,6 +239,11 @@ class HCLReverseTransformer:
         return len(b.keys()) == 1
 
     def _calculate_block_labels(self, b: dict) -> List[str]:
+        # if b doesn't have a label
+        if len(b.keys()) != 1:
+            return ([], b)
+
+        # otherwise, find the label
         curr_label = list(b)[0]
         potential_body = b[curr_label]
         if (
@@ -350,6 +360,17 @@ class HCLReverseTransformer:
                 elems.append(self._NL(level, comma=True))
             return Tree(
                 Token("RULE", "expr_term"), [Tree(Token("RULE", "object"), elems)]
+            )
+        # treat booleans appropriately
+        elif isinstance(v, bool):
+            return Tree(
+                Token("RULE", "expr_term"),
+                [
+                    Tree(
+                        Token("RULE", "identifier"),
+                        [Token("NAME", "true" if v else "false")],
+                    )
+                ],
             )
         # store integers as literals, digit by digit
         elif isinstance(v, int):
