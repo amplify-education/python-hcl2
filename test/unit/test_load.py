@@ -17,6 +17,9 @@ HCL2_FILES = [str(file.relative_to(HCL2_DIR)) for file in HCL2_DIR.iterdir()]
 class TestLoad(TestCase):
     """Test parsing a variety of hcl files"""
 
+    # print any differences fully to the console
+    maxDiff = None
+
     def test_load_terraform(self):
         """Test parsing a set of hcl2 files and force recreating the parser file"""
         # delete the parser file to force it to be recreated

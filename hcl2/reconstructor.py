@@ -54,6 +54,18 @@ NEVER_COMMA_BEFORE = set("])}")
 IDENT_NO_SPACE = set("()[]")
 
 
+# function to remove the backslashes within interpolated portions
+def reverse_quotes_within_interpolation(s: str) -> str:
+    """
+    A common operation is to `json.dumps(s)` where s is a string to output in
+    Terraform. This is useful for automatically escaping any quotes within the
+    string, but this escapes quotes within interpolation incorrectly. This
+    method removes any erroneous escapes within interpolated segments of a
+    string.
+    """
+    return re.sub(r"\$\{(.*)\}", lambda m: m.group(0).replace('\\"', '"'), s)
+
+
 def _add_extra_space(prev_item, item):
     # pylint: disable=too-many-boolean-expressions, too-many-return-statements
 
@@ -240,12 +252,8 @@ class HCLReverseTransformer:
         # begin by doing basic JSON string escaping, to add backslashes
         s = json.dumps(s)
 
-        # function to remove the backslashes within interpolated portions
-        def reverse_interpolation(matchobj):
-            return matchobj.group(0).replace('\\"', '"')
-
         # find each interpolation within the string and remove the backslashes
-        s = re.sub(r"\$\{(.*)\}", reverse_interpolation, s)
+        s = reverse_quotes_within_interpolation(s)
         return s
 
     def _transform_dict_to_body(self, d: dict, level: int) -> List[Tree]:
