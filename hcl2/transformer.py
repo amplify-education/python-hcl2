@@ -277,6 +277,13 @@ class DictTransformer(Transformer):
         # e.g. f"{2 + 2} {{2 + 2}}" == "4 {2 + 2}"
         return f"{{{for_expr}}}"
 
+    def string_with_interpolation(self, args: List) -> str:
+        return '"' + ("".join(args)) + '"'
+
+    def interpolation_maybe_nested(self, args: List) -> str:
+        # return "".join(args)
+        return "${" + ("".join(args)) + "}"
+
     def strip_new_line_tokens(self, args: List) -> List:
         """
         Remove new line and Discard tokens.
@@ -287,6 +294,10 @@ class DictTransformer(Transformer):
     def to_string_dollar(self, value: Any) -> Any:
         """Wrap a string in ${ and }"""
         if isinstance(value, str):
+            # if it's already wrapped, pass it unmodified
+            if value.startswith("${") and value.endswith("}"):
+                return value
+
             if value.startswith('"') and value.endswith('"'):
                 value = str(value)[1:-1]
                 return self.process_escape_sequences(value)
