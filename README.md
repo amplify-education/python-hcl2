@@ -46,7 +46,7 @@ with open('foo.tf', 'r') as file:
 
 With version 5.0.0 the possibility of HCL2 reconstruction from Lark Parse Tree was introduced.
 
-Example of manipulating Lark Parse Tree and reconstructing it back into valid HCL2 can be found in [tree-to-hcl2-reconstruction.md](tree-to-hcl2-reconstruction.md) file.
+Example of manipulating Lark Parse Tree and reconstructing it back into valid HCL2 can be found in [tree-to-hcl2-reconstruction.md](https://github.com/amplify-education/python-hcl2/blob/main/tree-to-hcl2-reconstruction.md) file.
 
 More details about reconstruction implementation can be found in this [PR](https://github.com/amplify-education/python-hcl2/pull/169).
 
