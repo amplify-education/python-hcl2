@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## \[5.1.1\] - 2024-10-15
+
+### Added
+
+- fix `tree-to-hcl2-reconstruction.md` URL in README.md ([#175](https://github.com/amplify-education/python-hcl2/pull/175))
+
+## \[5.1.0\] - 2024-10-15
+
+### Added
+
+- support python 3.13 ([#170](https://github.com/amplify-education/python-hcl2/pull/170))
+- add section about Tree->HCL2 reconstruction to the README.md ([#174](https://github.com/amplify-education/python-hcl2/pull/174))
+
+## \[5.0.0\] - 2024-10-07
+
+### Added
+
+- Support full reconstruction of HCL from parse tree. Thanks, @weaversam8 ([#169](https://github.com/amplify-education/python-hcl2/pull/169))
+
+## \[4.3.5\] - 2024-08-06
+
+### Added
+
+- additional test coverage ([#165](https://github.com/amplify-education/python-hcl2/pull/165))
+- fix: Add support for attributes named "in". Thanks, @elisiariocouto ([#164](https://github.com/amplify-education/python-hcl2/pull/164))
+- fix: add "for" attribute identifier. Thanks, @zhcli ([#167](https://github.com/amplify-education/python-hcl2/pull/167))
+- allow `if` and `for_each` keywords to be used as identifiers ([#168](https://github.com/amplify-education/python-hcl2/pull/168))
+
+### Added
+
+## \[4.3.4\] - 2024-06-12
+
+### Added
+
+- fix codacy badge ([#157](https://github.com/amplify-education/python-hcl2/pull/157))
+- Fix MANIFEST.in and/or Python dependency filename(s) ([#161](https://github.com/amplify-education/python-hcl2/pull/161))
+- adds support for provider functions. Thanks, @lkwg82 ([#162](https://github.com/amplify-education/python-hcl2/pull/162))
+
 ## \[4.3.3\] - 2024-03-27
 
 ### Added
