@@ -2,11 +2,15 @@
 
 import re
 import json
-from typing import List
+from typing import List, Dict, Callable, Optional
 
-from lark import Lark, Tree, Token
-from lark.reconstruct import Reconstructor
+from lark import Lark, Tree
+from lark.grammar import Terminal, NonTerminal, Symbol
+from lark.lexer import Token, PatternStr, TerminalDef
+from lark.reconstruct import Reconstructor, is_iter_empty
+from lark.tree_matcher import is_discarded_terminal
 from lark.utils import is_id_continue
+from lark.visitors import Transformer_InPlace
 
 # this is duplicated from `parser` because we need different options here for
 # the reconstructor. please make sure changes are kept in sync between the two
@@ -24,6 +28,7 @@ hcl2 = Lark.open(
     maybe_placeholders=False,  # Needed for reconstruction
 )
 
+# TODO: remove these character sets
 CHAR_SPACE_AFTER = set(',~@<>="|?)]:')
 CHAR_SPACE_BEFORE = (CHAR_SPACE_AFTER - set(",=")) | set("'")
 KEYWORDS_SPACE_AFTER = [
@@ -67,6 +72,9 @@ def reverse_quotes_within_interpolation(s: str) -> str:
 
 
 def _add_extra_space(prev_item, item):
+    # TODO: remove this function once all rules are ported
+    return False
+
     # pylint: disable=too-many-boolean-expressions, too-many-return-statements
 
     ##### the scenarios where explicitly disallow spaces: #####
@@ -116,7 +124,7 @@ def _add_extra_space(prev_item, item):
     ##### otherwise, we don't add a space #####
     return False
 
-
+# TODO: remove this function after its logic is incorporated into the transformer
 def _postprocess_reconstruct(items):
     """
     Postprocess the stream of tokens derived from the AST during reconstruction.
@@ -161,16 +169,152 @@ def _postprocess_reconstruct(items):
         yield prev_item[1]
 
 
-class HCLReconstructor:
+class WriteTokensAndMetaTransformer(Transformer_InPlace):
+    """
+    Inserts discarded tokens into their correct place, according to the
+    rules of grammar, and annotates with metadata during reassembly.
+
+    This is a modification of lark.reconstruct.WriteTokensTransformer
+    """
+
+    tokens: Dict[str, TerminalDef]
+    term_subs: Dict[str, Callable[[Symbol], str]]
+
+    def __init__(
+        self,
+        tokens: Dict[str, TerminalDef],
+        term_subs: Dict[str, Callable[[Symbol], str]],
+    ) -> None:
+        self.tokens = tokens
+        self.term_subs = term_subs
+
+    def __default__(self, data, children, meta):
+        if not getattr(meta, "match_tree", False):
+            return Tree(data, children)
+
+        iter_args = iter(
+            [child[1] if isinstance(child, tuple) else child for child in children]
+        )
+        to_write = []
+        for sym in meta.orig_expansion:
+            if is_discarded_terminal(sym):
+                try:
+                    v = self.term_subs[sym.name](sym)
+                except KeyError:
+                    t = self.tokens[sym.name]
+                    if not isinstance(t.pattern, PatternStr):
+                        raise NotImplementedError(
+                            "Reconstructing regexps not supported yet: %s" % t
+                        )
+
+                    v = t.pattern.value
+
+                # annotate the leaf with the specific terminal it was generated from
+                to_write.append((sym, v))
+            else:
+                x = next(iter_args)
+                if isinstance(x, list):
+                    to_write += x
+                else:
+                    if isinstance(x, Token):
+                        assert Terminal(x.type) == sym, x
+                        # annotate the leaf with the specific terminal it was generated from
+                        to_write.append((sym, x))
+                    else:
+                        assert NonTerminal(x.data) == sym, (sym, x)
+                        to_write.append(x)
+
+        assert is_iter_empty(iter_args)
+        return to_write
+
+
+class HCLReconstructor(Reconstructor):
     """This class converts a Lark.Tree AST back into a string representing the underlying HCL code."""
-    def __init__(self, parser):
-        self._recons = Reconstructor(parser)
+
+    # track whether we outputted a space as the last character
+    last_char_space = True
+    last_terminal = None
+
+    def __init__(
+        self,
+        parser: Lark,
+        term_subs: Optional[Dict[str, Callable[[Symbol], str]]] = None,
+    ):
+        Reconstructor.__init__(self, parser, term_subs)
+
+        self.write_tokens = WriteTokensAndMetaTransformer(
+            {t.name: t for t in self.tokens}, term_subs or {}
+        )
+
+    def _should_add_space(self, current_terminal):
+        # we don't need to add multiple spaces
+        if self.last_char_space:
+            return False
+
+        # we don't add a space at the start of the file
+        if not self.last_terminal:
+            return False
+
+        # these terminals always have a space after them
+        if self.last_terminal in [Terminal("EQ")]:
+            return True
+
+        if self.last_terminal == Terminal("NAME") and current_terminal in [
+            # these terminals have a space before them if they come after a "NAME" terminal
+            Terminal("LBRACE"),
+            Terminal("STRING_LIT"),
+        ]:
+            return True
+
+        if self.last_terminal == Terminal("STRING_LIT") and current_terminal in [
+            # these terminals have a space before them if they come after a "STRING_LIT" terminal
+            Terminal("LBRACE"),
+        ]:
+            return True
+
+        # the catch-all case, we're not sure, so don't add a space
+        return False
+
+    def _reconstruct(self, tree):
+        unreduced_tree = self.match_tree(tree, tree.data)
+        res = self.write_tokens.transform(unreduced_tree)
+        for item in res:
+            # any time we encounter a child tree, we recurse
+            if isinstance(item, Tree):
+                yield from self._reconstruct(item)
+
+            # every leaf should be a tuple, which contains information about
+            # which terminal the leaf represents
+            elif isinstance(item, tuple):
+                terminal, value = item
+
+                # potentially add a space before the next token
+                if self._should_add_space(terminal):
+                    yield " "
+                    self.last_char_space = True
+
+                # print the next token
+                yield value
+
+                # do our bookkeeping so we can make an informed decision about
+                # spacing next time
+                self.last_terminal = terminal
+                if value and not value[-1].isspace():
+                    self.last_char_space = False
+
+            # otherwise, we just have a string
+            else:
+                raise RuntimeError(f"Unknown bare token type: {item}")
+                # yield item
+                # self.last_terminal = None
+                # if value and not value[-1].isspace():
+                #     self.last_char_space = False
 
     def reconstruct(self, tree):
         """Convert a Lark.Tree AST back into a string representation of HCL."""
-        return self._recons.reconstruct(
+        return Reconstructor.reconstruct(
+            self,
             tree,
-            _postprocess_reconstruct,
             insert_spaces=False,
         )
 
