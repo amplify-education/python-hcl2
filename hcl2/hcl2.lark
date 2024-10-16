@@ -22,7 +22,20 @@ conditional : expression "?" new_line_or_comment? expression new_line_or_comment
 binary_op : expression binary_term new_line_or_comment?
 !binary_operator : BINARY_OP
 binary_term : binary_operator new_line_or_comment? expression
-BINARY_OP : "==" | "!=" | "<" | ">" | "<=" | ">=" | "-" | "*" | "/" | "%" | "&&" | "||" | "+"
+BINARY_OP :  DOUBLE_EQ | NEQ | LT | GT | LEQ | GEQ | MINUS | ASTERISK | SLASH | PERCENT | DOUBLE_AMP | DOUBLE_PIPE | PLUS
+DOUBLE_EQ : "=="
+NEQ : "!="
+LT : "<"
+GT : ">"
+LEQ : "<="
+GEQ : ">="
+MINUS : "-"
+ASTERISK : "*"
+SLASH : "/"
+PERCENT : "%"
+DOUBLE_AMP : "&&"
+DOUBLE_PIPE : "||"
+PLUS : "+"
 
 expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
             | float_lit
@@ -77,8 +90,9 @@ get_attr : "." identifier
 attr_splat : ".*" get_attr*
 full_splat : "[*]" (get_attr | index)*
 
+ASSIGN : "=>"
 !for_tuple_expr : "[" new_line_or_comment? for_intro new_line_or_comment? expression new_line_or_comment? for_cond? new_line_or_comment? "]"
-!for_object_expr : "{" new_line_or_comment? for_intro new_line_or_comment? expression "=>" new_line_or_comment? expression "..."? new_line_or_comment? for_cond? new_line_or_comment? "}"
+!for_object_expr : "{" new_line_or_comment? for_intro new_line_or_comment? expression ASSIGN new_line_or_comment? expression "..."? new_line_or_comment? for_cond? new_line_or_comment? "}"
 !for_intro : "for" new_line_or_comment? identifier ("," identifier new_line_or_comment?)? new_line_or_comment? "in" new_line_or_comment? expression new_line_or_comment? ":" new_line_or_comment?
 !for_cond : "if" new_line_or_comment? expression
 
