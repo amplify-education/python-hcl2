@@ -58,6 +58,20 @@ NEVER_COMMA_BEFORE = set("])}")
 # characters that are OK to come right after an identifier with no space between
 IDENT_NO_SPACE = set("()[]")
 
+KEYWORDS = [
+    Terminal("IF"),
+    Terminal("IN"),
+    Terminal("FOR"),
+    Terminal("FOR_EACH"),
+]
+
+# space on both sides, generally
+BINARY_OPS = [
+    Terminal("QMARK"),
+    Terminal("BINARY_OP"),
+    Terminal("ASSIGN"),
+]
+
 
 # function to remove the backslashes within interpolated portions
 def reverse_quotes_within_interpolation(s: str) -> str:
@@ -191,9 +205,8 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
     def __default__(self, data, children, meta):
         if not getattr(meta, "match_tree", False):
             return Tree(data, children)
-
         iter_args = iter(
-            [child[1] if isinstance(child, tuple) else child for child in children]
+            [child[2] if isinstance(child, tuple) else child for child in children]
         )
         to_write = []
         for sym in meta.orig_expansion:
@@ -209,8 +222,9 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
 
                     v = t.pattern.value
 
-                # annotate the leaf with the specific terminal it was generated from
-                to_write.append((sym, v))
+                # annotate the leaf with the specific rule (data) and terminal
+                # (sym) it was generated from
+                to_write.append((data, sym, v))
             else:
                 x = next(iter_args)
                 if isinstance(x, list):
@@ -218,8 +232,9 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
                 else:
                     if isinstance(x, Token):
                         assert Terminal(x.type) == sym, x
-                        # annotate the leaf with the specific terminal it was generated from
-                        to_write.append((sym, x))
+                        # annotate the leaf with the specific rule (data) and
+                        # terminal (sym) it was generated from
+                        to_write.append((data, sym, x))
                     else:
                         assert NonTerminal(x.data) == sym, (sym, x)
                         to_write.append(x)
@@ -231,9 +246,15 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
 class HCLReconstructor(Reconstructor):
     """This class converts a Lark.Tree AST back into a string representing the underlying HCL code."""
 
-    # track whether we outputted a space as the last character
+    # these variables track state during reconstuction to enable us to make
+    # informed decisions about formatting our output.
+    #
+    # TODO: it's likely that we could do away with a lot of this tracking if we
+    # stored the nonterminal (rule) that each token was generated from... this
+    # is a project for later.
     last_char_space = True
     last_terminal = None
+    deferred_item = None
 
     def __init__(
         self,
@@ -246,7 +267,7 @@ class HCLReconstructor(Reconstructor):
             {t.name: t for t in self.tokens}, term_subs or {}
         )
 
-    def _should_add_space(self, current_terminal):
+    def _should_add_space(self, rule, current_terminal):
         # we don't need to add multiple spaces
         if self.last_char_space:
             return False
@@ -256,20 +277,88 @@ class HCLReconstructor(Reconstructor):
             return False
 
         # these terminals always have a space after them
-        if self.last_terminal in [Terminal("EQ")]:
+        if (
+            self.last_terminal
+            in [
+                Terminal("EQ"),
+                Terminal("COMMA"),
+            ]
+            + KEYWORDS
+            + BINARY_OPS
+        ):
             return True
 
-        if self.last_terminal == Terminal("NAME") and current_terminal in [
-            # these terminals have a space before them if they come after a "NAME" terminal
-            Terminal("LBRACE"),
+        # if we're in a ternary
+        if isinstance(rule, Token) and rule.value == "conditional":
+
+            # always add space before and after the colon
+            if self.last_terminal == Terminal("COLON") or current_terminal == Terminal(
+                "COLON"
+            ):
+                return True
+
+        # if we're in a block
+        if (isinstance(rule, Token) and rule.value == "block") or (
+            isinstance(rule, str) and re.match(r"^__block_(star|plus)_.*", rule)
+        ):
+            # always add space before the starting brace
+            if current_terminal == Terminal("LBRACE"):
+                return True
+
+            # always add space before the closing brace
+            if current_terminal == Terminal(
+                "RBRACE"
+            ) and self.last_terminal != Terminal("LBRACE"):
+                return True
+
+            # always add space between string literals
+            if current_terminal == Terminal("STRING_LIT"):
+                return True
+
+        # if (
+        #     self.last_terminal == Terminal("NAME")
+        #     and current_terminal
+        #     in [
+        #         # these terminals have a space before them if they come after a "NAME" terminal
+        #         Terminal("LBRACE"),
+        #         Terminal("STRING_LIT"),
+        #     ]
+        #     + KEYWORDS
+        #     + BINARY_OPS
+        # ):
+        #     return True
+
+        # TODO: remove these and replace with "rule aware" handling
+        if self.last_terminal == Terminal("COMMA") and current_terminal in [
+            # these terminals have a space before them if they come after a "COMMA" terminal
             Terminal("STRING_LIT"),
+            Terminal("DECIMAL"),
         ]:
             return True
 
         if self.last_terminal == Terminal("STRING_LIT") and current_terminal in [
             # these terminals have a space before them if they come after a "STRING_LIT" terminal
             Terminal("LBRACE"),
+            Terminal("STRING_LIT"),
+            Terminal("QMARK"),
         ]:
+            return True
+
+        if self.last_terminal == Terminal("LBRACE") and current_terminal in [
+            # these terminals have a space before them if they come after a "LBRACE" terminal
+            Terminal("NAME")
+        ]:
+            return True
+
+        # these terminals get space between them and binary ops
+        if (
+            self.last_terminal
+            in [
+                Terminal("RSQB"),
+                Terminal("RPAR"),
+            ]
+            and current_terminal in KEYWORDS + BINARY_OPS
+        ):
             return True
 
         # the catch-all case, we're not sure, so don't add a space
@@ -286,21 +375,61 @@ class HCLReconstructor(Reconstructor):
             # every leaf should be a tuple, which contains information about
             # which terminal the leaf represents
             elif isinstance(item, tuple):
-                terminal, value = item
+                rule, terminal, value = item
+                print(item)
+
+                # first, handle any deferred items
+                if self.deferred_item is not None:
+                    deferred_rule, deferred_terminal, deferred_value = (
+                        self.deferred_item
+                    )
+
+                    # if we deferred a comma and the next character ends a
+                    # parenthesis or block, we can throw it out
+                    if deferred_terminal == Terminal("COMMA") and terminal in [
+                        Terminal("RPAR"),
+                        Terminal("RBRACE"),
+                    ]:
+                        pass
+                    # in any other case, we print the deferred item
+                    else:
+                        yield deferred_value
+
+                        # and do our bookkeeping
+                        self.last_terminal = deferred_terminal
+                        if deferred_value and not deferred_value[-1].isspace():
+                            self.last_char_space = False
+
+                    # clear the deferred item
+                    self.deferred_item = None
 
                 # potentially add a space before the next token
-                if self._should_add_space(terminal):
+                if self._should_add_space(rule, terminal):
                     yield " "
                     self.last_char_space = True
 
-                # print the next token
-                yield value
+                # potentially defer the item if needs to be
+                if terminal in [Terminal("COMMA")]:
+                    self.deferred_item = item
+                else:
+                    # otherwise print the next token
+                    yield value
 
-                # do our bookkeeping so we can make an informed decision about
-                # spacing next time
-                self.last_terminal = terminal
-                if value and not value[-1].isspace():
-                    self.last_char_space = False
+                    # if we're in a ternary, we need to add a space after the colon:
+                    if (
+                        isinstance(rule, Token)
+                        and rule.value == "conditional"
+                        and terminal == Terminal("COLON")
+                    ):
+                        yield " "
+                        self.last_char_space = True
+
+                    # and do our bookkeeping so we can make an informed
+                    # decision about formatting next time
+
+                    self.last_terminal = terminal
+                    if value:
+                        self.last_char_space = value[-1].isspace()
 
             # otherwise, we just have a string
             else:
