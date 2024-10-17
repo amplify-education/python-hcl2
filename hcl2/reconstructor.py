@@ -28,50 +28,6 @@ hcl2 = Lark.open(
     maybe_placeholders=False,  # Needed for reconstruction
 )
 
-# TODO: remove these character sets
-CHAR_SPACE_AFTER = set(',~@<>="|?)]:')
-CHAR_SPACE_BEFORE = (CHAR_SPACE_AFTER - set(",=")) | set("'")
-KEYWORDS_SPACE_AFTER = [
-    "if",
-    "in",
-    "for",
-    "for_each",
-    "==",
-    "!=",
-    "<",
-    ">",
-    "<=",
-    ">=",
-    "-",
-    "*",
-    "/",
-    "%",
-    "&&",
-    "||",
-    "+",
-]
-KEYWORDS_SPACE_BEFORE = KEYWORDS_SPACE_AFTER
-DIGITS = set("0123456789")
-NEVER_SPACE_AFTER = set("[(")
-NEVER_SPACE_BEFORE = set("]),.")
-NEVER_COMMA_BEFORE = set("])}")
-# characters that are OK to come right after an identifier with no space between
-IDENT_NO_SPACE = set("()[]")
-
-KEYWORDS = [
-    Terminal("IF"),
-    Terminal("IN"),
-    Terminal("FOR"),
-    Terminal("FOR_EACH"),
-]
-
-# space on both sides, generally
-BINARY_OPS = [
-    Terminal("QMARK"),
-    Terminal("BINARY_OP"),
-    Terminal("ASSIGN"),
-]
-
 
 # function to remove the backslashes within interpolated portions
 def reverse_quotes_within_interpolation(s: str) -> str:
@@ -85,108 +41,12 @@ def reverse_quotes_within_interpolation(s: str) -> str:
     return re.sub(r"\$\{(.*)\}", lambda m: m.group(0).replace('\\"', '"'), s)
 
 
-def _add_extra_space(prev_item, item):
-    # TODO: remove this function once all rules are ported
-    return False
-
-    # pylint: disable=too-many-boolean-expressions, too-many-return-statements
-
-    ##### the scenarios where explicitly disallow spaces: #####
-
-    # if we already have a space, don't add another
-    if prev_item[-1].isspace() or item[0].isspace():
-        return False
-
-    # none of the following should be separated by spaces:
-    # - groups of digits
-    # - namespaced::function::calls
-    # - characters within an identifier like array[0]()
-    if (
-        (prev_item[-1] in DIGITS and item[0] in DIGITS)
-        or item == "::"
-        or prev_item == "::"
-        or (prev_item[-1] in IDENT_NO_SPACE and item[0] in IDENT_NO_SPACE)
-    ):
-        return False
-
-    # specific characters are also blocklisted from having spaces
-    if prev_item[-1] in NEVER_SPACE_AFTER or item[0] in NEVER_SPACE_BEFORE:
-        return False
-
-    ##### the scenarios where we add spaces: #####
-
-    # scenario 1, the prev token ended with an identifier character
-    # and the next character is not an "IDENT_NO_SPACE" character
-    if is_id_continue(prev_item[-1]) and not item[0] in IDENT_NO_SPACE:
-        return True
-
-    # scenario 2, the prev token or the next token should be followed by a space
-    if (
-        prev_item[-1] in CHAR_SPACE_AFTER
-        or prev_item in KEYWORDS_SPACE_AFTER
-        or item[0] in CHAR_SPACE_BEFORE
-        or item in KEYWORDS_SPACE_BEFORE
-    ):
-        return True
-
-    # scenario 3, the previous token was a block opening brace and
-    # the next token is not a closing brace (so the block is on one
-    # line and not empty)
-    if prev_item[-1] == "{" and item[0] != "}":
-        return True
-
-    ##### otherwise, we don't add a space #####
-    return False
-
-# TODO: remove this function after its logic is incorporated into the transformer
-def _postprocess_reconstruct(items):
-    """
-    Postprocess the stream of tokens derived from the AST during reconstruction.
-
-    For HCL2, this is used exclusively for adding whitespace in the right locations.
-    """
-    prev_item = ""
-    for item in items:
-        # first, handle any deferred tokens
-        if isinstance(prev_item, tuple) and prev_item[0] == "_deferred":
-            prev_item = prev_item[1]
-
-            # if the deferred token was a comma, see if we're ending a block
-            if prev_item == ",":
-                if item[0] not in NEVER_COMMA_BEFORE:
-                    yield prev_item
-            else:
-                yield prev_item
-
-        # if we're between two tokens, determine if we need to add an extra space
-        # we need the previous item and the current item to exist to evaluate these rules
-        if prev_item and item and _add_extra_space(prev_item, item):
-            yield " "
-
-        # in some cases, we may want to defer printing the next token
-        defer_item = False
-
-        # prevent the inclusion of extra commas if they are not intended
-        if item[0] == ",":
-            item = ("_deferred", item)
-            defer_item = True
-
-        # print the actual token
-        if not defer_item:
-            yield item
-
-        # store the previous item for the next token
-        prev_item = item
-
-    # if the last token was deferred, print it before continuing
-    if isinstance(prev_item, tuple) and prev_item[0] == "_deferred":
-        yield prev_item[1]
-
-
 class WriteTokensAndMetaTransformer(Transformer_InPlace):
     """
-    Inserts discarded tokens into their correct place, according to the
-    rules of grammar, and annotates with metadata during reassembly.
+    Inserts discarded tokens into their correct place, according to the rules
+    of grammar, and annotates with metadata during reassembly. The metadata
+    tracked here include the terminal which generated a particular string
+    output, and the rule that that terminal was matched on.
 
     This is a modification of lark.reconstruct.WriteTokensTransformer
     """
@@ -203,6 +63,10 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
         self.term_subs = term_subs
 
     def __default__(self, data, children, meta):
+        """
+        This method is called for every token the transformer visits.
+        """
+
         if not getattr(meta, "match_tree", False):
             return Tree(data, children)
         iter_args = iter(
@@ -247,13 +111,11 @@ class HCLReconstructor(Reconstructor):
     """This class converts a Lark.Tree AST back into a string representing the underlying HCL code."""
 
     # these variables track state during reconstuction to enable us to make
-    # informed decisions about formatting our output.
-    #
-    # TODO: it's likely that we could do away with a lot of this tracking if we
-    # stored the nonterminal (rule) that each token was generated from... this
-    # is a project for later.
+    # informed decisions about formatting our output. They are primarily used
+    # by the _should_add_space(...) method.
     last_char_space = True
     last_terminal = None
+    last_rule = None
     deferred_item = None
 
     def __init__(
@@ -267,35 +129,120 @@ class HCLReconstructor(Reconstructor):
             {t.name: t for t in self.tokens}, term_subs or {}
         )
 
+    # space around these terminals if they're within for or if statements
+    FOR_IF_KEYWORDS = [
+        Terminal("IF"),
+        Terminal("IN"),
+        Terminal("FOR"),
+        Terminal("FOR_EACH"),
+        Terminal("FOR_OBJECT_ARROW"),
+        Terminal("COLON"),
+    ]
+
+    # space on both sides, in ternaries and binary operators
+    BINARY_OPS = [
+        Terminal("QMARK"),
+        Terminal("COLON"),
+        Terminal("BINARY_OP"),
+    ]
+
     def _should_add_space(self, rule, current_terminal):
+        """
+        This method documents the situations in which we add space around
+        certain tokens while reconstructing the generated Terraform.
+
+        Additional rules can be added here if the generated Terraform has
+        improper whitespace (affecting parse OR affecting ability to perfectly
+        reconstruct a file down to the whitespace level.)
+
+        It has the following information available to make its decision:
+
+          - the last token (terminal) we output
+          - the last rule that token belonged to
+          - the current token (terminal) we're about to output
+          - the rule the current token belongs to
+
+        This should be sufficient to make a spacing decision.
+        """
         # we don't need to add multiple spaces
         if self.last_char_space:
             return False
 
         # we don't add a space at the start of the file
-        if not self.last_terminal:
+        if not self.last_terminal or not self.last_rule:
             return False
 
-        # these terminals always have a space after them
+        # always add a space after the equals sign in an attribute
         if (
-            self.last_terminal
-            in [
-                Terminal("EQ"),
-                Terminal("COMMA"),
-            ]
-            + KEYWORDS
-            + BINARY_OPS
+            isinstance(self.last_rule, Token)
+            and self.last_rule.value == "attribute"
+            and self.last_terminal == Terminal("EQ")
+            and current_terminal != Terminal("NL_OR_COMMENT")
         ):
             return True
 
-        # if we're in a ternary
-        if isinstance(rule, Token) and rule.value == "conditional":
+        # always add a space after the equals sign in an object
+        if (
+            isinstance(self.last_rule, Token)
+            and self.last_rule.value == "object_elem"
+            and self.last_terminal == Terminal("EQ")
+            and current_terminal != Terminal("NL_OR_COMMENT")
+        ):
+            return True
 
-            # always add space before and after the colon
-            if self.last_terminal == Terminal("COLON") or current_terminal == Terminal(
-                "COLON"
-            ):
-                return True
+        # if we're in a ternary or binary operator, add space around the operator
+        if (
+            isinstance(rule, Token)
+            and rule.value
+            in [
+                "conditional",
+                "binary_operator",
+            ]
+            and current_terminal in self.BINARY_OPS
+        ):
+            return True
+
+        # if we just left a ternary or binary operator, add space around the
+        # operator unless there's a newline already
+        if (
+            isinstance(self.last_rule, Token)
+            and self.last_rule.value
+            in [
+                "conditional",
+                "binary_operator",
+            ]
+            and self.last_terminal in self.BINARY_OPS
+            and current_terminal != Terminal("NL_OR_COMMENT")
+        ):
+            return True
+
+        # if we're in a for or if statement and find a keyword, add a space
+        if (
+            isinstance(rule, Token)
+            and rule.value
+            in [
+                "for_object_expr",
+                "for_cond",
+                "for_intro",
+            ]
+            and current_terminal in self.FOR_IF_KEYWORDS
+        ):
+            return True
+
+        # if we've just left a for or if statement and find a keyword, add a
+        # space, unless we have a newline
+        if (
+            isinstance(self.last_rule, Token)
+            and self.last_rule.value
+            in [
+                "for_object_expr",
+                "for_cond",
+                "for_intro",
+            ]
+            and self.last_terminal in self.FOR_IF_KEYWORDS
+            and current_terminal != Terminal("NL_OR_COMMENT")
+        ):
+            return True
 
         # if we're in a block
         if (isinstance(rule, Token) and rule.value == "block") or (
@@ -315,51 +262,30 @@ class HCLReconstructor(Reconstructor):
             if current_terminal == Terminal("STRING_LIT"):
                 return True
 
-        # if (
-        #     self.last_terminal == Terminal("NAME")
-        #     and current_terminal
-        #     in [
-        #         # these terminals have a space before them if they come after a "NAME" terminal
-        #         Terminal("LBRACE"),
-        #         Terminal("STRING_LIT"),
-        #     ]
-        #     + KEYWORDS
-        #     + BINARY_OPS
-        # ):
-        #     return True
-
-        # TODO: remove these and replace with "rule aware" handling
-        if self.last_terminal == Terminal("COMMA") and current_terminal in [
-            # these terminals have a space before them if they come after a "COMMA" terminal
-            Terminal("STRING_LIT"),
-            Terminal("DECIMAL"),
-        ]:
-            return True
-
-        if self.last_terminal == Terminal("STRING_LIT") and current_terminal in [
-            # these terminals have a space before them if they come after a "STRING_LIT" terminal
-            Terminal("LBRACE"),
-            Terminal("STRING_LIT"),
-            Terminal("QMARK"),
-        ]:
-            return True
-
-        if self.last_terminal == Terminal("LBRACE") and current_terminal in [
-            # these terminals have a space before them if they come after a "LBRACE" terminal
-            Terminal("NAME")
-        ]:
-            return True
-
-        # these terminals get space between them and binary ops
+        # if we just opened a block, add a space, unless the block is empty
+        # or has a newline
         if (
-            self.last_terminal
-            in [
-                Terminal("RSQB"),
-                Terminal("RPAR"),
-            ]
-            and current_terminal in KEYWORDS + BINARY_OPS
+            isinstance(self.last_rule, Token)
+            and self.last_rule.value == "block"
+            and self.last_terminal == Terminal("LBRACE")
+            and current_terminal not in [Terminal("RBRACE"), Terminal("NL_OR_COMMENT")]
         ):
             return True
+
+        # if we're in a tuple or function arguments (this rule matches commas between items)
+        if isinstance(self.last_rule, str) and re.match(
+            r"^__(tuple|arguments)_(star|plus)_.*", self.last_rule
+        ):
+
+            # string literals, decimals, and identifiers should always be
+            # preceeded by a space if they're following a comma in a tuple or
+            # function arg
+            if current_terminal in [
+                Terminal("STRING_LIT"),
+                Terminal("DECIMAL"),
+                Terminal("NAME"),
+            ]:
+                return True
 
         # the catch-all case, we're not sure, so don't add a space
         return False
@@ -376,7 +302,6 @@ class HCLReconstructor(Reconstructor):
             # which terminal the leaf represents
             elif isinstance(item, tuple):
                 rule, terminal, value = item
-                print(item)
 
                 # first, handle any deferred items
                 if self.deferred_item is not None:
@@ -397,6 +322,7 @@ class HCLReconstructor(Reconstructor):
 
                         # and do our bookkeeping
                         self.last_terminal = deferred_terminal
+                        self.last_rule = deferred_rule
                         if deferred_value and not deferred_value[-1].isspace():
                             self.last_char_space = False
 
@@ -415,29 +341,15 @@ class HCLReconstructor(Reconstructor):
                     # otherwise print the next token
                     yield value
 
-                    # if we're in a ternary, we need to add a space after the colon:
-                    if (
-                        isinstance(rule, Token)
-                        and rule.value == "conditional"
-                        and terminal == Terminal("COLON")
-                    ):
-                        yield " "
-                        self.last_char_space = True
-
                     # and do our bookkeeping so we can make an informed
                     # decision about formatting next time
-
                     self.last_terminal = terminal
+                    self.last_rule = rule
                     if value:
                         self.last_char_space = value[-1].isspace()
 
-            # otherwise, we just have a string
             else:
                 raise RuntimeError(f"Unknown bare token type: {item}")
-                # yield item
-                # self.last_terminal = None
-                # if value and not value[-1].isspace():
-                #     self.last_char_space = False
 
     def reconstruct(self, tree):
         """Convert a Lark.Tree AST back into a string representation of HCL."""
@@ -449,6 +361,10 @@ class HCLReconstructor(Reconstructor):
 
 
 class HCLReverseTransformer:
+    """
+    The reverse of hcl2.transformer.DictTransformer. This method attempts to
+    convert a dict back into a working AST, which can be written back out.
+    """
     def __init__(self):
         pass
 
