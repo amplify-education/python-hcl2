@@ -9,7 +9,6 @@ from lark.grammar import Terminal, NonTerminal, Symbol
 from lark.lexer import Token, PatternStr, TerminalDef
 from lark.reconstruct import Reconstructor, is_iter_empty
 from lark.tree_matcher import is_discarded_terminal
-from lark.utils import is_id_continue
 from lark.visitors import Transformer_InPlace
 
 # this is duplicated from `parser` because we need different options here for
@@ -30,7 +29,7 @@ hcl2 = Lark.open(
 
 
 # function to remove the backslashes within interpolated portions
-def reverse_quotes_within_interpolation(s: str) -> str:
+def reverse_quotes_within_interpolation(interp_s: str) -> str:
     """
     A common operation is to `json.dumps(s)` where s is a string to output in
     Terraform. This is useful for automatically escaping any quotes within the
@@ -38,7 +37,7 @@ def reverse_quotes_within_interpolation(s: str) -> str:
     method removes any erroneous escapes within interpolated segments of a
     string.
     """
-    return re.sub(r"\$\{(.*)\}", lambda m: m.group(0).replace('\\"', '"'), s)
+    return re.sub(r"\$\{(.*)\}", lambda m: m.group(0).replace('\\"', '"'), interp_s)
 
 
 class WriteTokensAndMetaTransformer(Transformer_InPlace):
@@ -76,32 +75,32 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
         for sym in meta.orig_expansion:
             if is_discarded_terminal(sym):
                 try:
-                    v = self.term_subs[sym.name](sym)
-                except KeyError:
-                    t = self.tokens[sym.name]
-                    if not isinstance(t.pattern, PatternStr):
+                    value = self.term_subs[sym.name](sym)
+                except KeyError as exc:
+                    token = self.tokens[sym.name]
+                    if not isinstance(token.pattern, PatternStr):
                         raise NotImplementedError(
-                            "Reconstructing regexps not supported yet: %s" % t
-                        )
+                            f"Reconstructing regexps not supported yet: {token}"
+                        ) from exc
 
-                    v = t.pattern.value
+                    value = token.pattern.value
 
                 # annotate the leaf with the specific rule (data) and terminal
                 # (sym) it was generated from
-                to_write.append((data, sym, v))
+                to_write.append((data, sym, value))
             else:
-                x = next(iter_args)
-                if isinstance(x, list):
-                    to_write += x
+                item = next(iter_args)
+                if isinstance(item, list):
+                    to_write += item
                 else:
-                    if isinstance(x, Token):
-                        assert Terminal(x.type) == sym, x
+                    if isinstance(item, Token):
+                        assert Terminal(item.type) == sym, item
                         # annotate the leaf with the specific rule (data) and
                         # terminal (sym) it was generated from
-                        to_write.append((data, sym, x))
+                        to_write.append((data, sym, item))
                     else:
-                        assert NonTerminal(x.data) == sym, (sym, x)
-                        to_write.append(x)
+                        assert NonTerminal(item.data) == sym, (sym, item)
+                        to_write.append(item)
 
         assert is_iter_empty(iter_args)
         return to_write
@@ -126,7 +125,7 @@ class HCLReconstructor(Reconstructor):
         Reconstructor.__init__(self, parser, term_subs)
 
         self.write_tokens = WriteTokensAndMetaTransformer(
-            {t.name: t for t in self.tokens}, term_subs or {}
+            {token.name: token for token in self.tokens}, term_subs or {}
         )
 
     # space around these terminals if they're within for or if statements
@@ -146,6 +145,7 @@ class HCLReconstructor(Reconstructor):
         Terminal("BINARY_OP"),
     ]
 
+    # pylint: disable=too-many-branches, too-many-return-statements
     def _should_add_space(self, rule, current_terminal):
         """
         This method documents the situations in which we add space around
@@ -351,12 +351,13 @@ class HCLReconstructor(Reconstructor):
             else:
                 raise RuntimeError(f"Unknown bare token type: {item}")
 
-    def reconstruct(self, tree):
+    def reconstruct(self, tree, postproc=None, insert_spaces=False):
         """Convert a Lark.Tree AST back into a string representation of HCL."""
         return Reconstructor.reconstruct(
             self,
             tree,
-            insert_spaces=False,
+            postproc,
+            insert_spaces,
         )
 
 
@@ -368,30 +369,31 @@ class HCLReverseTransformer:
     def __init__(self):
         pass
 
-    def transform(self, d: dict) -> Tree:
+    def transform(self, hcl_dict: dict) -> Tree:
+        """Given a dict, return a Lark.Tree representing the HCL AST."""
         level = 0
-        body = self._transform_dict_to_body(d, level)
+        body = self._transform_dict_to_body(hcl_dict, level)
         start = Tree(Token("RULE", "start"), [body])
         return start
 
-    def _NL(self, level: int, comma: bool = False) -> Tree:
+    def _newline(self, level: int, comma: bool = False) -> Tree:
         # some rules expect the `new_line_and_or_comma` token
         if comma:
             return Tree(
                 Token("RULE", "new_line_and_or_comma"),
-                [self._NL(level=level, comma=False)],
+                [self._newline(level=level, comma=False)],
             )
+
         # otherwise, return the `new_line_or_comment` token
-        else:
-            return Tree(
-                Token("RULE", "new_line_or_comment"),
-                [Token("NL_OR_COMMENT", f"\n{'  ' * level}")],
-            )
+        return Tree(
+            Token("RULE", "new_line_or_comment"),
+            [Token("NL_OR_COMMENT", f"\n{'  ' * level}")],
+        )
 
     # rules: the value of a block is always an array of dicts,
     # the key is the block type
-    def _list_is_a_block(self, v: list) -> bool:
-        for obj in v:
+    def _list_is_a_block(self, value: list) -> bool:
+        for obj in value:
             if not self._dict_is_a_block(obj):
                 return False
 
@@ -424,55 +426,58 @@ class HCLReverseTransformer:
         # block, the array is just an array of objects, not a block
         return False
 
-    def _block_has_label(self, b: dict) -> bool:
-        return len(b.keys()) == 1
+    def _block_has_label(self, block: dict) -> bool:
+        return len(block.keys()) == 1
 
-    def _calculate_block_labels(self, b: dict) -> List[str]:
+    def _calculate_block_labels(self, block: dict) -> List[str]:
         # if b doesn't have a label
-        if len(b.keys()) != 1:
-            return ([], b)
+        if len(block.keys()) != 1:
+            return ([], block)
 
         # otherwise, find the label
-        curr_label = list(b)[0]
-        potential_body = b[curr_label]
+        curr_label = list(block)[0]
+        potential_body = block[curr_label]
+
+        # __start_line__ and __end_line__ metadata are not labels
         if (
             "__start_line__" in potential_body.keys()
             or "__end_line__" in potential_body.keys()
         ):
             return ([curr_label], potential_body)
-        else:
-            next_label, block_body = self._calculate_block_labels(potential_body)
-            return ([curr_label] + next_label, block_body)
+
+        # recurse and append the label
+        next_label, block_body = self._calculate_block_labels(potential_body)
+        return ([curr_label] + next_label, block_body)
 
     def _name_to_identifier(self, name: str) -> Tree:
         return Tree(Token("RULE", "identifier"), [Token("NAME", name)])
 
-    def _escape_interpolated_str(self, s: str) -> str:
+    def _escape_interpolated_str(self, interp_s: str) -> str:
         # begin by doing basic JSON string escaping, to add backslashes
-        s = json.dumps(s)
+        interp_s = json.dumps(interp_s)
 
         # find each interpolation within the string and remove the backslashes
-        s = reverse_quotes_within_interpolation(s)
-        return s
+        interp_s = reverse_quotes_within_interpolation(interp_s)
+        return interp_s
 
-    def _transform_dict_to_body(self, d: dict, level: int) -> List[Tree]:
+    def _transform_dict_to_body(self, hcl_dict: dict, level: int) -> List[Tree]:
         # we add a newline at the top of a body within a block, not the root body
         if level > 0:
-            children = [self._NL(level)]
+            children = [self._newline(level)]
         else:
             children = []
 
         # iterate thru each attribute or sub-block of this block
-        for k, v in d.items():
-            if k in ["__start_line__", "__end_line__"]:
+        for key, value in hcl_dict.items():
+            if key in ["__start_line__", "__end_line__"]:
                 continue
 
             # construct the identifier, whether that be a block type name or an attribute key
-            identifier_name = self._name_to_identifier(k)
+            identifier_name = self._name_to_identifier(key)
 
             # first, check whether the value is a "block"
-            if isinstance(v, list) and self._list_is_a_block(v):
-                for block_v in v:
+            if isinstance(value, list) and self._list_is_a_block(value):
+                for block_v in value:
                     block_labels, block_body_dict = self._calculate_block_labels(
                         block_v
                     )
@@ -490,17 +495,17 @@ class HCLReverseTransformer:
                         [identifier_name] + block_label_tokens + [block_body],
                     )
                     children.append(block)
-                    children.append(self._NL(level))
+                    children.append(self._newline(level))
 
             # if the value isn't a block, it's an attribute
             else:
-                expr_term = self._transform_value_to_expr_term(v, level)
+                expr_term = self._transform_value_to_expr_term(value, level)
                 attribute = Tree(
                     Token("RULE", "attribute"),
                     [identifier_name, Token("EQ", " ="), expr_term],
                 )
                 children.append(attribute)
-                children.append(self._NL(level))
+                children.append(self._newline(level))
 
         # since we're leaving a block body here, reduce the indentation of the
         # final newline if it exists
@@ -510,11 +515,11 @@ class HCLReverseTransformer:
             and children[-1].data.type == "RULE"
             and children[-1].data.value == "new_line_or_comment"
         ):
-            children[-1] = self._NL(level - 1)
+            children[-1] = self._newline(level - 1)
 
         return Tree(Token("RULE", "body"), children)
 
-    def _transform_value_to_expr_term(self, v, level) -> Token:
+    def _transform_value_to_expr_term(self, value, level) -> Token:
         """Transforms a value from a dictionary into an "expr_term" (a value in HCL2)
 
         Anything passed to this function is treated "naively". Any lists passed
@@ -525,17 +530,21 @@ class HCLReverseTransformer:
 
         # for lists, recursively turn the child elements into expr_terms and
         # store within a tuple
-        if isinstance(v, list):
+        if isinstance(value, list):
             tuple_tree = Tree(
                 Token("RULE", "tuple"),
-                [self._transform_value_to_expr_term(tuple_v, level) for tuple_v in v],
+                [
+                    self._transform_value_to_expr_term(tuple_v, level)
+                    for tuple_v in value
+                ],
             )
             return Tree(Token("RULE", "expr_term"), [tuple_tree])
+
         # for dicts, recursively turn the child k/v pairs into object elements
         # and store within an object
-        elif isinstance(v, dict):
+        if isinstance(value, dict):
             elems = []
-            for k, dict_v in v.items():
+            for k, dict_v in value.items():
                 if k in ["__start_line__", "__end_line__"]:
                     continue
                 identifier = self._name_to_identifier(k)
@@ -546,40 +555,44 @@ class HCLReverseTransformer:
                         [identifier, Token("EQ", " ="), value_expr_term],
                     )
                 )
-                elems.append(self._NL(level, comma=True))
+                elems.append(self._newline(level, comma=True))
             return Tree(
                 Token("RULE", "expr_term"), [Tree(Token("RULE", "object"), elems)]
             )
+
         # treat booleans appropriately
-        elif isinstance(v, bool):
+        if isinstance(value, bool):
             return Tree(
                 Token("RULE", "expr_term"),
                 [
                     Tree(
                         Token("RULE", "identifier"),
-                        [Token("NAME", "true" if v else "false")],
+                        [Token("NAME", "true" if value else "false")],
                     )
                 ],
             )
+
         # store integers as literals, digit by digit
-        elif isinstance(v, int):
+        if isinstance(value, int):
             return Tree(
                 Token("RULE", "expr_term"),
                 [
                     Tree(
                         Token("RULE", "int_lit"),
-                        [Token("DECIMAL", digit) for digit in str(v)],
+                        [Token("DECIMAL", digit) for digit in str(value)],
                     )
                 ],
             )
+
         # store strings as single literals
-        elif isinstance(v, str):
+        if isinstance(value, str):
             return Tree(
                 Token("RULE", "expr_term"),
-                [Token("STRING_LIT", self._escape_interpolated_str(v))],
+                [Token("STRING_LIT", self._escape_interpolated_str(value))],
             )
-        else:
-            raise Exception(f"Unknown type to transform {type(v)}")
+
+        # otherwise, we don't know the type
+        raise RuntimeError(f"Unknown type to transform {type(value)}")
 
 
 hcl2_reconstructor = HCLReconstructor(hcl2)
