@@ -332,21 +332,21 @@ class DictTransformer(Transformer):
         for use in function calls and ${interpolation} strings
         """
         if isinstance(value, dict):
-            v = json.dumps(value)
-            return reverse_quotes_within_interpolation(v)
-        elif isinstance(value, list):
+            dict_v = json.dumps(value)
+            return reverse_quotes_within_interpolation(dict_v)
+        if isinstance(value, list):
             value = [self.to_tf_inline(item) for item in value]
             return f"[{', '.join(value)}]"
-        elif isinstance(value, bool):
+        if isinstance(value, bool):
             return "true" if value else "false"
-        elif isinstance(value, str):
+        if isinstance(value, str):
             return value
-        elif isinstance(value, int):
+        if isinstance(value, int):
             return str(value)
-        else:
-            raise RuntimeError(
-                f"Invalid type to convert to inline Terraform: {type(value)}"
-            )
+
+        raise RuntimeError(
+            f"Invalid type to convert to inline Terraform: {type(value)}"
+        )
 
     def identifier(self, value: Any) -> Any:
         # Making identifier a token by capitalizing it to IDENTIFIER

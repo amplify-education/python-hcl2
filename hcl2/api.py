@@ -56,7 +56,7 @@ def transform(ast: AST, with_meta=False) -> dict:
     return DictTransformer(with_meta=with_meta).transform(ast)
 
 
-def reverse_transform(dict: dict) -> AST:
+def reverse_transform(hcl2_dict: dict) -> AST:
     """Convert a dictionary to an HCL2 AST.
     :param dict: a dictionary produced by `load` or `transform`
     """
@@ -66,7 +66,7 @@ def reverse_transform(dict: dict) -> AST:
         hcl2_reverse_transformer,
     )
 
-    return hcl2_reverse_transformer.transform(dict)
+    return hcl2_reverse_transformer.transform(hcl2_dict)
 
 
 def writes(ast: AST) -> str:
