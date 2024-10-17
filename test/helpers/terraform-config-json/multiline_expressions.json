@@ -49,7 +49,7 @@
     {
       "some_var2": {
         "description": "description",
-        "default": "${concat([{'1': '1'}], [{'2': '2'}])}"
+        "default": "${concat([{\"1\": \"1\"}], [{\"2\": \"2\"}])}"
       }
     }
   ]
