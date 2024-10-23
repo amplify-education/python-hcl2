@@ -328,7 +328,7 @@ class DictTransformer(Transformer):
 
     def to_tf_inline(self, value: any) -> str:
         """
-        Converts complex objects (e.g.) dicts to an "inline" Terraform syntax
+        Converts complex objects (e.g.) dicts to an "inline" HCL syntax
         for use in function calls and ${interpolation} strings
         """
         if isinstance(value, dict):
@@ -344,9 +344,7 @@ class DictTransformer(Transformer):
         if isinstance(value, int):
             return str(value)
 
-        raise RuntimeError(
-            f"Invalid type to convert to inline Terraform: {type(value)}"
-        )
+        raise RuntimeError(f"Invalid type to convert to inline HCL: {type(value)}")
 
     def identifier(self, value: Any) -> Any:
         # Making identifier a token by capitalizing it to IDENTIFIER

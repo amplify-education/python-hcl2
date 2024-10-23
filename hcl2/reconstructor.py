@@ -32,7 +32,7 @@ hcl2 = Lark.open(
 def reverse_quotes_within_interpolation(interp_s: str) -> str:
     """
     A common operation is to `json.dumps(s)` where s is a string to output in
-    Terraform. This is useful for automatically escaping any quotes within the
+    HCL. This is useful for automatically escaping any quotes within the
     string, but this escapes quotes within interpolation incorrectly. This
     method removes any erroneous escapes within interpolated segments of a
     string.
@@ -149,9 +149,9 @@ class HCLReconstructor(Reconstructor):
     def _should_add_space(self, rule, current_terminal):
         """
         This method documents the situations in which we add space around
-        certain tokens while reconstructing the generated Terraform.
+        certain tokens while reconstructing the generated HCL.
 
-        Additional rules can be added here if the generated Terraform has
+        Additional rules can be added here if the generated HCL has
         improper whitespace (affecting parse OR affecting ability to perfectly
         reconstruct a file down to the whitespace level.)
 
@@ -449,7 +449,31 @@ class HCLReverseTransformer:
         next_label, block_body = self._calculate_block_labels(potential_body)
         return ([curr_label] + next_label, block_body)
 
+    def _is_string_wrapped_tf(self, interp_s: str) -> bool:
+        """
+        Determines whether a string is a complex HCL datastructure
+        wrapped in ${ interpolation } characters.
+        """
+        if not interp_s.startswith("${") or not interp_s.endswith("}"):
+            return False
+
+        nested_tokens = []
+        for match in re.finditer(r"\$?\{|\}", interp_s):
+            if match.group(0) in ["${", "{"]:
+                nested_tokens.append(match.group(0))
+            elif match.group(0) == "}":
+                nested_tokens.pop()
+
+            # if we exit ${ interpolation } before the end of the string,
+            # this interpolated string has string parts and can't represent
+            # a valid HCL expression on its own (without quotes)
+            if len(nested_tokens) == 0 and match.end() != len(interp_s):
+                return False
+
+        return True
+
     def _name_to_identifier(self, name: str) -> Tree:
+        """Converts a string to a NAME token within an identifier rule."""
         return Tree(Token("RULE", "identifier"), [Token("NAME", name)])
 
     def _escape_interpolated_str(self, interp_s: str) -> str:
@@ -462,7 +486,8 @@ class HCLReverseTransformer:
 
     def _transform_dict_to_body(self, hcl_dict: dict, level: int) -> List[Tree]:
         # we add a newline at the top of a body within a block, not the root body
-        if level > 0:
+        # >2 here is to ignore the __start_line__ and __end_line__ metadata
+        if level > 0 and len(hcl_dict) > 2:
             children = [self._newline(level)]
         else:
             children = []
@@ -519,6 +544,7 @@ class HCLReverseTransformer:
 
         return Tree(Token("RULE", "body"), children)
 
+    # pylint: disable=too-many-branches, too-many-return-statements
     def _transform_value_to_expr_term(self, value, level) -> Token:
         """Transforms a value from a dictionary into an "expr_term" (a value in HCL2)
 
@@ -544,18 +570,29 @@ class HCLReverseTransformer:
         # and store within an object
         if isinstance(value, dict):
             elems = []
-            for k, dict_v in value.items():
+
+            # if the object has elements, put it on a newline
+            if len(value) > 0:
+                elems.append(self._newline(level + 1))
+
+            # iterate thru the items and add them to the object
+            for i, (k, dict_v) in enumerate(value.items()):
                 if k in ["__start_line__", "__end_line__"]:
                     continue
                 identifier = self._name_to_identifier(k)
-                value_expr_term = self._transform_value_to_expr_term(dict_v, level)
+                value_expr_term = self._transform_value_to_expr_term(dict_v, level + 1)
                 elems.append(
                     Tree(
                         Token("RULE", "object_elem"),
                         [identifier, Token("EQ", " ="), value_expr_term],
                     )
                 )
-                elems.append(self._newline(level, comma=True))
+
+                # add indentation appropriately
+                if i < len(value) - 1:
+                    elems.append(self._newline(level + 1, comma=True))
+                else:
+                    elems.append(self._newline(level, comma=True))
             return Tree(
                 Token("RULE", "expr_term"), [Tree(Token("RULE", "object"), elems)]
             )
@@ -586,6 +623,28 @@ class HCLReverseTransformer:
 
         # store strings as single literals
         if isinstance(value, str):
+            # potentially unpack a complex syntax structure
+            if self._is_string_wrapped_tf(value):
+                # we have to unpack it by parsing it
+                wrapped_value = re.match(r"\$\{(.*)\}", value).group(1)
+                ast = hcl2.parse(f"value = {wrapped_value}")
+
+                assert ast.data == Token("RULE", "start")
+                body = ast.children[0]
+                assert body.data == Token("RULE", "body")
+                attribute = body.children[0]
+                assert attribute.data == Token("RULE", "attribute")
+                assert attribute.children[1] == Token("EQ", " =")
+                parsed_value = attribute.children[2]
+                assert isinstance(parsed_value, Tree)
+
+                if parsed_value.data == Token("RULE", "expr_term"):
+                    return parsed_value
+
+                # wrap other types of syntax as an expression (in parenthesis)
+                return Tree(Token("RULE", "expr_term"), [parsed_value])
+
+            # otherwise it's just a string.
             return Tree(
                 Token("RULE", "expr_term"),
                 [Token("STRING_LIT", self._escape_interpolated_str(value))],

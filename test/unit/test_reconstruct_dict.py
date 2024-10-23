@@ -22,36 +22,22 @@ class TestReconstruct(TestCase):
 
     def test_write_terraform(self):
         """Test reconstructing a set of hcl2 files, to make sure they parse to the same structure"""
+
+        # the reconstruction process is not precise, so some files do not
+        # reconstruct any embedded HCL expressions exactly the same. this
+        # list captures those, and should be manually inspected regularly to
+        # ensure that files remain syntactically equivalent
+        inexact_files = [
+            # one level of interpolation is stripped from this file during
+            # reconstruction, since we don't have a way to distinguish it from
+            # a complex HCL expression. the output parses to the same value
+            # though
+            "multi_level_interpolation.tf",
+        ]
+
         for hcl_path in HCL2_FILES:
-            yield self.check_terraform, hcl_path
-
-    # def test_write_terraform_exact(self):
-    #     """
-    #     Test reconstructing a set of hcl2 files, to make sure they
-    #     reconstruct exactly the same, including whitespace.
-    #     """
-
-    #     # the reconstruction process is not precise, so some files do not
-    #     # reconstruct their whitespace exactly the same, but they are
-    #     # syntactically equivalent. This list is a target for further
-    #     # improvements to the whitespace handling of the reconstruction
-    #     # algorithm.
-    #     inexact_files = [
-    #         # the reconstructor loses commas on the last element in an array,
-    #         # even if they're in the input file
-    #         "iam.tf",
-    #         "variables.tf",
-    #         # the reconstructor doesn't preserve indentation within comments
-    #         # perfectly
-    #         "multiline_expressions.tf",
-    #         # the reconstructor doesn't preserve the line that a ternary is
-    #         # broken on.
-    #         "route_table.tf",
-    #     ]
-
-    #     for hcl_path in HCL2_FILES:
-    #         if hcl_path not in inexact_files:
-    #             yield self.check_whitespace, hcl_path
+            if hcl_path not in inexact_files:
+                yield self.check_terraform, hcl_path
 
     def check_terraform(self, hcl_path_str: str):
         """
@@ -96,27 +82,3 @@ class TestReconstruct(TestCase):
                 hcl2_dict_correct,
                 f"failed comparing {hcl_path_str} with reconstructed version from {json_path.name}",
             )
-
-    # def check_whitespace(self, hcl_path_str: str):
-    #     """Tests that the reconstructed file matches the original file exactly."""
-    #     hcl_path = (HCL2_DIR / hcl_path_str).absolute()
-    #     with hcl_path.open("r") as hcl_file:
-    #         hcl_file_content = hcl_file.read()
-    #         try:
-    #             hcl_ast = hcl2.parses(hcl_file_content)
-    #         except Exception as exc:
-    #             assert False, f"failed to tokenize terraform in `{hcl_path_str}`: {exc}"
-
-    #         try:
-    #             hcl_reconstructed = hcl2.writes(hcl_ast)
-    #         except Exception as exc:
-    #             assert (
-    #                 False
-    #             ), f"failed to reconstruct terraform in `{hcl_path_str}`: {exc}"
-
-    #         self.assertMultiLineEqual(
-    #             hcl_reconstructed,
-    #             hcl_file_content,
-    #             f"file {hcl_path_str} does not match its reconstructed version \
-    #                 exactly. this is usually whitespace related.",
-    #         )
