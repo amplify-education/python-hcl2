@@ -4,6 +4,7 @@ from typing import TextIO
 from lark.tree import Tree as AST
 from hcl2.parser import hcl2
 from hcl2.transformer import DictTransformer
+from hcl2.builder import Builder
 
 
 def load(file: TextIO, with_meta=False) -> dict:

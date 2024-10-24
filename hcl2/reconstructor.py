@@ -376,18 +376,18 @@ class HCLReverseTransformer:
         start = Tree(Token("RULE", "start"), [body])
         return start
 
-    def _newline(self, level: int, comma: bool = False) -> Tree:
+    def _newline(self, level: int, comma: bool = False, count: int = 1) -> Tree:
         # some rules expect the `new_line_and_or_comma` token
         if comma:
             return Tree(
                 Token("RULE", "new_line_and_or_comma"),
-                [self._newline(level=level, comma=False)],
+                [self._newline(level=level, comma=False, count=count)],
             )
 
         # otherwise, return the `new_line_or_comment` token
         return Tree(
             Token("RULE", "new_line_or_comment"),
-            [Token("NL_OR_COMMENT", f"\n{'  ' * level}")],
+            [Token("NL_OR_COMMENT", f"\n{'  ' * level}") for _ in range(count)],
         )
 
     # rules: the value of a block is always an array of dicts,
@@ -520,7 +520,7 @@ class HCLReverseTransformer:
                         [identifier_name] + block_label_tokens + [block_body],
                     )
                     children.append(block)
-                    children.append(self._newline(level))
+                    children.append(self._newline(level, count=2))
 
             # if the value isn't a block, it's an attribute
             else:
