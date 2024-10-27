@@ -1,5 +1,4 @@
 # Linting tools
-pylint
 pycodestyle
 mypy
 # Testing tools
