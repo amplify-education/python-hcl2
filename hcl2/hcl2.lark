@@ -56,8 +56,8 @@ expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
             | for_tuple_expr
             | for_object_expr
 
-STRING_LIT : "\"" (STRING_CHARS)* "\""
-STRING_CHARS : /(?:(?!\${)([^"\\]|\\.))+/+ // any character except '"' unless inside a interpolation string
+STRING_LIT : "\"" STRING_CHARS? "\""
+STRING_CHARS : /(?:(?!\${)([^"\\]|\\.))+/ // any character except '"'
 string_with_interpolation: "\"" (STRING_CHARS)* interpolation_maybe_nested (STRING_CHARS | interpolation_maybe_nested)* "\""
 interpolation_maybe_nested: "${" expression "}"
 
