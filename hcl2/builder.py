@@ -19,7 +19,7 @@ class Builder:
         self.attributes = attributes or {}
 
     def block(
-        self, block_type: str, labels: Optional[List[str]] = None, **attributes: dict
+        self, block_type: str, labels: Optional[List[str]] = None, **attributes
     ) -> "Builder":
         """Create a block within this HCL document."""
         labels = labels or []

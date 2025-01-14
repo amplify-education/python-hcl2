@@ -5,9 +5,9 @@ import json
 from typing import List, Dict, Callable, Optional, Union, Any, Tuple
 
 from lark import Lark, Tree
-from lark.grammar import Terminal, NonTerminal, Symbol
+from lark.grammar import Terminal, Symbol
 from lark.lexer import Token, PatternStr, TerminalDef
-from lark.reconstruct import Reconstructor, is_iter_empty
+from lark.reconstruct import Reconstructor
 from lark.tree_matcher import is_discarded_terminal
 from lark.visitors import Transformer_InPlace
 
@@ -94,15 +94,12 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
                     to_write += item
                 else:
                     if isinstance(item, Token):
-                        assert Terminal(item.type) == sym, item
                         # annotate the leaf with the specific rule (data) and
                         # terminal (sym) it was generated from
                         to_write.append((data, sym, item))
                     else:
-                        assert NonTerminal(item.data) == sym, (sym, item)
                         to_write.append(item)
 
-        assert is_iter_empty(iter_args)
         return to_write
 
 

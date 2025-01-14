@@ -1,6 +1,7 @@
+# pylint:disable=C0116
+
 """Test building an HCL file from scratch"""
 
-import json
 from pathlib import Path
 from unittest import TestCase
 
@@ -51,20 +52,23 @@ class TestBuilder(TestCase):
     def test_locals_embedded_function_tf(self):
         builder = hcl2.Builder()
 
-        builder.block(
-            "locals",
-            function_test='${var.basename}-${var.forwarder_function_name}_${md5("${var.vpc_id}${data.aws_region.current.name}")}',
+        function_test = (
+            "${var.basename}-${var.forwarder_function_name}_"
+            '${md5("${var.vpc_id}${data.aws_region.current.name}")}'
         )
+        builder.block("locals", function_test=function_test)
 
         self.compare_filenames(builder, "locals_embedded_function.tf")
 
     def test_locals_embedded_interpolation_tf(self):
         builder = hcl2.Builder()
 
-        builder.block(
-            "locals",
-            embedded_interpolation='${module.special_constants.aws_accounts["aaa-${local.foo}-${local.bar}"]}/us-west-2/key_foo',
+        embedded_interpolation = (
+            "${module.special_constants.aws_accounts"
+            '["aaa-${local.foo}-${local.bar}"]}/us-west-2/key_foo'
         )
+
+        builder.block("locals", embedded_interpolation=embedded_interpolation)
 
         self.compare_filenames(builder, "locals_embedded_interpolation.tf")
 
