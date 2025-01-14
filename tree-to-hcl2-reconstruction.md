@@ -239,8 +239,8 @@ Once the AST has been generated, you can convert it back to valid HCL using
   require manual intervention of the AST produced after the `reverse_transform`
   step.
 
-    - Most notably, this means it's not possible to generate files containing
-      comments (both inline and block comments)
+- Most notably, this means it's not possible to generate files containing
+  comments (both inline and block comments)
 
 - Even when parsing a file directly and writing it back out, some formatting
   information may be lost due to Terminals discarded during the parsing process.

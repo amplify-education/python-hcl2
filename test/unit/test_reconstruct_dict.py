@@ -50,32 +50,36 @@ class TestReconstruct(TestCase):
             try:
                 hcl2_dict_correct = hcl2.load(hcl_file)
             except Exception as exc:
-                assert (
-                    False
-                ), f"failed to tokenize 'correct' terraform in `{hcl_path_str}`: {traceback.format_exc()}"
+                raise RuntimeError(
+                    f"failed to tokenize 'correct' terraform in "
+                    f"`{hcl_path_str}`: {traceback.format_exc()}"
+                ) from exc
 
             json_dict = json.load(json_file)
 
             try:
                 hcl_ast = hcl2.reverse_transform(json_dict)
             except Exception as exc:
-                assert (
-                    False
-                ), f"failed to reverse transform HCL from `{json_path.name}`: {traceback.format_exc()}"
+                raise RuntimeError(
+                    f"failed to reverse transform HCL from "
+                    f"`{json_path.name}`: {traceback.format_exc()}"
+                ) from exc
 
             try:
                 hcl_reconstructed = hcl2.writes(hcl_ast)
             except Exception as exc:
-                assert (
-                    False
-                ), f"failed to reconstruct terraform from AST from `{json_path.name}`: {traceback.format_exc()}"
+                raise RuntimeError(
+                    f"failed to reconstruct terraform from AST from "
+                    f"`{json_path.name}`: {traceback.format_exc()}"
+                ) from exc
 
             try:
                 hcl2_dict_reconstructed = hcl2.loads(hcl_reconstructed)
             except Exception as exc:
-                assert (
-                    False
-                ), f"failed to tokenize 'reconstructed' terraform from AST from `{json_path.name}`: {exc},\n{hcl_reconstructed}"
+                raise RuntimeError(
+                    f"failed to tokenize 'reconstructed' terraform from AST from "
+                    f"`{json_path.name}`: {exc}, \n{hcl_reconstructed}"
+                ) from exc
 
             self.assertDictEqual(
                 hcl2_dict_reconstructed,

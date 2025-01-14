@@ -2,7 +2,7 @@
 
 import re
 import json
-from typing import List, Dict, Callable, Optional
+from typing import List, Dict, Callable, Optional, Union, Any, Tuple
 
 from lark import Lark, Tree
 from lark.grammar import Terminal, NonTerminal, Symbol
@@ -145,6 +145,14 @@ class HCLReconstructor(Reconstructor):
         Terminal("BINARY_OP"),
     ]
 
+    def _is_equals_sign(self, terminal) -> bool:
+        return (
+            isinstance(self.last_rule, Token)
+            and self.last_rule.value in ("attribute", "object_elem")
+            and self.last_terminal == Terminal("EQ")
+            and terminal != Terminal("NL_OR_COMMENT")
+        )
+
     # pylint: disable=too-many-branches, too-many-return-statements
     def _should_add_space(self, rule, current_terminal):
         """
@@ -172,22 +180,7 @@ class HCLReconstructor(Reconstructor):
         if not self.last_terminal or not self.last_rule:
             return False
 
-        # always add a space after the equals sign in an attribute
-        if (
-            isinstance(self.last_rule, Token)
-            and self.last_rule.value == "attribute"
-            and self.last_terminal == Terminal("EQ")
-            and current_terminal != Terminal("NL_OR_COMMENT")
-        ):
-            return True
-
-        # always add a space after the equals sign in an object
-        if (
-            isinstance(self.last_rule, Token)
-            and self.last_rule.value == "object_elem"
-            and self.last_terminal == Terminal("EQ")
-            and current_terminal != Terminal("NL_OR_COMMENT")
-        ):
+        if self._is_equals_sign(current_terminal):
             return True
 
         # if we're in a ternary or binary operator, add space around the operator
@@ -305,9 +298,11 @@ class HCLReconstructor(Reconstructor):
 
                 # first, handle any deferred items
                 if self.deferred_item is not None:
-                    deferred_rule, deferred_terminal, deferred_value = (
-                        self.deferred_item
-                    )
+                    (
+                        deferred_rule,
+                        deferred_terminal,
+                        deferred_value,
+                    ) = self.deferred_item
 
                     # if we deferred a comma and the next character ends a
                     # parenthesis or block, we can throw it out
@@ -366,6 +361,25 @@ class HCLReverseTransformer:
     The reverse of hcl2.transformer.DictTransformer. This method attempts to
     convert a dict back into a working AST, which can be written back out.
     """
+
+    @staticmethod
+    def _name_to_identifier(name: str) -> Tree:
+        """Converts a string to a NAME token within an identifier rule."""
+        return Tree(Token("RULE", "identifier"), [Token("NAME", name)])
+
+    @staticmethod
+    def _escape_interpolated_str(interp_s: str) -> str:
+        # begin by doing basic JSON string escaping, to add backslashes
+        interp_s = json.dumps(interp_s)
+
+        # find each interpolation within the string and remove the backslashes
+        interp_s = reverse_quotes_within_interpolation(interp_s)
+        return interp_s
+
+    @staticmethod
+    def _block_has_label(block: dict) -> bool:
+        return len(block.keys()) == 1
+
     def __init__(self):
         pass
 
@@ -375,6 +389,30 @@ class HCLReverseTransformer:
         body = self._transform_dict_to_body(hcl_dict, level)
         start = Tree(Token("RULE", "start"), [body])
         return start
+
+    @staticmethod
+    def _is_string_wrapped_tf(interp_s: str) -> bool:
+        """
+        Determines whether a string is a complex HCL datastructure
+        wrapped in ${ interpolation } characters.
+        """
+        if not interp_s.startswith("${") or not interp_s.endswith("}"):
+            return False
+
+        nested_tokens = []
+        for match in re.finditer(r"\$?\{|}", interp_s):
+            if match.group(0) in ["${", "{"]:
+                nested_tokens.append(match.group(0))
+            elif match.group(0) == "}":
+                nested_tokens.pop()
+
+            # if we exit ${ interpolation } before the end of the string,
+            # this interpolated string has string parts and can't represent
+            # a valid HCL expression on its own (without quotes)
+            if len(nested_tokens) == 0 and match.end() != len(interp_s):
+                return False
+
+        return True
 
     def _newline(self, level: int, comma: bool = False, count: int = 1) -> Tree:
         # some rules expect the `new_line_and_or_comma` token
@@ -399,7 +437,7 @@ class HCLReverseTransformer:
 
         return True
 
-    def _dict_is_a_block(self, sub_obj: any) -> bool:
+    def _dict_is_a_block(self, sub_obj: Any) -> bool:
         # if the list doesn't contain dictionaries, it's not a block
         if not isinstance(sub_obj, dict):
             return False
@@ -426,13 +464,10 @@ class HCLReverseTransformer:
         # block, the array is just an array of objects, not a block
         return False
 
-    def _block_has_label(self, block: dict) -> bool:
-        return len(block.keys()) == 1
-
-    def _calculate_block_labels(self, block: dict) -> List[str]:
-        # if b doesn't have a label
+    def _calculate_block_labels(self, block: dict) -> Tuple[List[str], dict]:
+        # if block doesn't have a label
         if len(block.keys()) != 1:
-            return ([], block)
+            return [], block
 
         # otherwise, find the label
         curr_label = list(block)[0]
@@ -443,48 +478,13 @@ class HCLReverseTransformer:
             "__start_line__" in potential_body.keys()
             or "__end_line__" in potential_body.keys()
         ):
-            return ([curr_label], potential_body)
+            return [curr_label], potential_body
 
         # recurse and append the label
         next_label, block_body = self._calculate_block_labels(potential_body)
-        return ([curr_label] + next_label, block_body)
+        return [curr_label] + next_label, block_body
 
-    def _is_string_wrapped_tf(self, interp_s: str) -> bool:
-        """
-        Determines whether a string is a complex HCL datastructure
-        wrapped in ${ interpolation } characters.
-        """
-        if not interp_s.startswith("${") or not interp_s.endswith("}"):
-            return False
-
-        nested_tokens = []
-        for match in re.finditer(r"\$?\{|\}", interp_s):
-            if match.group(0) in ["${", "{"]:
-                nested_tokens.append(match.group(0))
-            elif match.group(0) == "}":
-                nested_tokens.pop()
-
-            # if we exit ${ interpolation } before the end of the string,
-            # this interpolated string has string parts and can't represent
-            # a valid HCL expression on its own (without quotes)
-            if len(nested_tokens) == 0 and match.end() != len(interp_s):
-                return False
-
-        return True
-
-    def _name_to_identifier(self, name: str) -> Tree:
-        """Converts a string to a NAME token within an identifier rule."""
-        return Tree(Token("RULE", "identifier"), [Token("NAME", name)])
-
-    def _escape_interpolated_str(self, interp_s: str) -> str:
-        # begin by doing basic JSON string escaping, to add backslashes
-        interp_s = json.dumps(interp_s)
-
-        # find each interpolation within the string and remove the backslashes
-        interp_s = reverse_quotes_within_interpolation(interp_s)
-        return interp_s
-
-    def _transform_dict_to_body(self, hcl_dict: dict, level: int) -> List[Tree]:
+    def _transform_dict_to_body(self, hcl_dict: dict, level: int) -> Tree:
         # we add a newline at the top of a body within a block, not the root body
         # >2 here is to ignore the __start_line__ and __end_line__ metadata
         if level > 0 and len(hcl_dict) > 2:
@@ -492,7 +492,7 @@ class HCLReverseTransformer:
         else:
             children = []
 
-        # iterate thru each attribute or sub-block of this block
+        # iterate through each attribute or sub-block of this block
         for key, value in hcl_dict.items():
             if key in ["__start_line__", "__end_line__"]:
                 continue
@@ -545,13 +545,13 @@ class HCLReverseTransformer:
         return Tree(Token("RULE", "body"), children)
 
     # pylint: disable=too-many-branches, too-many-return-statements
-    def _transform_value_to_expr_term(self, value, level) -> Token:
+    def _transform_value_to_expr_term(self, value, level) -> Union[Token, Tree]:
         """Transforms a value from a dictionary into an "expr_term" (a value in HCL2)
 
         Anything passed to this function is treated "naively". Any lists passed
         are assumed to be tuples, and any dicts passed are assumed to be objects.
         No more checks will be performed for either to see if they are "blocks"
-        as ehis check happens in `_transform_dict_to_body`.
+        as this check happens in `_transform_dict_to_body`.
         """
 
         # for lists, recursively turn the child elements into expr_terms and
@@ -575,7 +575,7 @@ class HCLReverseTransformer:
             if len(value) > 0:
                 elems.append(self._newline(level + 1))
 
-            # iterate thru the items and add them to the object
+            # iterate through the items and add them to the object
             for i, (k, dict_v) in enumerate(value.items()):
                 if k in ["__start_line__", "__end_line__"]:
                     continue
@@ -626,17 +626,24 @@ class HCLReverseTransformer:
             # potentially unpack a complex syntax structure
             if self._is_string_wrapped_tf(value):
                 # we have to unpack it by parsing it
-                wrapped_value = re.match(r"\$\{(.*)\}", value).group(1)
+                wrapped_value = re.match(r"\$\{(.*)}", value).group(1)  # type:ignore
                 ast = hcl2.parse(f"value = {wrapped_value}")
 
-                assert ast.data == Token("RULE", "start")
+                if ast.data != Token("RULE", "start"):
+                    raise RuntimeError("Token must be `start` RULE")
+
                 body = ast.children[0]
-                assert body.data == Token("RULE", "body")
+                if body.data != Token("RULE", "body"):
+                    raise RuntimeError("Token must be `body` RULE")
+
                 attribute = body.children[0]
-                assert attribute.data == Token("RULE", "attribute")
-                assert attribute.children[1] == Token("EQ", " =")
+                if attribute.data != Token("RULE", "attribute"):
+                    raise RuntimeError("Token must be `attribute` RULE")
+
+                if attribute.children[1] != Token("EQ", " ="):
+                    raise RuntimeError("Token must be `EQ (=)` rule")
+
                 parsed_value = attribute.children[2]
-                assert isinstance(parsed_value, Tree)
 
                 if parsed_value.data == Token("RULE", "expr_term"):
                     return parsed_value

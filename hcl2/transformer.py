@@ -326,7 +326,7 @@ class DictTransformer(Transformer):
             # for now, but this method can be extended in the future
         return value
 
-    def to_tf_inline(self, value: any) -> str:
+    def to_tf_inline(self, value: Any) -> str:
         """
         Converts complex objects (e.g.) dicts to an "inline" HCL syntax
         for use in function calls and ${interpolation} strings

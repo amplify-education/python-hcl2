@@ -14,5 +14,6 @@ from .api import (
     reverse_transform,
     writes,
     AST,
-    Builder,
 )
+
+from .builder import Builder
