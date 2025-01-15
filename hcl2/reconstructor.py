@@ -10,22 +10,7 @@ from lark.lexer import Token, PatternStr, TerminalDef
 from lark.reconstruct import Reconstructor
 from lark.tree_matcher import is_discarded_terminal
 from lark.visitors import Transformer_InPlace
-
-# this is duplicated from `parser` because we need different options here for
-# the reconstructor. please make sure changes are kept in sync between the two
-# if necessary.
-hcl2 = Lark.open(
-    "hcl2.lark",
-    parser="lalr",
-    # Caching must be disabled to allow for reconstruction until lark-parser/lark#1472 is fixed:
-    #
-    #   https://github.com/lark-parser/lark/issues/1472
-    #
-    # cache=str(PARSER_FILE),  # Disable/Delete file to effect changes to the grammar
-    rel_to=__file__,
-    propagate_positions=True,
-    maybe_placeholders=False,  # Needed for reconstruction
-)
+from hcl2.parser import reconstruction_parser
 
 
 # function to remove the backslashes within interpolated portions
@@ -106,8 +91,8 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
 class HCLReconstructor(Reconstructor):
     """This class converts a Lark.Tree AST back into a string representing the underlying HCL code."""
 
-    # these variables track state during reconstuction to enable us to make
-    # informed decisions about formatting our output. They are primarily used
+    # these variables track state during reconstruction to enable us to make
+    # informed decisions about formatting output. They are primarily used
     # by the _should_add_space(...) method.
     last_char_space = True
     last_terminal = None
@@ -624,7 +609,7 @@ class HCLReverseTransformer:
             if self._is_string_wrapped_tf(value):
                 # we have to unpack it by parsing it
                 wrapped_value = re.match(r"\$\{(.*)}", value).group(1)  # type:ignore
-                ast = hcl2.parse(f"value = {wrapped_value}")
+                ast = reconstruction_parser().parse(f"value = {wrapped_value}")
 
                 if ast.data != Token("RULE", "start"):
                     raise RuntimeError("Token must be `start` RULE")
@@ -658,5 +643,5 @@ class HCLReverseTransformer:
         raise RuntimeError(f"Unknown type to transform {type(value)}")
 
 
-hcl2_reconstructor = HCLReconstructor(hcl2)
+hcl2_reconstructor = HCLReconstructor(reconstruction_parser())
 hcl2_reverse_transformer = HCLReverseTransformer()

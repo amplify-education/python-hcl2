@@ -2,7 +2,7 @@
 from typing import TextIO
 
 from lark.tree import Tree as AST
-from hcl2.parser import hcl2
+from hcl2.parser import parser
 from hcl2.transformer import DictTransformer
 
 
@@ -25,7 +25,7 @@ def loads(text: str, with_meta=False) -> dict:
     # Lark doesn't support a EOF token so our grammar can't look for "new line or end of file"
     # This means that all blocks must end in a new line even if the file ends
     # Append a new line as a temporary fix
-    tree = hcl2.parse(text + "\n")
+    tree = parser().parse(text + "\n")
     return DictTransformer(with_meta=with_meta).transform(tree)
 
 
@@ -42,11 +42,11 @@ def parses(text: str) -> AST:
     """
     # defer this import until this method is called, due to the performance hit
     # of rebuilding the grammar without cache
-    from hcl2.reconstructor import (  # pylint: disable=import-outside-toplevel
-        hcl2 as uncached_hcl2,
+    from hcl2.parser import (  # pylint: disable=import-outside-toplevel
+        reconstruction_parser,
     )
 
-    return uncached_hcl2.parse(text)
+    return reconstruction_parser().parse(text)
 
 
 def transform(ast: AST, with_meta=False) -> dict:

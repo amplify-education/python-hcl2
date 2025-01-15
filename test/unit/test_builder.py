@@ -21,13 +21,13 @@ class TestBuilder(TestCase):
     # print any differences fully to the console
     maxDiff = None
 
-    def test_build_a_tf(self):
+    def test_build_blocks_tf(self):
         builder = hcl2.Builder()
 
         builder.block("block", a=1)
         builder.block("block", ["label"], b=2)
 
-        self.compare_filenames(builder, "a.tf")
+        self.compare_filenames(builder, "blocks.tf")
 
     def test_build_escapes_tf(self):
         builder = hcl2.Builder()
