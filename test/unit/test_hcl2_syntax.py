@@ -73,7 +73,7 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
     def test_unary_operation(self):
         operations = [
             ("identifier = -10", {"identifier": "${-10}"}),
-            ("identifier = !true", {"identifier": "${!True}"}),
+            ("identifier = !true", {"identifier": "${!true}"}),
         ]
         for hcl, dict_ in operations:
             result = self.load_to_dict(hcl)
@@ -94,7 +94,7 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
                     "${identifier}",
                     "string",
                     100,
-                    "${True == False}",
+                    "${true == false}",
                     "${5 + 5}",
                     "${function()}",
                 ]
@@ -115,7 +115,7 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
                     "key1": "${identifier}",
                     "key2": "string",
                     "key3": 100,
-                    "key4": "${True == False}",
+                    "key4": "${true == false}",
                     "key5": "${5 + 5}",
                     "key6": "${function()}",
                 }

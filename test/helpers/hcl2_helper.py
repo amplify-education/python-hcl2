@@ -2,14 +2,14 @@
 
 from lark import Tree
 
-from hcl2.parser import hcl2
+from hcl2.parser import parser
 from hcl2.transformer import DictTransformer
 
 
 class Hcl2Helper:
     @classmethod
     def load(cls, syntax: str) -> Tree:
-        return hcl2.parse(syntax)
+        return parser().parse(syntax)
 
     @classmethod
     def load_to_dict(cls, syntax) -> dict:

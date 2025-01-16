@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from unittest import TestCase
 
-from hcl2.parser import PARSER_FILE
+from hcl2.parser import PARSER_FILE, parser
 import hcl2
 
 
@@ -17,8 +17,15 @@ HCL2_FILES = [str(file.relative_to(HCL2_DIR)) for file in HCL2_DIR.iterdir()]
 class TestLoad(TestCase):
     """Test parsing a variety of hcl files"""
 
+    # print any differences fully to the console
+    maxDiff = None
+
     def test_load_terraform(self):
         """Test parsing a set of hcl2 files and force recreating the parser file"""
+
+        # create a parser to make sure that the parser file is created
+        parser()
+
         # delete the parser file to force it to be recreated
         PARSER_FILE.unlink()
         for hcl_path in HCL2_FILES:

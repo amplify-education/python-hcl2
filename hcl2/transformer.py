@@ -1,4 +1,5 @@
 """A Lark Transformer for transforming a Lark parse tree into a Python dict"""
+import json
 import re
 import sys
 from collections import namedtuple
@@ -6,6 +7,8 @@ from typing import List, Dict, Any
 
 from lark.tree import Meta
 from lark.visitors import Transformer, Discard, _DiscardType, v_args
+
+from .reconstructor import reverse_quotes_within_interpolation
 
 
 HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
@@ -36,10 +39,10 @@ class DictTransformer(Transformer):
         super().__init__()
 
     def float_lit(self, args: List) -> float:
-        return float("".join([str(arg) for arg in args]))
+        return float("".join([self.to_tf_inline(arg) for arg in args]))
 
     def int_lit(self, args: List) -> int:
-        return int("".join([str(arg) for arg in args]))
+        return int("".join([self.to_tf_inline(arg) for arg in args]))
 
     def expr_term(self, args: List) -> Any:
         args = self.strip_new_line_tokens(args)
@@ -76,14 +79,14 @@ class DictTransformer(Transformer):
         return f"{args[0]}{args[1]}"
 
     def attr_splat(self, args: List) -> str:
-        args_str = "".join(str(arg) for arg in args)
+        args_str = "".join(self.to_tf_inline(arg) for arg in args)
         return f".*{args_str}"
 
     def full_splat_expr_term(self, args: List) -> str:
         return f"{args[0]}{args[1]}"
 
     def full_splat(self, args: List) -> str:
-        args_str = "".join(str(arg) for arg in args)
+        args_str = "".join(self.to_tf_inline(arg) for arg in args)
         return f"[*]{args_str}"
 
     def tuple(self, args: List) -> List:
@@ -111,14 +114,18 @@ class DictTransformer(Transformer):
         args = self.strip_new_line_tokens(args)
         args_str = ""
         if len(args) > 1:
-            args_str = ", ".join([str(arg) for arg in args[1] if arg is not Discard])
+            args_str = ", ".join(
+                [self.to_tf_inline(arg) for arg in args[1] if arg is not Discard]
+            )
         return f"{args[0]}({args_str})"
 
     def provider_function_call(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
         args_str = ""
         if len(args) > 5:
-            args_str = ", ".join([str(arg) for arg in args[5] if arg is not Discard])
+            args_str = ", ".join(
+                [self.to_tf_inline(arg) for arg in args[5] if arg is not Discard]
+            )
         provider_func = "::".join([args[0], args[2], args[4]])
         return f"{provider_func}({args_str})"
 
@@ -159,14 +166,14 @@ class DictTransformer(Transformer):
         return f"{args[0]} ? {args[1]} : {args[2]}"
 
     def binary_op(self, args: List) -> str:
-        return " ".join([str(arg) for arg in args])
+        return " ".join([self.to_tf_inline(arg) for arg in args])
 
     def unary_op(self, args: List) -> str:
-        return "".join([str(arg) for arg in args])
+        return "".join([self.to_tf_inline(arg) for arg in args])
 
     def binary_term(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return " ".join([str(arg) for arg in args])
+        return " ".join([self.to_tf_inline(arg) for arg in args])
 
     def body(self, args: List) -> Dict[str, List]:
         # See https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#bodies
@@ -251,24 +258,31 @@ class DictTransformer(Transformer):
 
     def for_tuple_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        for_expr = " ".join([str(arg) for arg in args[1:-1]])
+        for_expr = " ".join([self.to_tf_inline(arg) for arg in args[1:-1]])
         return f"[{for_expr}]"
 
     def for_intro(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return " ".join([str(arg) for arg in args])
+        return " ".join([self.to_tf_inline(arg) for arg in args])
 
     def for_cond(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return " ".join([str(arg) for arg in args])
+        return " ".join([self.to_tf_inline(arg) for arg in args])
 
     def for_object_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        for_expr = " ".join([str(arg) for arg in args[1:-1]])
+        for_expr = " ".join([self.to_tf_inline(arg) for arg in args[1:-1]])
         # doubled curly braces stands for inlining the braces
         # and the third pair of braces is for the interpolation
         # e.g. f"{2 + 2} {{2 + 2}}" == "4 {2 + 2}"
         return f"{{{for_expr}}}"
+
+    def string_with_interpolation(self, args: List) -> str:
+        return '"' + ("".join(args)) + '"'
+
+    def interpolation_maybe_nested(self, args: List) -> str:
+        # return "".join(args)
+        return "${" + ("".join(args)) + "}"
 
     def strip_new_line_tokens(self, args: List) -> List:
         """
@@ -280,8 +294,13 @@ class DictTransformer(Transformer):
     def to_string_dollar(self, value: Any) -> Any:
         """Wrap a string in ${ and }"""
         if isinstance(value, str):
+            # if it's already wrapped, pass it unmodified
+            if value.startswith("${") and value.endswith("}"):
+                return value
+
             if value.startswith('"') and value.endswith('"'):
-                return str(value)[1:-1]
+                value = str(value)[1:-1]
+                return self.process_escape_sequences(value)
             return f"${{{value}}}"
         return value
 
@@ -289,8 +308,43 @@ class DictTransformer(Transformer):
         """Remove quote characters from the start and end of a string"""
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
-                return str(value)[1:-1]
+                value = str(value)[1:-1]
+                return self.process_escape_sequences(value)
         return value
+
+    def process_escape_sequences(self, value: str) -> str:
+        """Process HCL escape sequences within quoted template expressions."""
+        if isinstance(value, str):
+            # normal escape sequences
+            value = value.replace("\\n", "\n")
+            value = value.replace("\\r", "\r")
+            value = value.replace("\\t", "\t")
+            value = value.replace('\\"', '"')
+            value = value.replace("\\\\", "\\")
+
+            # we will leave Unicode escapes (\uNNNN and \UNNNNNNNN) untouched
+            # for now, but this method can be extended in the future
+        return value
+
+    def to_tf_inline(self, value: Any) -> str:
+        """
+        Converts complex objects (e.g.) dicts to an "inline" HCL syntax
+        for use in function calls and ${interpolation} strings
+        """
+        if isinstance(value, dict):
+            dict_v = json.dumps(value)
+            return reverse_quotes_within_interpolation(dict_v)
+        if isinstance(value, list):
+            value = [self.to_tf_inline(item) for item in value]
+            return f"[{', '.join(value)}]"
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, str):
+            return value
+        if isinstance(value, int):
+            return str(value)
+
+        raise RuntimeError(f"Invalid type to convert to inline HCL: {type(value)}")
 
     def identifier(self, value: Any) -> Any:
         # Making identifier a token by capitalizing it to IDENTIFIER
