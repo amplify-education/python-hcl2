@@ -1,6 +1,6 @@
 # Writing HCL2 from Python
 
-Version 5 of this library supports reconstructing HCL files directly from
+Version 6 of this library supports reconstructing HCL files directly from
 Python. This guide details how the reconstruction process takes place. See
 also: [Limitations](#limitations)
 
