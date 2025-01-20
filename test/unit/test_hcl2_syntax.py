@@ -164,3 +164,11 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
         for actual, expected in literals.items():
             result = self.load_to_dict(actual)
             self.assertDictEqual(result, expected)
+
+    def test_null(self):
+        identifier = "var = null"
+
+        expected = {"var": None}
+
+        result = self.load_to_dict(identifier)
+        self.assertDictEqual(result, expected)

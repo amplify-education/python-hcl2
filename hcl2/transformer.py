@@ -343,6 +343,8 @@ class DictTransformer(Transformer):
             return value
         if isinstance(value, int):
             return str(value)
+        if value is None:
+            return "None"
 
         raise RuntimeError(f"Invalid type to convert to inline HCL: {type(value)}")
 
