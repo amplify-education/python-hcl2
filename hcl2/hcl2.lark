@@ -61,11 +61,12 @@ STRING_CHARS : /(?:(?!\${)([^"\\]|\\.))+/ // any character except '"'
 string_with_interpolation: "\"" (STRING_CHARS)* interpolation_maybe_nested (STRING_CHARS | interpolation_maybe_nested)* "\""
 interpolation_maybe_nested: "${" expression "}"
 
-int_lit : DECIMAL+
-!float_lit: DECIMAL+ "." DECIMAL+ (EXP_MARK DECIMAL+)?
-            | DECIMAL+ ("." DECIMAL+)? EXP_MARK DECIMAL+
+int_lit : NEGATIVE_DECIMAL? DECIMAL+ | NEGATIVE_DECIMAL+
+!float_lit: (NEGATIVE_DECIMAL? DECIMAL+ | NEGATIVE_DECIMAL+) "." DECIMAL+ (EXP_MARK)?
+            |  (NEGATIVE_DECIMAL? DECIMAL+ | NEGATIVE_DECIMAL+) ("." DECIMAL+)? (EXP_MARK)
+NEGATIVE_DECIMAL : "-" DECIMAL
 DECIMAL : "0".."9"
-EXP_MARK : ("e" | "E") ("+" | "-")?
+EXP_MARK : ("e" | "E") ("+" | "-")? DECIMAL+
 EQ : /[ \t]*=(?!=|>)/
 
 tuple : "[" (new_line_or_comment* expression new_line_or_comment* ",")* (new_line_or_comment* expression)? new_line_or_comment* "]"
