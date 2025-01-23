@@ -30,6 +30,10 @@ class DictTransformer(Transformer):
 
     with_meta: bool
 
+    @staticmethod
+    def is_type_keyword(value: str) -> bool:
+        return value in {"bool", "number", "string"}
+
     def __init__(self, with_meta: bool = False):
         """
         :param with_meta: If set to true then adds `__start_line__` and `__end_line__`
@@ -301,6 +305,10 @@ class DictTransformer(Transformer):
             if value.startswith('"') and value.endswith('"'):
                 value = str(value)[1:-1]
                 return self.process_escape_sequences(value)
+
+            if self.is_type_keyword(value):
+                return value
+
             return f"${{{value}}}"
         return value
 

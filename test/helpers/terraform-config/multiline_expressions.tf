@@ -47,7 +47,7 @@ variable "some_var2" {
   )
 }
 
-variable "some_var2" {
+variable "some_var3" {
   description = "description"
   default = concat(
     # comment 1
