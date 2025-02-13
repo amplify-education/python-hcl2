@@ -349,7 +349,7 @@ class DictTransformer(Transformer):
             return "true" if value else "false"
         if isinstance(value, str):
             return value
-        if isinstance(value, int):
+        if isinstance(value, (int, float)):
             return str(value)
         if value is None:
             return "None"
