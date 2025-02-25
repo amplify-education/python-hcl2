@@ -4,7 +4,7 @@
       "aws_cloudwatch_event_rule": {
         "aws_cloudwatch_event_rule": {
           "name": "name",
-          "event_pattern": "    {\n      \"foo\": \"bar\"\n    }"
+          "event_pattern": "    {\n      \"foo\": \"bar\",\n      \"foo2\": \"EOF_CONFIG\"\n    }"
         }
       }
     },
@@ -12,7 +12,7 @@
       "aws_cloudwatch_event_rule": {
         "aws_cloudwatch_event_rule2": {
           "name": "name",
-          "event_pattern": "{\n  \"foo\": \"bar\"\n}"
+          "event_pattern": "{\n  \"foo\": \"bar\",\n  \"foo2\": \"EOF_CONFIG\"\n}"
         }
       }
     },

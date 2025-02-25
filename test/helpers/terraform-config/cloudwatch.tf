@@ -2,7 +2,8 @@ resource "aws_cloudwatch_event_rule" "aws_cloudwatch_event_rule" {
   name          = "name"
   event_pattern = <<EOF_CONFIG
     {
-      "foo": "bar"
+      "foo": "bar",
+      "foo2": "EOF_CONFIG"
     }
       EOF_CONFIG
 }
@@ -11,7 +12,8 @@ resource "aws_cloudwatch_event_rule" "aws_cloudwatch_event_rule2" {
   name          = "name"
   event_pattern = <<-EOF_CONFIG
     {
-      "foo": "bar"
+      "foo": "bar",
+      "foo2": "EOF_CONFIG"
     }
     EOF_CONFIG
 }
