@@ -104,8 +104,9 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
     def test_object(self):
         object_ = """object = {
         key1: identifier, key2: "string", key3: 100,
-        key4: true == false,
+        key4: true == false // comment
         key5: 5 + 5, key6: function(),
+        key7: value == null ? 1 : 0
         }"""
         result = self.load_to_dict(object_)
         self.assertDictEqual(
@@ -118,6 +119,7 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
                     "key4": "${true == false}",
                     "key5": "${5 + 5}",
                     "key6": "${function()}",
+                    "key7": "${value == None ? 1 : 0}",
                 }
             },
         )
