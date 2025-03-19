@@ -19,13 +19,13 @@ terraform {
   backend "gcs" {}
   required_providers {
     aws = {
-      source = "hashicorp/aws"
+      source = "hashicorp/aws",
     }
     null = {
-      source = "hashicorp/null"
+      source = "hashicorp/null",
     }
     template = {
-      source = "hashicorp/template"
+      source = "hashicorp/template",
     }
   }
 }

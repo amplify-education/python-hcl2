@@ -12,8 +12,8 @@ resource "aws_s3_bucket" "name" {
     }
 
     transition = {
-      days          = 30
-      storage_class = "GLACIER"
+      days          = 30,
+      storage_class = "GLACIER",
     }
   }
 

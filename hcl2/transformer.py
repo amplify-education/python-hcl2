@@ -99,12 +99,13 @@ class DictTransformer(Transformer):
     def object_elem(self, args: List) -> Dict:
         # This returns a dict with a single key/value pair to make it easier to merge these
         # into a bigger dict that is returned by the "object" function
-        key = self.strip_quotes(args[0])
+        key = self.strip_quotes(str(args[0].children[0]))
         if len(args) == 3:
-            value = self.to_string_dollar(args[2])
+            value = args[2]
         else:
-            value = self.to_string_dollar(args[1])
+            value = args[1]
 
+        value = self.to_string_dollar(value)
         return {key: value}
 
     def object(self, args: List) -> Dict:
@@ -135,9 +136,6 @@ class DictTransformer(Transformer):
 
     def arguments(self, args: List) -> List:
         return args
-
-    def new_line_and_or_comma(self, args: List) -> _DiscardType:
-        return Discard
 
     @v_args(meta=True)
     def block(self, meta: Meta, args: List) -> Dict:

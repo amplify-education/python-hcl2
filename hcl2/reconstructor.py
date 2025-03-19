@@ -396,15 +396,7 @@ class HCLReverseTransformer:
 
         return True
 
-    def _newline(self, level: int, comma: bool = False, count: int = 1) -> Tree:
-        # some rules expect the `new_line_and_or_comma` token
-        if comma:
-            return Tree(
-                Token("RULE", "new_line_and_or_comma"),
-                [self._newline(level=level, comma=False, count=count)],
-            )
-
-        # otherwise, return the `new_line_or_comment` token
+    def _newline(self, level: int, count: int = 1) -> Tree:
         return Tree(
             Token("RULE", "new_line_or_comment"),
             [Token("NL_OR_COMMENT", f"\n{'  ' * level}") for _ in range(count)],
@@ -561,20 +553,27 @@ class HCLReverseTransformer:
             for i, (k, dict_v) in enumerate(value.items()):
                 if k in ["__start_line__", "__end_line__"]:
                     continue
-                identifier = self._name_to_identifier(k)
+
                 value_expr_term = self._transform_value_to_expr_term(dict_v, level + 1)
                 elems.append(
                     Tree(
                         Token("RULE", "object_elem"),
-                        [identifier, Token("EQ", " ="), value_expr_term],
+                        [
+                            Tree(
+                                Token("RULE", "object_elem_key"),
+                                [Tree(Token("RULE", "identifier"), [Token("NAME", k)])],
+                            ),
+                            Token("EQ", " ="),
+                            value_expr_term,
+                        ],
                     )
                 )
 
                 # add indentation appropriately
                 if i < len(value) - 1:
-                    elems.append(self._newline(level + 1, comma=True))
+                    elems.append(self._newline(level + 1))
                 else:
-                    elems.append(self._newline(level, comma=True))
+                    elems.append(self._newline(level))
             return Tree(
                 Token("RULE", "expr_term"), [Tree(Token("RULE", "object"), elems)]
             )
@@ -630,7 +629,7 @@ class HCLReverseTransformer:
                 if parsed_value.data == Token("RULE", "expr_term"):
                     return parsed_value
 
-                # wrap other types of syntax as an expression (in parenthesis)
+                # wrap other types of syntax as an expression (in parentheses)
                 return Tree(Token("RULE", "expr_term"), [parsed_value])
 
             # otherwise it's just a string.
