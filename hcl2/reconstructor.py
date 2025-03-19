@@ -540,6 +540,12 @@ class HCLReverseTransformer:
             )
             return Tree(Token("RULE", "expr_term"), [tuple_tree])
 
+        if value is None:
+            return Tree(
+                Token("RULE", "expr_term"),
+                [Tree(Token("RULE", "identifier"), [Token("NAME", "null")])],
+            )
+
         # for dicts, recursively turn the child k/v pairs into object elements
         # and store within an object
         if isinstance(value, dict):
