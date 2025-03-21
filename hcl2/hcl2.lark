@@ -35,8 +35,10 @@ PERCENT : "%"
 DOUBLE_AMP : "&&"
 DOUBLE_PIPE : "||"
 PLUS : "+"
+LPAR : "("
+RPAR : ")"
 
-expr_term : "(" new_line_or_comment? expression new_line_or_comment? ")"
+expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
             | float_lit
             | int_lit
             | STRING_LIT

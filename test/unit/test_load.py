@@ -53,5 +53,5 @@ class TestLoad(TestCase):
 
             json_dict = json.load(json_file)
             self.assertDictEqual(
-                hcl2_dict, json_dict, f"failed comparing {hcl_path_str}"
+                hcl2_dict, json_dict, f"\n\nfailed comparing {hcl_path_str}"
             )
