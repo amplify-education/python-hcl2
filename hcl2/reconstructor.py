@@ -631,12 +631,7 @@ class HCLReverseTransformer:
                     raise RuntimeError("Token must be `EQ (=)` rule")
 
                 parsed_value = attribute.children[2]
-
-                if parsed_value.data == Token("RULE", "expr_term"):
-                    return parsed_value
-
-                # wrap other types of syntax as an expression (in parentheses)
-                return Tree(Token("RULE", "expr_term"), [parsed_value])
+                return parsed_value
 
             # otherwise it's just a string.
             return Tree(

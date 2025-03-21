@@ -174,3 +174,20 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
 
         result = self.load_to_dict(identifier)
         self.assertDictEqual(result, expected)
+
+    def test_expr_term_parentheses(self):
+        literals = {
+            "a = 1 * 2 + 3": {"a": "${1 * 2 + 3}"},
+            "b = 1 * (2 + 3)": {"b": "${1 * (2 + 3)}"},
+            "c = (1 * (2 + 3))": {"c": "${(1 * (2 + 3))}"},
+            "conditional = value == null ? 1 : 0": {
+                "conditional": "${value == None ? 1 : 0}"
+            },
+            "conditional = (value == null ? 1 : 0)": {
+                "conditional": "${(value == None ? 1 : 0)}"
+            },
+        }
+
+        for actual, expected in literals.items():
+            result = self.load_to_dict(actual)
+            self.assertDictEqual(result, expected)

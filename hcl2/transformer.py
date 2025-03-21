@@ -59,10 +59,9 @@ class DictTransformer(Transformer):
         if args[0] == "null":
             return None
 
-        # if the expression starts with a paren then unwrap it
-        if args[0] == "(":
-            return args[1]
-        # otherwise return the value itself
+        if args[0] == "(" and args[-1] == ")":
+            return "".join(str(arg) for arg in args)
+
         return args[0]
 
     def index_expr_term(self, args: List) -> str:

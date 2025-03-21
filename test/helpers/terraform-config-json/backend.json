@@ -7,7 +7,7 @@
     },
     {
       "aws": {
-        "region": "${var.backup_region}",
+        "region": "${(var.backup_region)}",
         "alias": "backup"
       }
     }
