@@ -67,7 +67,7 @@ To see all the available options, run `tox -l`.
 
 ## Releasing
 
-To create a new releaes go to Releases page, press 'Draft a new release', create a tag
+To create a new release go to Releases page, press 'Draft a new release', create a tag
 with a version you want to be released, fill the release notes and press 'Publish release'.
 Github actions will take care of publishing it to PyPi.
 
@@ -84,3 +84,23 @@ We welcome pull requests! For your pull request to be accepted smoothly, we sugg
 - Create a pull request.  Explain why you want to make the change and what it’s for.
 
 We’ll try to answer any PR’s promptly.
+
+## Limitations
+
+### Error parsing string interpolations nested more than 2 times
+
+- Parsing following example is expected to throw out an exception and fail:
+  ```terraform
+  locals {
+    foo = "foo"
+    name = "prefix1-${"prefix2-${"${local.foo}-bar"}"}" //should interpolate into "prefix1-prefix2-foo-bar" but fails
+  }
+  ```
+  We recommend working around this by modifying the configuration in the following manner:
+  ```terraform
+  locals {
+    foo = "foo"
+    foo_bar = "${local.foo}-bar"
+    name = "prefix1-${"prefix2-${local.foo_bar}"}" //interpolates into "prefix1-prefix2-foo-bar"
+  }
+  ```
