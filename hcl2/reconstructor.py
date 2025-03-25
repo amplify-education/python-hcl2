@@ -22,7 +22,7 @@ def reverse_quotes_within_interpolation(interp_s: str) -> str:
     method removes any erroneous escapes within interpolated segments of a
     string.
     """
-    return re.sub(r"\$\{(.*)\}", lambda m: m.group(0).replace('\\"', '"'), interp_s)
+    return re.sub(r"\$\{(.*)}", lambda m: m.group(0).replace('\\"', '"'), interp_s)
 
 
 class WriteTokensAndMetaTransformer(Transformer_InPlace):
@@ -43,6 +43,7 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
         tokens: Dict[str, TerminalDef],
         term_subs: Dict[str, Callable[[Symbol], str]],
     ) -> None:
+        super().__init__()
         self.tokens = tokens
         self.term_subs = term_subs
 
@@ -91,14 +92,6 @@ class WriteTokensAndMetaTransformer(Transformer_InPlace):
 class HCLReconstructor(Reconstructor):
     """This class converts a Lark.Tree AST back into a string representing the underlying HCL code."""
 
-    # these variables track state during reconstruction to enable us to make
-    # informed decisions about formatting output. They are primarily used
-    # by the _should_add_space(...) method.
-    last_char_space = True
-    last_terminal = None
-    last_rule = None
-    deferred_item = None
-
     def __init__(
         self,
         parser: Lark,
@@ -106,32 +99,38 @@ class HCLReconstructor(Reconstructor):
     ):
         Reconstructor.__init__(self, parser, term_subs)
 
-        self.write_tokens = WriteTokensAndMetaTransformer(
-            {token.name: token for token in self.tokens}, term_subs or {}
+        self.write_tokens: WriteTokensAndMetaTransformer = (
+            WriteTokensAndMetaTransformer(
+                {token.name: token for token in self.tokens}, term_subs or {}
+            )
         )
 
-    # space around these terminals if they're within for or if statements
-    FOR_IF_KEYWORDS = [
-        Terminal("IF"),
-        Terminal("IN"),
-        Terminal("FOR"),
-        Terminal("FOR_EACH"),
-        Terminal("FOR_OBJECT_ARROW"),
-        Terminal("COLON"),
-    ]
+        # these variables track state during reconstruction to enable us to make
+        # informed decisions about formatting output. They are primarily used
+        # by the _should_add_space(...) method.
+        self._last_char_space = True
+        self._last_terminal: Union[Terminal, None] = None
+        self._last_rule: Union[Tree, Token, None] = None
+        self._deferred_item = None
 
-    # space on both sides, in ternaries and binary operators
-    BINARY_OPS = [
-        Terminal("QMARK"),
-        Terminal("COLON"),
-        Terminal("BINARY_OP"),
-    ]
+    def should_be_wrapped_in_spaces(self, terminal: Terminal) -> bool:
+        """Whether given terminal should be wrapped in spaces"""
+        return terminal.name in {
+            "IF",
+            "IN",
+            "FOR",
+            "FOR_EACH",
+            "FOR_OBJECT_ARROW",
+            "COLON",
+            "QMARK",
+            "BINARY_OP",
+        }
 
     def _is_equals_sign(self, terminal) -> bool:
         return (
-            isinstance(self.last_rule, Token)
-            and self.last_rule.value in ("attribute", "object_elem")
-            and self.last_terminal == Terminal("EQ")
+            isinstance(self._last_rule, Token)
+            and self._last_rule.value in ("attribute", "object_elem")
+            and self._last_terminal == Terminal("EQ")
             and terminal != Terminal("NL_OR_COMMENT")
         )
 
@@ -155,11 +154,11 @@ class HCLReconstructor(Reconstructor):
         This should be sufficient to make a spacing decision.
         """
         # we don't need to add multiple spaces
-        if self.last_char_space:
+        if self._last_char_space:
             return False
 
         # we don't add a space at the start of the file
-        if not self.last_terminal or not self.last_rule:
+        if not self._last_terminal or not self._last_rule:
             return False
 
         if self._is_equals_sign(current_terminal):
@@ -173,20 +172,20 @@ class HCLReconstructor(Reconstructor):
                 "conditional",
                 "binary_operator",
             ]
-            and current_terminal in self.BINARY_OPS
+            and self.should_be_wrapped_in_spaces(current_terminal)
         ):
             return True
 
         # if we just left a ternary or binary operator, add space around the
         # operator unless there's a newline already
         if (
-            isinstance(self.last_rule, Token)
-            and self.last_rule.value
+            isinstance(self._last_rule, Token)
+            and self._last_rule.value
             in [
                 "conditional",
                 "binary_operator",
             ]
-            and self.last_terminal in self.BINARY_OPS
+            and self.should_be_wrapped_in_spaces(self._last_terminal)
             and current_terminal != Terminal("NL_OR_COMMENT")
         ):
             return True
@@ -200,21 +199,21 @@ class HCLReconstructor(Reconstructor):
                 "for_cond",
                 "for_intro",
             ]
-            and current_terminal in self.FOR_IF_KEYWORDS
+            and self.should_be_wrapped_in_spaces(current_terminal)
         ):
             return True
 
         # if we've just left a for or if statement and find a keyword, add a
         # space, unless we have a newline
         if (
-            isinstance(self.last_rule, Token)
-            and self.last_rule.value
+            isinstance(self._last_rule, Token)
+            and self._last_rule.value
             in [
                 "for_object_expr",
                 "for_cond",
                 "for_intro",
             ]
-            and self.last_terminal in self.FOR_IF_KEYWORDS
+            and self.should_be_wrapped_in_spaces(self._last_terminal)
             and current_terminal != Terminal("NL_OR_COMMENT")
         ):
             return True
@@ -230,7 +229,7 @@ class HCLReconstructor(Reconstructor):
             # always add space before the closing brace
             if current_terminal == Terminal(
                 "RBRACE"
-            ) and self.last_terminal != Terminal("LBRACE"):
+            ) and self._last_terminal != Terminal("LBRACE"):
                 return True
 
             # always add space between string literals
@@ -240,20 +239,20 @@ class HCLReconstructor(Reconstructor):
         # if we just opened a block, add a space, unless the block is empty
         # or has a newline
         if (
-            isinstance(self.last_rule, Token)
-            and self.last_rule.value == "block"
-            and self.last_terminal == Terminal("LBRACE")
+            isinstance(self._last_rule, Token)
+            and self._last_rule.value == "block"
+            and self._last_terminal == Terminal("LBRACE")
             and current_terminal not in [Terminal("RBRACE"), Terminal("NL_OR_COMMENT")]
         ):
             return True
 
         # if we're in a tuple or function arguments (this rule matches commas between items)
-        if isinstance(self.last_rule, str) and re.match(
-            r"^__(tuple|arguments)_(star|plus)_.*", self.last_rule
+        if isinstance(self._last_rule, str) and re.match(
+            r"^__(tuple|arguments)_(star|plus)_.*", self._last_rule
         ):
 
             # string literals, decimals, and identifiers should always be
-            # preceeded by a space if they're following a comma in a tuple or
+            # preceded by a space if they're following a comma in a tuple or
             # function arg
             if current_terminal in [
                 Terminal("STRING_LIT"),
@@ -279,12 +278,12 @@ class HCLReconstructor(Reconstructor):
                 rule, terminal, value = item
 
                 # first, handle any deferred items
-                if self.deferred_item is not None:
+                if self._deferred_item is not None:
                     (
                         deferred_rule,
                         deferred_terminal,
                         deferred_value,
-                    ) = self.deferred_item
+                    ) = self._deferred_item
 
                     # if we deferred a comma and the next character ends a
                     # parenthesis or block, we can throw it out
@@ -298,32 +297,32 @@ class HCLReconstructor(Reconstructor):
                         yield deferred_value
 
                         # and do our bookkeeping
-                        self.last_terminal = deferred_terminal
-                        self.last_rule = deferred_rule
+                        self._last_terminal = deferred_terminal
+                        self._last_rule = deferred_rule
                         if deferred_value and not deferred_value[-1].isspace():
-                            self.last_char_space = False
+                            self._last_char_space = False
 
                     # clear the deferred item
-                    self.deferred_item = None
+                    self._deferred_item = None
 
                 # potentially add a space before the next token
                 if self._should_add_space(rule, terminal):
                     yield " "
-                    self.last_char_space = True
+                    self._last_char_space = True
 
-                # potentially defer the item if needs to be
+                # potentially defer the item if needed
                 if terminal in [Terminal("COMMA")]:
-                    self.deferred_item = item
+                    self._deferred_item = item
                 else:
                     # otherwise print the next token
                     yield value
 
                     # and do our bookkeeping so we can make an informed
                     # decision about formatting next time
-                    self.last_terminal = terminal
-                    self.last_rule = rule
+                    self._last_terminal = terminal
+                    self._last_rule = rule
                     if value:
-                        self.last_char_space = value[-1].isspace()
+                        self._last_char_space = value[-1].isspace()
 
             else:
                 raise RuntimeError(f"Unknown bare token type: {item}")
@@ -375,7 +374,7 @@ class HCLReverseTransformer:
     @staticmethod
     def _is_string_wrapped_tf(interp_s: str) -> bool:
         """
-        Determines whether a string is a complex HCL datastructure
+        Determines whether a string is a complex HCL data structure
         wrapped in ${ interpolation } characters.
         """
         if not interp_s.startswith("${") or not interp_s.endswith("}"):
@@ -549,11 +548,11 @@ class HCLReverseTransformer:
         # for dicts, recursively turn the child k/v pairs into object elements
         # and store within an object
         if isinstance(value, dict):
-            elems = []
+            elements = []
 
             # if the object has elements, put it on a newline
             if len(value) > 0:
-                elems.append(self._newline(level + 1))
+                elements.append(self._newline(level + 1))
 
             # iterate through the items and add them to the object
             for i, (k, dict_v) in enumerate(value.items()):
@@ -561,7 +560,7 @@ class HCLReverseTransformer:
                     continue
 
                 value_expr_term = self._transform_value_to_expr_term(dict_v, level + 1)
-                elems.append(
+                elements.append(
                     Tree(
                         Token("RULE", "object_elem"),
                         [
@@ -577,11 +576,11 @@ class HCLReverseTransformer:
 
                 # add indentation appropriately
                 if i < len(value) - 1:
-                    elems.append(self._newline(level + 1))
+                    elements.append(self._newline(level + 1))
                 else:
-                    elems.append(self._newline(level))
+                    elements.append(self._newline(level))
             return Tree(
-                Token("RULE", "expr_term"), [Tree(Token("RULE", "object"), elems)]
+                Token("RULE", "expr_term"), [Tree(Token("RULE", "object"), elements)]
             )
 
         # treat booleans appropriately
@@ -641,7 +640,3 @@ class HCLReverseTransformer:
 
         # otherwise, we don't know the type
         raise RuntimeError(f"Unknown type to transform {type(value)}")
-
-
-hcl2_reconstructor = HCLReconstructor(reconstruction_parser())
-hcl2_reverse_transformer = HCLReverseTransformer()
