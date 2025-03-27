@@ -52,7 +52,6 @@ class DictTransformer(Transformer):
     def expr_term(self, args: List) -> Any:
         args = self.strip_new_line_tokens(args)
 
-        #
         if args[0] == "true":
             return True
         if args[0] == "false":
@@ -140,7 +139,7 @@ class DictTransformer(Transformer):
         return f"{provider_func}({args_str})"
 
     def arguments(self, args: List) -> List:
-        return args
+        return self.process_nulls(args)
 
     @v_args(meta=True)
     def block(self, meta: Meta, args: List) -> Dict:
@@ -170,16 +169,19 @@ class DictTransformer(Transformer):
 
     def conditional(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
+        args = self.process_nulls(args)
         return f"{args[0]} ? {args[1]} : {args[2]}"
 
     def binary_op(self, args: List) -> str:
         return " ".join([self.to_tf_inline(arg) for arg in args])
 
     def unary_op(self, args: List) -> str:
+        args = self.process_nulls(args)
         return "".join([self.to_tf_inline(arg) for arg in args])
 
     def binary_term(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
+        args = self.process_nulls(args)
         return " ".join([self.to_tf_inline(arg) for arg in args])
 
     def body(self, args: List) -> Dict[str, List]:
@@ -336,6 +338,9 @@ class DictTransformer(Transformer):
             # we will leave Unicode escapes (\uNNNN and \UNNNNNNNN) untouched
             # for now, but this method can be extended in the future
         return value
+
+    def process_nulls(self, args: List) -> List:
+        return ["null" if arg is None else arg for arg in args]
 
     def to_tf_inline(self, value: Any) -> str:
         """

@@ -119,7 +119,7 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
                     "key4": "${true == false}",
                     "key5": "${5 + 5}",
                     "key6": "${function()}",
-                    "key7": "${value == None ? 1 : 0}",
+                    "key7": "${value == null ? 1 : 0}",
                 }
             },
         )
@@ -175,16 +175,16 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
         result = self.load_to_dict(identifier)
         self.assertDictEqual(result, expected)
 
-    def test_expr_term_parentheses(self):
+    def test_expr_term_parenthesis(self):
         literals = {
             "a = 1 * 2 + 3": {"a": "${1 * 2 + 3}"},
             "b = 1 * (2 + 3)": {"b": "${1 * (2 + 3)}"},
             "c = (1 * (2 + 3))": {"c": "${(1 * (2 + 3))}"},
             "conditional = value == null ? 1 : 0": {
-                "conditional": "${value == None ? 1 : 0}"
+                "conditional": "${value == null ? 1 : 0}"
             },
             "conditional = (value == null ? 1 : 0)": {
-                "conditional": "${(value == None ? 1 : 0)}"
+                "conditional": "${(value == null ? 1 : 0)}"
             },
         }
 
