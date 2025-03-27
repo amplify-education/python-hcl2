@@ -8,6 +8,7 @@ assignees: kkozik-amplify
 ---
 
 **Describe the bug**
+
 A clear and concise description of what the bug is.
 
 **Software:**
@@ -22,8 +23,10 @@ locals {
 }
 ```
 **Expected behavior**
+
 A clear and concise description of what you expected to happen, e.g. python dictionary or JSON you expected to receive as a result of parsing.
 
 **Exception traceback (if applicable)**:
+
 ```
 ```
