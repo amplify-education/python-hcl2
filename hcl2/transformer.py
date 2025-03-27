@@ -107,6 +107,9 @@ class DictTransformer(Transformer):
         value = self.to_string_dollar(value)
         return {key: value}
 
+    def object_elem_key_dot_accessor(self, args: List) -> str:
+        return "".join(args)
+
     def object(self, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
         result: Dict[str, Any] = {}
