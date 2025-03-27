@@ -5,6 +5,7 @@ import sys
 from collections import namedtuple
 from typing import List, Dict, Any
 
+from lark import Token
 from lark.tree import Meta
 from lark.visitors import Transformer, Discard, _DiscardType, v_args
 
@@ -111,6 +112,11 @@ class DictTransformer(Transformer):
         args = self.strip_new_line_tokens(args)
         result: Dict[str, Any] = {}
         for arg in args:
+            if (
+                isinstance(arg, Token) and arg.type == "COMMA"
+            ):  # skip optional comma at the end of object element
+                continue
+
             result.update(arg)
         return result
 

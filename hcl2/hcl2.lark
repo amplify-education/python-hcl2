@@ -37,6 +37,7 @@ DOUBLE_PIPE : "||"
 PLUS : "+"
 LPAR : "("
 RPAR : ")"
+COMMA : ","
 
 expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
             | float_lit
@@ -71,7 +72,7 @@ EXP_MARK : ("e" | "E") ("+" | "-")? DECIMAL+
 EQ : /[ \t]*=(?!=|>)/
 
 tuple : "[" (new_line_or_comment* expression new_line_or_comment* ",")* (new_line_or_comment* expression)? new_line_or_comment* "]"
-object : "{" new_line_or_comment? (new_line_or_comment* (object_elem | (object_elem ",")) new_line_or_comment*)* "}"
+object : "{" new_line_or_comment? (new_line_or_comment* (object_elem | (object_elem COMMA)) new_line_or_comment*)* "}"
 object_elem : object_elem_key ( EQ | ":") expression
 object_elem_key : float_lit | int_lit | identifier | STRING_LIT
 
