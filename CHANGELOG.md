@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## \[Unreleased\]
+
+### Fixed
+
+- Issue parsing dot-accessed attribute as an object key ([#209](https://github.com/amplify-education/python-hcl2/pull/209))
+
 ## \[7.0.0\] - 2025-03-27
 
 ### Added
