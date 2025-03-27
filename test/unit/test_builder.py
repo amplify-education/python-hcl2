@@ -64,14 +64,16 @@ class TestBuilder(TestCase):
     def test_locals_embedded_interpolation_tf(self):
         builder = hcl2.Builder()
 
-        embedded_interpolation = (
-            "(long substring without interpolation); ${module.special_constants.aws_accounts"
-            '["aaa-${local.foo}-${local.bar}"]}/us-west-2/key_foo'
-        )
+        attributes = {
+            "simple_interpolation": "prefix:${var.foo}-suffix",
+            "embedded_interpolation": "(long substring without interpolation); "
+            '${module.special_constants.aws_accounts["aaa-${local.foo}-${local.bar}"]}/us-west-2/key_foo',
+            "escaped_interpolation": "prefix:$${aws:username}-suffix",
+        }
 
-        builder.block("locals", embedded_interpolation=embedded_interpolation)
+        builder.block("locals", **attributes)
 
-        self.compare_filenames(builder, "locals_embedded_interpolation.tf")
+        self.compare_filenames(builder, "string_interpolations.tf")
 
     def test_provider_function_tf(self):
         builder = hcl2.Builder()
