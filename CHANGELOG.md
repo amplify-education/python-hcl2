@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## \[7.0.0\] - 2025-03-27
+
+### Added
+
+- `Limitations` section to README.md ([#200](https://github.com/amplify-education/python-hcl2/pull/200))
+
+### Fixed
+
+- Issue handling heredoc with delimiter within text itself ([#194](https://github.com/amplify-education/python-hcl2/pull/194))
+- Various issues with parsing object elements ([#197](https://github.com/amplify-education/python-hcl2/pull/197))
+- Dictionary -> hcl2 reconstruction of `null` values ([#198](https://github.com/amplify-education/python-hcl2/pull/198))
+- Inaccurate parsing of `null` values in some cases ([#206](https://github.com/amplify-education/python-hcl2/pull/206))
+- Missing parenthesis in arithemetic expressions ([#194](https://github.com/amplify-education/python-hcl2/pull/199))
+- Noticeable overhead when loading hcl2.reconstructor module ([#202](https://github.com/amplify-education/python-hcl2/pull/202))
+- Escaped string interpolation (e.g. `"$${aws:username}"`) parsing ([#200](https://github.com/amplify-education/python-hcl2/pull/200))
+
+### Removed
+
+- Support for parsing interpolations nested more than 2 times (known-issue) ([#200](https://github.com/amplify-education/python-hcl2/pull/200))
+
 ## \[6.1.1\] - 2025-02-13
 
 ### Fixed
