@@ -28,4 +28,9 @@ module "bucket_name" {
   name    = "audit"
   account = var.account
   region  = var.region
+
+  providers = {
+    aws.ue1 = aws
+    aws.uw2.attribute = aws.backup
+  }
 }
