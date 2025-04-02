@@ -40,13 +40,7 @@ class RuleTransformer(Transformer):
     def is_type_keyword(value: str) -> bool:
         return value in {"bool", "number", "string"}
 
-    def __init__(self, with_meta: bool = False, with_comments: bool = True):
-        """
-        :param with_meta: If set to true then adds `__start_line__` and `__end_line__`
-        parameters to the output dict. Default to false.
-        """
-        self._with_meta = with_meta
-        self._with_comments = with_comments
+    def __init__(self):
         super().__init__()
 
     def transform(self, tree: Tree[_Leaf_T]) -> LarkRule:
@@ -113,6 +107,4 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def new_line_or_comment(self, meta: Meta, args) -> NewLineOrCommentRule:
-        if self._with_comments:
-            return NewLineOrCommentRule(args, meta)
-        return Discard
+        return NewLineOrCommentRule(args, meta)

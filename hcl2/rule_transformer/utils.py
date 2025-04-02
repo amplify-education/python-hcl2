@@ -1,3 +1,12 @@
+from dataclasses import dataclass
+
+
+@dataclass
+class SerializationOptions:
+    with_comments: bool = True
+    with_meta: bool = False
+
+
 def is_dollar_string(value: str) -> bool:
     if not isinstance(value, str):
         return False
