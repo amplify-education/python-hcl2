@@ -1,9 +1,10 @@
 from abc import ABC
-from typing import Tuple, Any, List, Optional
+from typing import Tuple, Any, List, Optional, Type
 
 from lark.tree import Meta
 
 from hcl2.rule_transformer.rules.abstract import TokenSequence, LarkRule, LarkToken
+from hcl2.rule_transformer.utils import SerializationOptions
 
 
 class TokenSequenceRule(LarkRule, ABC):
@@ -12,10 +13,13 @@ class TokenSequenceRule(LarkRule, ABC):
 
     def __init__(self, children: List[LarkToken], meta: Optional[Meta] = None):
         children = [TokenSequence(children)]
-        super().__init__(children)
+        super().__init__(children, meta)
 
-    def serialize(self) -> Any:
-        return self._children[0].joined()
+    def serialized_type(self) -> Type:
+        return str
+
+    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+        return self.serialized_type()(self._children[0].serialize(options))
 
 
 class IdentifierRule(TokenSequenceRule):
@@ -23,17 +27,14 @@ class IdentifierRule(TokenSequenceRule):
     def rule_name() -> str:
         return "identifier"
 
-    def serialize(self) -> str:
-        return str(super().serialize())
-
 
 class IntLitRule(TokenSequenceRule):
     @staticmethod
     def rule_name() -> str:
         return "int_lit"
 
-    def serialize(self) -> float:
-        return int(super().serialize())
+    def serialized_type(self) -> Type:
+        return int
 
 
 class FloatLitRule(TokenSequenceRule):
@@ -41,23 +42,19 @@ class FloatLitRule(TokenSequenceRule):
     def rule_name() -> str:
         return "float_lit"
 
-    def serialize(self) -> float:
-        return float(super().serialize())
+    def serialized_type(self) -> Type:
+        return float
 
 
 class StringLitRule(TokenSequenceRule):
     @staticmethod
     def rule_name() -> str:
+        # TODO actually this is a terminal, but it doesn't matter for lark.Transformer class;
+        #   nevertheless, try to change it to a rule in hcl2.lark
         return "STRING_LIT"
-
-    def serialize(self) -> str:
-        return str(super().serialize())
 
 
 class BinaryOperatorRule(TokenSequenceRule):
     @staticmethod
     def rule_name() -> str:
         return "binary_operator"
-
-    def serialize(self) -> str:
-        return str(super().serialize())

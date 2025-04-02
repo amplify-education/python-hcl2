@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Tuple, Any, List, Union, Optional
 
 from lark.tree import Meta
@@ -7,6 +8,7 @@ from hcl2.rule_transformer.rules.expression import Expression
 from hcl2.rule_transformer.rules.token_sequence import IdentifierRule
 
 from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
+from hcl2.rule_transformer.utils import SerializationOptions
 
 
 class AttributeRule(LarkRule):
@@ -28,8 +30,8 @@ class AttributeRule(LarkRule):
     def expression(self) -> Expression:
         return self._children[2]
 
-    def serialize(self) -> Any:
-        return {self.identifier.serialize(): self.expression.serialize()}
+    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+        return {self.identifier.serialize(options): self.expression.serialize(options)}
 
 
 class BodyRule(LarkRule):
@@ -46,18 +48,23 @@ class BodyRule(LarkRule):
     def rule_name() -> str:
         return "body"
 
-    def serialize(self) -> Any:
+    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
         blocks: List[BlockRule] = []
         attributes: List[AttributeRule] = []
         comments = []
-
+        inline_comments = []
         for child in self._children:
+
             if isinstance(child, BlockRule):
                 blocks.append(child)
+
             if isinstance(child, AttributeRule):
                 attributes.append(child)
+                # collect in-line comments from attribute assignments, expressions etc
+                inline_comments.extend(child.expression.inline_comments())
+
             if isinstance(child, NewLineOrCommentRule):
-                child_comments = child.actual_comments()
+                child_comments = child.to_list()
                 if child_comments:
                     comments.extend(child_comments)
 
@@ -65,15 +72,27 @@ class BodyRule(LarkRule):
 
         for attribute in attributes:
             result.update(
-                {attribute.identifier.serialize(): attribute.expression.serialize()}
+                {
+                    attribute.identifier.serialize(
+                        options
+                    ): attribute.expression.serialize(options)
+                }
             )
 
-        result.update(
-            {block.labels[0].serialize(): block.serialize() for block in blocks}
-        )
+        result_blocks = defaultdict(list)
+        for block in blocks:
+            name = block.labels[0].serialize(options)
+            if name in result.keys():
+                raise RuntimeError(f"Attribute {name} is already defined.")
+            result_blocks[name].append(block.serialize(options))
 
-        if comments:
-            result["__comments__"] = comments
+        result.update(**result_blocks)
+
+        if options.with_comments:
+            if comments:
+                result["__comments__"] = comments
+            if inline_comments:
+                result["__inline_comments__"] = inline_comments
 
         return result
 
@@ -90,8 +109,8 @@ class StartRule(LarkRule):
     def body(self) -> BodyRule:
         return self._children[0]
 
-    def serialize(self) -> Any:
-        return self.body.serialize()
+    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+        return self.body.serialize(options)
 
 
 class BlockRule(LarkRule):
@@ -103,7 +122,7 @@ class BlockRule(LarkRule):
         return "block"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        super().__init__(children)
+        super().__init__(children, meta)
         *self._labels, self._body = children
 
     @property
@@ -114,9 +133,11 @@ class BlockRule(LarkRule):
     def body(self) -> BodyRule:
         return self._body
 
-    def serialize(self) -> BodyRule:
-        result = self._body.serialize()
+    def serialize(
+        self, options: SerializationOptions = SerializationOptions()
+    ) -> BodyRule:
+        result = self._body.serialize(options)
         labels = self._labels
         for label in reversed(labels[1:]):
-            result = {label.serialize(): result}
+            result = {label.serialize(options): result}
         return result
