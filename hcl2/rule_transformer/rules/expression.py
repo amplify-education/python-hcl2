@@ -16,6 +16,7 @@ from hcl2.rule_transformer.utils import (
     wrap_into_parentheses,
     to_dollar_string,
     unwrap_dollar_string,
+    SerializationOptions,
 )
 
 
@@ -24,16 +25,43 @@ class Expression(LarkRule, ABC):
     def rule_name() -> str:
         return "expression"
 
+    def __init__(self, children, meta: Optional[Meta] = None):
+        super().__init__(children, meta)
+
+    def inline_comments(self):
+        result = []
+        for child in self._children:
+
+            if isinstance(child, NewLineOrCommentRule):
+                result.extend(child.to_list())
+
+            elif isinstance(child, Expression):
+                result.extend(child.inline_comments())
+
+        return result
+
+    def _possibly_insert_null_comments(self, children: List, indexes: List[int] = None):
+        for index in indexes:
+            try:
+                child = children[index]
+            except IndexError:
+                children.insert(index, None)
+            else:
+                if not isinstance(child, NewLineOrCommentRule):
+                    children.insert(index, None)
+
 
 class ExprTermRule(Expression):
 
-    _children: Tuple[
+    type_ = Tuple[
         Optional[LPAR_TOKEN],
         Optional[NewLineOrCommentRule],
         Expression,
         Optional[NewLineOrCommentRule],
         Optional[RPAR_TOKEN],
     ]
+
+    _children: type_
 
     @staticmethod
     def rule_name() -> str:
@@ -48,34 +76,36 @@ class ExprTermRule(Expression):
             and children[-1].name == "RPAR"
         ):
             self._parentheses = True
-            children = children[1:-1]
+        else:
+            children = [None, *children, None]
+
+        self._possibly_insert_null_comments(children, [1, 3])
         super().__init__(children, meta)
 
     @property
     def parentheses(self) -> bool:
         return self._parentheses
 
-    def serialize(self) -> Any:
-        result = self._children[0].serialize()
+    @property
+    def expression(self) -> Expression:
+        return self._children[2]
+
+    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+        result = self.expression.serialize(options)
         if self.parentheses:
             result = wrap_into_parentheses(result)
             result = to_dollar_string(result)
         return result
 
-    def tree(self) -> Tree:
-        tree = super().tree()
-        if self.parentheses:
-            return Tree(
-                tree.data, [Token("LPAR", "("), *tree.children, Token("RPAR", ")")]
-            )
-        return tree
 
-
-class ConditionalRule(LarkRule):
+class ConditionalRule(Expression):
 
     _children: Tuple[
         Expression,
+        Optional[NewLineOrCommentRule],
         Expression,
+        Optional[NewLineOrCommentRule],
+        Optional[NewLineOrCommentRule],
         Expression,
     ]
 
@@ -83,27 +113,28 @@ class ConditionalRule(LarkRule):
     def rule_name():
         return "conditional"
 
+    def __init__(self, children, meta: Optional[Meta] = None):
+        self._possibly_insert_null_comments(children, [1, 3, 4])
+        super().__init__(children, meta)
+
     @property
     def condition(self) -> Expression:
         return self._children[0]
 
     @property
     def if_true(self) -> Expression:
-        return self._children[1]
+        return self._children[2]
 
     @property
     def if_false(self) -> Expression:
-        return self._children[2]
+        return self._children[5]
 
-    def __init__(self, children, meta: Optional[Meta] = None):
-        super().__init__(children, meta)
-
-    def serialize(self) -> Any:
-        result = f"{self.condition.serialize()} ? {self.if_true.serialize()} : {self.if_false.serialize()}"
+    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+        result = f"{self.condition.serialize(options)} ? {self.if_true.serialize(options)} : {self.if_false.serialize(options)}"
         return to_dollar_string(result)
 
 
-class BinaryTermRule(LarkRule):
+class BinaryTermRule(Expression):
 
     _children: Tuple[
         BinaryOperatorRule,
@@ -116,8 +147,7 @@ class BinaryTermRule(LarkRule):
         return "binary_term"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        if len(children) == 2:
-            children.insert(1, None)
+        self._possibly_insert_null_comments(children, [1])
         super().__init__(children, meta)
 
     @property
@@ -125,19 +155,11 @@ class BinaryTermRule(LarkRule):
         return self._children[0]
 
     @property
-    def comment(self) -> Optional[NewLineOrCommentRule]:
-        return self._children[1]
-
-    @property
-    def has_comment(self) -> bool:
-        return self.comment is not None
-
-    @property
     def expr_term(self) -> ExprTermRule:
         return self._children[2]
 
-    def serialize(self) -> Any:
-        return f"{self.binary_operator.serialize()} {self.expr_term.serialize()}"
+    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+        return f"{self.binary_operator.serialize(options)} {self.expr_term.serialize(options)}"
 
 
 class BinaryOpRule(Expression):
@@ -159,10 +181,14 @@ class BinaryOpRule(Expression):
     def binary_term(self) -> BinaryTermRule:
         return self._children[1]
 
-    def serialize(self) -> Any:
-        lhs = self.expr_term.serialize()
-        operator = self.binary_term.binary_operator.serialize()
-        rhs = self.binary_term.expr_term.serialize()
+    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+        lhs = self.expr_term.serialize(options)
+        operator = self.binary_term.binary_operator.serialize(options)
+        rhs = self.binary_term.expr_term.serialize(options)
+        # below line is to avoid dollar string nested inside another dollar string, e.g.:
+        #   hcl2: 15 + (10 * 12)
+        #   desired json: "${15 + (10 * 12)}"
+        #   undesired json: "${15 + ${(10 * 12)}}"
         rhs = unwrap_dollar_string(rhs)
         return to_dollar_string(f"{lhs} {operator} {rhs}")
 
@@ -183,5 +209,5 @@ class UnaryOpRule(Expression):
     def expr_term(self):
         return self._children[1]
 
-    def serialize(self) -> Any:
-        return to_dollar_string(f"{self.operator}{self.expr_term.serialize()}")
+    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+        return to_dollar_string(f"{self.operator}{self.expr_term.serialize(options)}")
