@@ -39,6 +39,7 @@ LPAR : "("
 RPAR : ")"
 COMMA : ","
 DOT : "."
+COLON : ":"
 
 expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
             | float_lit
@@ -74,7 +75,7 @@ EQ : /[ \t]*=(?!=|>)/
 
 tuple : "[" (new_line_or_comment* expression new_line_or_comment* ",")* (new_line_or_comment* expression)? new_line_or_comment* "]"
 object : "{" new_line_or_comment? (new_line_or_comment* (object_elem | (object_elem COMMA)) new_line_or_comment*)* "}"
-object_elem : object_elem_key ( EQ | ":") expression
+object_elem : LPAR? object_elem_key RPAR? ( EQ | COLON ) expression
 object_elem_key : float_lit | int_lit | identifier | STRING_LIT | object_elem_key_dot_accessor
 object_elem_key_dot_accessor : identifier (DOT identifier)+
 

@@ -395,6 +395,12 @@ class HCLReverseTransformer:
 
         return True
 
+    @classmethod
+    def _unwrap_interpolation(cls, value: str) -> str:
+        if cls._is_string_wrapped_tf(value):
+            return value[2:-1]
+        return value
+
     def _newline(self, level: int, count: int = 1) -> Tree:
         return Tree(
             Token("RULE", "new_line_or_comment"),
@@ -560,6 +566,7 @@ class HCLReverseTransformer:
                     continue
 
                 value_expr_term = self._transform_value_to_expr_term(dict_v, level + 1)
+                k = self._unwrap_interpolation(k)
                 elements.append(
                     Tree(
                         Token("RULE", "object_elem"),

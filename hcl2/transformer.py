@@ -98,11 +98,14 @@ class DictTransformer(Transformer):
     def object_elem(self, args: List) -> Dict:
         # This returns a dict with a single key/value pair to make it easier to merge these
         # into a bigger dict that is returned by the "object" function
-        key = self.strip_quotes(str(args[0].children[0]))
-        if len(args) == 3:
-            value = args[2]
+        if args[0] == Token("LPAR", "("):
+            key = self.strip_quotes(str(args[1].children[0]))
+            key = f"({key})"
+            key = self.to_string_dollar(key)
+            value = args[4]
         else:
-            value = args[1]
+            key = self.strip_quotes(str(args[0].children[0]))
+            value = args[2]
 
         value = self.to_string_dollar(value)
         return {key: value}
