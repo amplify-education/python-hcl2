@@ -8,6 +8,7 @@ locals {
   foo = "${var.account}_bar"
   bar = {
     baz : 1
+    (var.account) : 2
   }
 }
 
