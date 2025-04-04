@@ -22,16 +22,19 @@ class NewLineOrCommentRule(LarkRule):
         if comment == "\n":
             return None
 
-        comment = comment.strip()
         comments = comment.split("\n")
 
         result = []
         for comment in comments:
-            if comment.startswith("//"):
-                comment = comment[2:]
+            comment = comment.strip()
 
-            elif comment.startswith("#"):
-                comment = comment[1:]
+            for delimiter in ("//", "/*", "#"):
+
+                if comment.startswith(delimiter):
+                    comment = comment[len(delimiter) :]
+
+                if comment.endswith("*/"):
+                    comment = comment[:-2]
 
             if comment != "":
                 result.append(comment.strip())
