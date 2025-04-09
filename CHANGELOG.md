@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Issue parsing parenthesesed identifier (reference) as an object key ([#212](https://github.com/amplify-education/python-hcl2/pull/212))
+- Issue discarding empty lists when transforming python dictionary into Lark Tree ([#216](https://github.com/amplify-education/python-hcl2/pull/216))
 
 ## \[7.0.1\] - 2025-03-31
 

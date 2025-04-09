@@ -10,6 +10,8 @@ locals {
     baz : 1
     (var.account) : 2
   }
+  tuple = [local.foo]
+  empty_tuple = []
 }
 
 variable "azs" {
