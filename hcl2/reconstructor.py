@@ -409,40 +409,29 @@ class HCLReverseTransformer:
             [Token("NL_OR_COMMENT", f"\n{'  ' * level}") for _ in range(count)],
         )
 
-    # rules: the value of a block is always an array of dicts,
-    # the key is the block type
-    def _list_is_a_block(self, value: list) -> bool:
-        for obj in value:
-            if not self._dict_is_a_block(obj):
+    def _is_block(self, value: Any) -> bool:
+        if isinstance(value, dict):
+            block_body = value
+            if (
+                START_LINE_KEY in block_body.keys()
+                or END_LINE_KEY in block_body.keys()
+            ):
+                return True
+
+            try:
+                # if block is labeled, actual body might be nested
+                # pylint: disable=W0612
+                block_label, block_body = next(iter(value.items()))
+            except StopIteration:
+                # no more potential labels = nothing more to check
                 return False
 
-        return True
+            return self._is_block(block_body)
 
-    def _dict_is_a_block(self, sub_obj: Any) -> bool:
-        # if the list doesn't contain dictionaries, it's not a block
-        if not isinstance(sub_obj, dict):
-            return False
+        if isinstance(value, list):
+            if len(value) > 0:
+                return self._is_block(value[0])
 
-        # if the sub object has "start_line" and "end_line" metadata,
-        # the block itself is unlabeled, but it is a block
-        if START_LINE_KEY in sub_obj.keys() or END_LINE_KEY in sub_obj.keys():
-            return True
-
-        # if the objects in the array have no metadata and more than 2 keys and
-        # no metadata, it's just an array of objects, not a block
-        if len(list(sub_obj)) != 1:
-            return False
-
-        # if the sub object has a single string key whose value is an object,
-        # it _could_ be a labeled block... but we'd have to check if the sub
-        # object is a block (recurse)
-        label = list(sub_obj)[0]
-        sub_sub_obj = sub_obj[label]
-        if self._dict_is_a_block(sub_sub_obj):
-            return True
-
-        # if the objects in the array have a single key whose child is not a
-        # block, the array is just an array of objects, not a block
         return False
 
     def _calculate_block_labels(self, block: dict) -> Tuple[List[str], dict]:
@@ -483,7 +472,7 @@ class HCLReverseTransformer:
             identifier_name = self._name_to_identifier(key)
 
             # first, check whether the value is a "block"
-            if isinstance(value, list) and self._list_is_a_block(value):
+            if self._is_block(value):
                 for block_v in value:
                     block_labels, block_body_dict = self._calculate_block_labels(
                         block_v
