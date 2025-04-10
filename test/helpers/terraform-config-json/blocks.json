@@ -1,12 +1,34 @@
 {
-    "block": [
-        {
-            "a": 1
-        },
-        {
-            "label": {
-                "b": 2
-            }
-        }
+ "block": [
+  {
+   "a": 1
+  },
+  {
+   "label": {
+    "b": 2,
+    "nested_block_1": [
+     {
+      "a": {
+       "foo": "bar"
+      }
+     },
+     {
+      "a": {
+       "b": {
+        "bar": "foo"
+       }
+      }
+     },
+     {
+      "foobar": "barfoo"
+     }
+    ],
+    "nested_block_2": [
+     {
+      "barfoo": "foobar"
+     }
     ]
+   }
+  }
+ ]
 }

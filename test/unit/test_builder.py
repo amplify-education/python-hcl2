@@ -22,10 +22,15 @@ class TestBuilder(TestCase):
     maxDiff = None
 
     def test_build_blocks_tf(self):
-        builder = hcl2.Builder()
+        nested_builder = hcl2.Builder()
+        nested_builder.block("nested_block_1", ["a"], foo="bar")
+        nested_builder.block("nested_block_1", ["a", "b"], bar="foo")
+        nested_builder.block("nested_block_1", foobar="barfoo")
+        nested_builder.block("nested_block_2", barfoo="foobar")
 
+        builder = hcl2.Builder()
         builder.block("block", a=1)
-        builder.block("block", ["label"], b=2)
+        builder.block("block", ["label"], __nested_builder__=nested_builder, b=2)
 
         self.compare_filenames(builder, "blocks.tf")
 

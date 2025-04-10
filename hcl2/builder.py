@@ -1,6 +1,9 @@
 """A utility class for constructing HCL documents from Python code."""
-
 from typing import List, Optional
+
+from collections import defaultdict
+
+from hcl2.const import START_LINE_KEY, END_LINE_KEY
 
 
 class Builder:
@@ -15,49 +18,69 @@ class Builder:
     """
 
     def __init__(self, attributes: Optional[dict] = None):
-        self.blocks: dict = {}
+        self.blocks: dict = defaultdict(list)
         self.attributes = attributes or {}
 
     def block(
-        self, block_type: str, labels: Optional[List[str]] = None, **attributes
+        self,
+        block_type: str,
+        labels: Optional[List[str]] = None,
+        __nested_builder__: Optional["Builder"] = None,
+        **attributes
     ) -> "Builder":
         """Create a block within this HCL document."""
+
+        if __nested_builder__ is self:
+            raise ValueError(
+                "__nested__builder__ cannot be the same instance as instance this method is called on"
+            )
+
         labels = labels or []
         block = Builder(attributes)
 
-        # initialize a holder for blocks of that type
-        if block_type not in self.blocks:
-            self.blocks[block_type] = []
-
         # store the block in the document
-        self.blocks[block_type].append((labels.copy(), block))
+        self.blocks[block_type].append((labels.copy(), block, __nested_builder__))
 
         return block
 
     def build(self):
         """Return the Python dictionary for this HCL document."""
-        body = {
-            "__start_line__": -1,
-            "__end_line__": -1,
-            **self.attributes,
-        }
+        body = defaultdict(list)
+
+        body.update(
+            {
+                START_LINE_KEY: -1,
+                END_LINE_KEY: -1,
+                **self.attributes,
+            }
+        )
 
         for block_type, blocks in self.blocks.items():
 
-            # initialize a holder for blocks of that type
-            if block_type not in body:
-                body[block_type] = []
-
-            for labels, block_builder in blocks:
+            for labels, block_builder, nested_blocks in blocks:
                 # build the sub-block
                 block = block_builder.build()
 
+                if nested_blocks:
+                    self._add_nested_blocks(block, nested_blocks)
+
                 # apply any labels
-                labels.reverse()
-                for label in labels:
+                for label in reversed(labels):
                     block = {label: block}
 
                 # store it in the body
                 body[block_type].append(block)
 
         return body
+
+    def _add_nested_blocks(
+        self, block: dict, nested_blocks_builder: "Builder"
+    ) -> "dict":
+        """Add nested blocks defined within another `Builder` instance to the `block` dictionary"""
+        nested_block = nested_blocks_builder.build()
+        for key, value in nested_block.items():
+            if key not in (START_LINE_KEY, END_LINE_KEY):
+                if key not in block.keys():
+                    block[key] = []
+                block[key].extend(value)
+        return block

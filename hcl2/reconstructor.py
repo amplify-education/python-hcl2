@@ -10,6 +10,8 @@ from lark.lexer import Token, PatternStr, TerminalDef
 from lark.reconstruct import Reconstructor
 from lark.tree_matcher import is_discarded_terminal
 from lark.visitors import Transformer_InPlace
+
+from hcl2.const import START_LINE_KEY, END_LINE_KEY
 from hcl2.parser import reconstruction_parser
 
 
@@ -423,7 +425,7 @@ class HCLReverseTransformer:
 
         # if the sub object has "start_line" and "end_line" metadata,
         # the block itself is unlabeled, but it is a block
-        if "__start_line__" in sub_obj.keys() or "__end_line__" in sub_obj.keys():
+        if START_LINE_KEY in sub_obj.keys() or END_LINE_KEY in sub_obj.keys():
             return True
 
         # if the objects in the array have no metadata and more than 2 keys and
@@ -454,8 +456,8 @@ class HCLReverseTransformer:
 
         # __start_line__ and __end_line__ metadata are not labels
         if (
-            "__start_line__" in potential_body.keys()
-            or "__end_line__" in potential_body.keys()
+            START_LINE_KEY in potential_body.keys()
+            or END_LINE_KEY in potential_body.keys()
         ):
             return [curr_label], potential_body
 
@@ -463,6 +465,7 @@ class HCLReverseTransformer:
         next_label, block_body = self._calculate_block_labels(potential_body)
         return [curr_label] + next_label, block_body
 
+    # pylint:disable=R0914
     def _transform_dict_to_body(self, hcl_dict: dict, level: int) -> Tree:
         # we add a newline at the top of a body within a block, not the root body
         # >2 here is to ignore the __start_line__ and __end_line__ metadata
@@ -473,7 +476,7 @@ class HCLReverseTransformer:
 
         # iterate through each attribute or sub-block of this block
         for key, value in hcl_dict.items():
-            if key in ["__start_line__", "__end_line__"]:
+            if key in [START_LINE_KEY, END_LINE_KEY]:
                 continue
 
             # construct the identifier, whether that be a block type name or an attribute key
@@ -499,7 +502,12 @@ class HCLReverseTransformer:
                         [identifier_name] + block_label_tokens + [block_body],
                     )
                     children.append(block)
-                    children.append(self._newline(level, count=2))
+                    # add empty line after block
+                    new_line = self._newline(level - 1)
+                    # add empty line with indentation for next element in the block
+                    new_line.children.append(self._newline(level).children[0])
+
+                    children.append(new_line)
 
             # if the value isn't a block, it's an attribute
             else:
@@ -562,7 +570,7 @@ class HCLReverseTransformer:
 
             # iterate through the items and add them to the object
             for i, (k, dict_v) in enumerate(value.items()):
-                if k in ["__start_line__", "__end_line__"]:
+                if k in [START_LINE_KEY, END_LINE_KEY]:
                     continue
 
                 value_expr_term = self._transform_value_to_expr_term(dict_v, level + 1)

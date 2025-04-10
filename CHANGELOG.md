@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+### Added
+
+- `hcl2.builder.Builder` - nested blocks support ([#214](https://github.com/amplify-education/python-hcl2/pull/214))
+
 ### Fixed
 
 - Issue parsing parenthesesed identifier (reference) as an object key ([#212](https://github.com/amplify-education/python-hcl2/pull/212))
