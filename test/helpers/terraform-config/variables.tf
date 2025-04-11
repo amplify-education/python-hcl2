@@ -65,6 +65,7 @@ locals {
         module.remote_state_subaccounts.map[account_name].outputs["aws_account_id"]
       ]
     }
+    ...
   }
   has_valid_forwarding_rules_template_inputs = (
     length(keys(var.forwarding_rules_template.copy_resolver_rules)) > 0
@@ -74,7 +75,7 @@ locals {
 
   for_whitespace = { for i in [1, 2, 3] :
     i =>
-    i
+    i ...
   }
 }
 

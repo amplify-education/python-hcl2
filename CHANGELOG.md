@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- Issue parsing ellipsis in a separate line within `for` expression ([#221](https://github.com/amplify-education/python-hcl2/pull/221))
 - Issue parsing inline expression as an object key; **see Limitations in README.md** ([#222](https://github.com/amplify-education/python-hcl2/pull/222))
 
 ## \[7.1.0\] - 2025-04-10
