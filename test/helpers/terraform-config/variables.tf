@@ -9,6 +9,7 @@ locals {
   bar = {
     baz : 1
     (var.account) : 2
+    (format("key_prefix_%s", local.foo)) : 3
   }
   tuple = [local.foo]
   empty_tuple = []
