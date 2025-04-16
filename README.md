@@ -104,3 +104,16 @@ We’ll try to answer any PR’s promptly.
     name = "prefix1-${"prefix2-${local.foo_bar}"}" //interpolates into "prefix1-prefix2-foo-bar"
   }
   ```
+
+### Using inline expression as an object key
+
+- Object key can be an expression as long as it is wrapped in parentheses:
+  ```terraform
+    locals {
+      foo = "bar"
+      baz = {
+        (format("key_prefix_%s", local.foo)) : "value"
+        # format("key_prefix_%s", local.foo) : "value" this will fail
+      }
+    }
+  ```
