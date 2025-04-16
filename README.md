@@ -87,33 +87,15 @@ We’ll try to answer any PR’s promptly.
 
 ## Limitations
 
-### Error parsing string interpolations nested more than 2 times
-
-- Parsing following example is expected to throw out an exception and fail:
-  ```terraform
-  locals {
-    foo = "foo"
-    name = "prefix1-${"prefix2-${"${local.foo}-bar"}"}" //should interpolate into "prefix1-prefix2-foo-bar" but fails
-  }
-  ```
-  We recommend working around this by modifying the configuration in the following manner:
-  ```terraform
-  locals {
-    foo = "foo"
-    foo_bar = "${local.foo}-bar"
-    name = "prefix1-${"prefix2-${local.foo_bar}"}" //interpolates into "prefix1-prefix2-foo-bar"
-  }
-  ```
-
 ### Using inline expression as an object key
 
 - Object key can be an expression as long as it is wrapped in parentheses:
   ```terraform
-    locals {
-      foo = "bar"
-      baz = {
-        (format("key_prefix_%s", local.foo)) : "value"
-        # format("key_prefix_%s", local.foo) : "value" this will fail
-      }
+  locals {
+    foo = "bar"
+    baz = {
+      (format("key_prefix_%s", local.foo)) : "value"
+      # format("key_prefix_%s", local.foo) : "value" this will fail
     }
+  }
   ```

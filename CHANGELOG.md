@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+### Added
+
+- Possibility to parse deeply nested interpolations (formerly a Limitation), Thanks again, @weaversam8 ([#223](https://github.com/amplify-education/python-hcl2/pull/223))
+
 ### Fixed
 
 - Issue parsing ellipsis in a separate line within `for` expression ([#221](https://github.com/amplify-education/python-hcl2/pull/221))

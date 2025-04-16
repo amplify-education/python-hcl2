@@ -1,7 +1,7 @@
 start : body
 body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
 attribute : identifier EQ expression
-block : identifier (identifier | STRING_LIT)* new_line_or_comment? "{" body "}"
+block : identifier (identifier | STRING_LIT | string_with_interpolation)* new_line_or_comment? "{" body "}"
 new_line_or_comment: ( NL_OR_COMMENT )+
 NL_OR_COMMENT: /\n[ \t]*/ | /#.*\n/ | /\/\/.*\n/ | /\/\*(.|\n)*?(\*\/)/
 
@@ -45,6 +45,7 @@ expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
             | float_lit
             | int_lit
             | STRING_LIT
+            | string_with_interpolation
             | tuple
             | object
             | function_call
@@ -59,10 +60,10 @@ expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
             | for_tuple_expr
             | for_object_expr
 
-STRING_LIT : "\"" (STRING_CHARS | INTERPOLATION)* "\""
-STRING_CHARS : /(?:(?!\${)([^"\\]|\\.))+/+ // any character except '"" unless inside a interpolation string
-NESTED_INTERPOLATION : "${" /[^}]+/ "}"
-INTERPOLATION : "${" (/(?:(?!\${)([^}]))+/ | NESTED_INTERPOLATION)+ "}"
+STRING_LIT : "\"" STRING_CHARS? "\""
+STRING_CHARS : /(?:(?!\${)([^"\\]|\\.|\$\$))+/ // any character except '"', including escaped $$
+string_with_interpolation: "\"" (STRING_CHARS)* interpolation_maybe_nested (STRING_CHARS | interpolation_maybe_nested)* "\""
+interpolation_maybe_nested: "${" expression "}"
 
 
 int_lit : NEGATIVE_DECIMAL? DECIMAL+ | NEGATIVE_DECIMAL+
