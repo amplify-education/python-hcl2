@@ -352,11 +352,21 @@ class HCLReverseTransformer:
 
     @staticmethod
     def _escape_interpolated_str(interp_s: str) -> str:
-        # begin by doing basic JSON string escaping, to add backslashes
-        interp_s = json.dumps(interp_s)
-
+        if interp_s.strip().startswith('<<-') or interp_s.strip().startswith('<<'):
+            # For heredoc strings, preserve their format exactly
+            return reverse_quotes_within_interpolation(interp_s)
+        # Escape backslashes first (very important to do this first)
+        escaped = interp_s.replace('\\', '\\\\')
+        # Escape quotes
+        escaped = escaped.replace('"', '\\"')
+        # Escape control characters
+        escaped = escaped.replace('\n', '\\n')
+        escaped = escaped.replace('\r', '\\r')
+        escaped = escaped.replace('\t', '\\t')
+        escaped = escaped.replace('\b', '\\b')
+        escaped = escaped.replace('\f', '\\f')
         # find each interpolation within the string and remove the backslashes
-        interp_s = reverse_quotes_within_interpolation(interp_s)
+        interp_s = reverse_quotes_within_interpolation(f'"{escaped}"')
         return interp_s
 
     @staticmethod
