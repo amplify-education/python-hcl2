@@ -253,6 +253,9 @@ class HCLReconstructor(Reconstructor):
             r"^__(tuple|arguments)_(star|plus)_.*", self._last_rule
         ):
 
+            if self._last_terminal == Terminal("COMMA"):
+                return True
+
             # string literals, decimals, and identifiers should always be
             # preceded by a space if they're following a comma in a tuple or
             # function arg
@@ -260,8 +263,15 @@ class HCLReconstructor(Reconstructor):
                 Terminal("STRING_LIT"),
                 Terminal("DECIMAL"),
                 Terminal("NAME"),
+                Terminal("NEGATIVE_DECIMAL")
             ]:
                 return True
+
+        if self._last_terminal == Terminal("COMMA") and (
+                current_terminal == Terminal("NEGATIVE_DECIMAL") or
+                current_terminal == Terminal("DECIMAL")
+        ):
+            return True
 
         # the catch-all case, we're not sure, so don't add a space
         return False
@@ -548,6 +558,49 @@ class HCLReverseTransformer:
                 [Tree(Token("RULE", "identifier"), [Token("NAME", "null")])],
             )
 
+        # Special handling for scientific notation metadata
+        if isinstance(value, dict) and value.get("__sci_float__") is True:
+            # Extract the format string from metadata
+            format_str = value.get("format", str(value.get("value")))
+
+            # Check if it's scientific notation
+            if 'e' in format_str.lower():
+                # Parse the scientific notation format
+                base_part, exp_part = format_str.lower().split('e')
+
+                # Handle the base part
+                int_part, dec_part = base_part.split('.') if '.' in base_part else (base_part, "")
+
+                # Create tokens
+                tokens = []
+
+                # Handle negative sign if present
+                is_negative = int_part.startswith('-')
+                if is_negative:
+                    int_part = int_part[1:]
+                    tokens.append(Token("NEGATIVE_DECIMAL", "-" + int_part[0]))
+                    for digit in int_part[1:]:
+                        tokens.append(Token("DECIMAL", digit))
+                else:
+                    for digit in int_part:
+                        tokens.append(Token("DECIMAL", digit))
+
+                # Add decimal part if exists
+                if dec_part:
+                    tokens.append(Token("DOT", "."))
+                    for digit in dec_part:
+                        tokens.append(Token("DECIMAL", digit))
+
+                # Use the sign from the original format
+                exp_sign = "+" if "+" in exp_part else "-" if "-" in exp_part else ""
+                exp_digits = exp_part.lstrip("+-")
+                tokens.append(Token("EXP_MARK", f"e{exp_sign}{exp_digits}"))
+
+                return Tree(
+                    Token("RULE", "expr_term"),
+                    [Tree(Token("RULE", "float_lit"), tokens)]
+                )
+
         # for dicts, recursively turn the child k/v pairs into object elements
         # and store within an object
         if isinstance(value, dict):
@@ -597,6 +650,42 @@ class HCLReverseTransformer:
                         [Token("NAME", "true" if value else "false")],
                     )
                 ],
+            )
+
+        if isinstance(value, float):
+            str_value = str(value)
+
+            # For regular floats (no scientific notation)
+            # Split into integer and decimal parts
+            if '.' in str_value:
+                int_part, dec_part = str_value.split('.')
+            else:
+                int_part, dec_part = str_value, ""
+
+            # Check if negative
+            is_negative = int_part.startswith('-')
+            if is_negative:
+                int_part = int_part[1:]  # Remove negative sign for processing
+
+            tokens = []
+
+            # Handle integer part based on negative flag
+            if is_negative:
+                tokens.append(Token("NEGATIVE_DECIMAL", "-" + int_part[0]))
+                for digit in int_part[1:]:
+                    tokens.append(Token("DECIMAL", digit))
+            else:
+                for digit in int_part:
+                    tokens.append(Token("DECIMAL", digit))
+
+            # Add decimal part
+            tokens.append(Token("DOT", "."))
+            for digit in dec_part:
+                tokens.append(Token("DECIMAL", digit))
+
+            return Tree(
+                Token("RULE", "expr_term"),
+                [Tree(Token("RULE", "float_lit"), tokens)]
             )
 
         # store integers as literals, digit by digit

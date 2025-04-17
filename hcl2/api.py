@@ -29,6 +29,10 @@ def loads(text: str, with_meta=False) -> dict:
     tree = parser().parse(text + "\n")
     return DictTransformer(with_meta=with_meta).transform(tree)
 
+def loads_preserving_format(text: str, with_meta=False) -> dict:
+    """Load HCL2 from a string, preserving the format of values like scientific notation."""
+    tree = parser().parse(text + "\n")
+    return DictTransformer(with_meta=with_meta, preserve_format=True).transform(tree)
 
 def parse(file: TextIO) -> Tree:
     """Load HCL2 syntax tree from a file.

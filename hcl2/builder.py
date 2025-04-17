@@ -84,3 +84,17 @@ class Builder:
                     block[key] = []
                 block[key].extend(value)
         return block
+
+    def sci_float(self, value, original_format=None):
+        """
+        Creates a special float representation that preserves scientific notation
+        format information.
+        """
+        if original_format is None:
+            original_format = str(value)
+
+        return {
+            "__sci_float__": True,
+            "value": value,
+            "format": original_format
+        }

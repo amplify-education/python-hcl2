@@ -3,7 +3,7 @@ import json
 import re
 import sys
 from collections import namedtuple
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 from lark import Token
 from lark.tree import Meta
@@ -35,16 +35,29 @@ class DictTransformer(Transformer):
     def is_type_keyword(value: str) -> bool:
         return value in {"bool", "number", "string"}
 
-    def __init__(self, with_meta: bool = False):
+    def __init__(self, with_meta: bool = False, preserve_format: bool = False):
         """
         :param with_meta: If set to true then adds `__start_line__` and `__end_line__`
         parameters to the output dict. Default to false.
+        :param preserve_format: If set to true, preserves formatting of special values
+        like scientific notation. Default to false.
         """
         self.with_meta = with_meta
+        self.preserve_format = preserve_format
         super().__init__()
 
-    def float_lit(self, args: List) -> float:
-        return float("".join([self.to_tf_inline(arg) for arg in args]))
+    def float_lit(self, args: List) -> Union[float, Dict]:
+        original_string = "".join([self.to_tf_inline(arg) for arg in args])
+        float_value = float(original_string)
+
+        # Check if it's in scientific notation
+        if 'e' in original_string.lower() and self.preserve_format:
+            return {
+                "__sci_float__": True,
+                "value": float_value,
+                "format": original_string
+            }
+        return float_value
 
     def int_lit(self, args: List) -> int:
         return int("".join([self.to_tf_inline(arg) for arg in args]))
