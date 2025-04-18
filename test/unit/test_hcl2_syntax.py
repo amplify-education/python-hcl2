@@ -156,12 +156,12 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
 
     def test_e_notation(self):
         literals = {
-            "var = 3e4": {"var": 30000.0},
-            "var = 3.5e5": {"var": 350000.0},
-            "var = -3e6": {"var": -3e6},
-            "var = -2.3e4": {"var": -2.3e4},
-            "var = -5e-2": {"var": -5e-2},
-            "var = -6.1e-3": {"var": -6.1e-3},
+            "var = 3e4": {"var": "${3e4}"},
+            "var = 3.5e5": {"var": "${3.5e5}"},
+            "var = -3e6": {"var": "${-3e6}"},
+            "var = -2.3e4": {"var": "${-2.3e4}"},
+            "var = -5e-2": {"var": "${-5e-2}"},
+            "var = -6.1e-3": {"var": "${-6.1e-3}"},
         }
         for actual, expected in literals.items():
             result = self.load_to_dict(actual)
