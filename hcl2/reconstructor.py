@@ -260,6 +260,7 @@ class HCLReconstructor(Reconstructor):
                 Terminal("STRING_LIT"),
                 Terminal("DECIMAL"),
                 Terminal("NAME"),
+                Terminal("NEGATIVE_DECIMAL"),
             ]:
                 return True
 
@@ -412,10 +413,7 @@ class HCLReverseTransformer:
     def _is_block(self, value: Any) -> bool:
         if isinstance(value, dict):
             block_body = value
-            if (
-                START_LINE_KEY in block_body.keys()
-                or END_LINE_KEY in block_body.keys()
-            ):
+            if START_LINE_KEY in block_body.keys() or END_LINE_KEY in block_body.keys():
                 return True
 
             try:
@@ -520,7 +518,7 @@ class HCLReverseTransformer:
 
         return Tree(Token("RULE", "body"), children)
 
-    # pylint: disable=too-many-branches, too-many-return-statements
+    # pylint: disable=too-many-branches, too-many-return-statements too-many-statements
     def _transform_value_to_expr_term(self, value, level) -> Union[Token, Tree]:
         """Transforms a value from a dictionary into an "expr_term" (a value in HCL2)
 
@@ -609,6 +607,37 @@ class HCLReverseTransformer:
                         [Token("DECIMAL", digit) for digit in str(value)],
                     )
                 ],
+            )
+
+        if isinstance(value, float):
+            value = str(value)
+            literal = []
+
+            if value[0] == "-":
+                # pop two first chars - minus and a digit
+                literal.append(Token("NEGATIVE_DECIMAL", value[:2]))
+                value = value[2:]
+
+            while value != "":
+                char = value[0]
+
+                if char == ".":
+                    # current char marks beginning of decimal part: pop all remaining chars and end the loop
+                    literal.append(Token("DOT", char))
+                    literal.extend(Token("DECIMAL", char) for char in value[1:])
+                    break
+
+                if char == "e":
+                    # current char marks beginning of e-notation: pop all remaining chars and end the loop
+                    literal.append(Token("EXP_MARK", value))
+                    break
+
+                literal.append(Token("DECIMAL", char))
+                value = value[1:]
+
+            return Tree(
+                Token("RULE", "expr_term"),
+                [Tree(Token("RULE", "float_lit"), literal)],
             )
 
         # store strings as single literals

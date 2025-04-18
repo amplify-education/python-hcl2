@@ -44,7 +44,10 @@ class DictTransformer(Transformer):
         super().__init__()
 
     def float_lit(self, args: List) -> float:
-        return float("".join([self.to_tf_inline(arg) for arg in args]))
+        value = "".join([self.to_tf_inline(arg) for arg in args])
+        if "e" in value:
+            return self.to_string_dollar(value)
+        return float(value)
 
     def int_lit(self, args: List) -> int:
         return int("".join([self.to_tf_inline(arg) for arg in args]))
@@ -177,7 +180,9 @@ class DictTransformer(Transformer):
         return f"{args[0]} ? {args[1]} : {args[2]}"
 
     def binary_op(self, args: List) -> str:
-        return " ".join([self.to_tf_inline(arg) for arg in args])
+        return " ".join(
+            [self.unwrap_string_dollar(self.to_tf_inline(arg)) for arg in args]
+        )
 
     def unary_op(self, args: List) -> str:
         args = self.process_nulls(args)
@@ -304,21 +309,31 @@ class DictTransformer(Transformer):
         """
         return [arg for arg in args if arg != "\n" and arg is not Discard]
 
+    def is_string_dollar(self, value: str) -> bool:
+        if not isinstance(value, str):
+            return False
+        return value.startswith("${") and value.endswith("}")
+
     def to_string_dollar(self, value: Any) -> Any:
         """Wrap a string in ${ and }"""
-        if isinstance(value, str):
+        if not isinstance(value, str):
+            return value
             # if it's already wrapped, pass it unmodified
-            if value.startswith("${") and value.endswith("}"):
-                return value
+        if self.is_string_dollar(value):
+            return value
 
-            if value.startswith('"') and value.endswith('"'):
-                value = str(value)[1:-1]
-                return self.process_escape_sequences(value)
+        if value.startswith('"') and value.endswith('"'):
+            value = str(value)[1:-1]
+            return self.process_escape_sequences(value)
 
-            if self.is_type_keyword(value):
-                return value
+        if self.is_type_keyword(value):
+            return value
 
-            return f"${{{value}}}"
+        return f"${{{value}}}"
+
+    def unwrap_string_dollar(self, value: str):
+        if self.is_string_dollar(value):
+            return value[2:-1]
         return value
 
     def strip_quotes(self, value: Any) -> Any:
