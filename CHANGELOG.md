@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+- Nothing Yet
+
+## \[7.2.0\] - 2025-04-24
+
 ### Added
 
 - Possibility to parse deeply nested interpolations (formerly a Limitation), Thanks again, @weaversam8 ([#223](https://github.com/amplify-education/python-hcl2/pull/223))
