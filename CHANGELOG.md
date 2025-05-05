@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing Yet
+### Fixed
+
+- More robust escaping for special characters. Thanks, @eranor ([#224](https://github.com/amplify-education/python-hcl2/pull/224))
 
 ## \[7.2.0\] - 2025-04-24
 
