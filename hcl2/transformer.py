@@ -102,10 +102,12 @@ class DictTransformer(Transformer):
         # This returns a dict with a single key/value pair to make it easier to merge these
         # into a bigger dict that is returned by the "object" function
 
-        key = self.strip_quotes(str(args[0].children[0]))
-        value = args[2]
+        key = str(args[0].children[0])
+        if not re.match(r".*?(\${).*}.*", key):
+            # do not strip quotes of a interpolation string
+            key = self.strip_quotes(key)
 
-        value = self.to_string_dollar(value)
+        value = self.to_string_dollar(args[2])
         return {key: value}
 
     def object_elem_key_dot_accessor(self, args: List) -> str:

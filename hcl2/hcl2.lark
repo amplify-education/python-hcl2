@@ -77,7 +77,7 @@ EQ : /[ \t]*=(?!=|>)/
 tuple : "[" (new_line_or_comment* expression new_line_or_comment* ",")* (new_line_or_comment* expression)? new_line_or_comment* "]"
 object : "{" new_line_or_comment? (new_line_or_comment* (object_elem | (object_elem COMMA)) new_line_or_comment*)* "}"
 object_elem : object_elem_key ( EQ | COLON ) expression
-object_elem_key : float_lit | int_lit | identifier | STRING_LIT | object_elem_key_dot_accessor | object_elem_key_expression
+object_elem_key : float_lit | int_lit | identifier | STRING_LIT | object_elem_key_dot_accessor | object_elem_key_expression | string_with_interpolation
 object_elem_key_expression : LPAR expression RPAR
 object_elem_key_dot_accessor : identifier (DOT identifier)+
 
