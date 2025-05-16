@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - More robust escaping for special characters. Thanks, @eranor ([#224](https://github.com/amplify-education/python-hcl2/pull/224))
+- Issue parsing interpolation string as an object key ([#232](https://github.com/amplify-education/python-hcl2/pull/232))
 
 ## \[7.2.0\] - 2025-04-24
 
