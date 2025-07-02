@@ -1,30 +1,45 @@
 # pylint: disable=missing-function-docstring,unused-argument
 from typing import List, Union
 
-from lark import Transformer, Tree, Token
+from lark import Token, Tree, v_args, Transformer, Discard
 from lark.tree import Meta
-from lark.visitors import _Leaf_T, Discard, v_args
 
-from hcl2.rule_transformer.rules.abstract import LarkToken, LarkRule
 from hcl2.rule_transformer.rules.base import (
     StartRule,
     BodyRule,
     BlockRule,
     AttributeRule,
 )
+from hcl2.rule_transformer.rules.containers import (
+    ObjectRule,
+    ObjectElemRule,
+    ObjectElemKeyRule,
+)
 from hcl2.rule_transformer.rules.expression import (
     BinaryTermRule,
-    ConditionalRule,
-    ExprTermRule,
-    BinaryOpRule,
     UnaryOpRule,
+    BinaryOpRule,
+    ExprTermRule,
+    ConditionalRule,
 )
-from hcl2.rule_transformer.rules.token_sequence import (
-    IdentifierRule,
-    IntLitRule,
+from hcl2.rule_transformer.rules.indexing import (
+    IndexExprTermRule,
+    SqbIndex,
+    ShortIndexRule,
+)
+from hcl2.rule_transformer.rules.literal_rules import (
     FloatLitRule,
-    StringLitRule,
+    IntLitRule,
+    IdentifierRule,
     BinaryOperatorRule,
+    StringPartRule,
+)
+from hcl2.rule_transformer.rules.strings import InterpolationRule, StringRule
+from hcl2.rule_transformer.rules.tokens import (
+    IdentifierToken,
+    StringToken,
+    IntToken,
+    FloatToken,
 )
 from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
 
@@ -36,18 +51,24 @@ class RuleTransformer(Transformer):
 
     with_meta: bool
 
-    @staticmethod
-    def is_type_keyword(value: str) -> bool:
-        return value in {"bool", "number", "string"}
-
-    def __init__(self):
-        super().__init__()
-
-    def transform(self, tree: Tree[_Leaf_T]) -> LarkRule:
+    def transform(self, tree: Tree) -> StartRule:
         return super().transform(tree)
 
-    def __default_token__(self, token: Token) -> LarkToken:
-        return LarkToken(token.type, token.value)
+    def __init__(self, discard_new_line_or_comments: bool = False):
+        super().__init__()
+        self.discard_new_line_or_comments = discard_new_line_or_comments
+
+    def __default_token__(self, token: Token) -> StringToken:
+        return StringToken(token.type, token.value)
+
+    def IDENTIFIER(self, token: Token) -> IdentifierToken:
+        return IdentifierToken(token.value)
+
+    def INT_LITERAL(self, token: Token) -> IntToken:
+        return IntToken(token.value)
+
+    def FLOAT_LITERAL(self, token: Token) -> FloatToken:
+        return FloatToken(token.value)
 
     @v_args(meta=True)
     def start(self, meta: Meta, args) -> StartRule:
@@ -62,6 +83,16 @@ class RuleTransformer(Transformer):
         return BlockRule(args, meta)
 
     @v_args(meta=True)
+    def attribute(self, meta: Meta, args) -> AttributeRule:
+        return AttributeRule(args, meta)
+
+    @v_args(meta=True)
+    def new_line_or_comment(self, meta: Meta, args) -> NewLineOrCommentRule:
+        if self.discard_new_line_or_comments:
+            return Discard
+        return NewLineOrCommentRule(args, meta)
+
+    @v_args(meta=True)
     def identifier(self, meta: Meta, args) -> IdentifierRule:
         return IdentifierRule(args, meta)
 
@@ -74,8 +105,16 @@ class RuleTransformer(Transformer):
         return FloatLitRule(args, meta)
 
     @v_args(meta=True)
-    def string_lit(self, meta: Meta, args) -> StringLitRule:
-        return StringLitRule(args, meta)
+    def string(self, meta: Meta, args) -> StringRule:
+        return StringRule(args, meta)
+
+    @v_args(meta=True)
+    def string_part(self, meta: Meta, args) -> StringPartRule:
+        return StringPartRule(args, meta)
+
+    @v_args(meta=True)
+    def interpolation(self, meta: Meta, args) -> InterpolationRule:
+        return InterpolationRule(args, meta)
 
     @v_args(meta=True)
     def expr_term(self, meta: Meta, args) -> ExprTermRule:
@@ -102,9 +141,25 @@ class RuleTransformer(Transformer):
         return BinaryOpRule(args, meta)
 
     @v_args(meta=True)
-    def attribute(self, meta: Meta, args) -> AttributeRule:
-        return AttributeRule(args, meta)
+    def object(self, meta: Meta, args) -> ObjectRule:
+        return ObjectRule(args, meta)
 
     @v_args(meta=True)
-    def new_line_or_comment(self, meta: Meta, args) -> NewLineOrCommentRule:
-        return NewLineOrCommentRule(args, meta)
+    def object_elem(self, meta: Meta, args) -> ObjectElemRule:
+        return ObjectElemRule(args, meta)
+
+    @v_args(meta=True)
+    def object_elem_key(self, meta: Meta, args) -> ObjectElemKeyRule:
+        return ObjectElemKeyRule(args, meta)
+
+    @v_args(meta=True)
+    def index_expr_term(self, meta: Meta, args) -> IndexExprTermRule:
+        return IndexExprTermRule(args, meta)
+
+    @v_args(meta=True)
+    def braces_index(self, meta: Meta, args) -> SqbIndex:
+        return SqbIndex(args, meta)
+
+    @v_args(meta=True)
+    def short_index(self, meta: Meta, args) -> ShortIndexRule:
+        return ShortIndexRule(args, meta)

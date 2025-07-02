@@ -1,0 +1,166 @@
+// ============================================================================
+// Terminals
+// ============================================================================
+
+// Whitespace and Comments
+NL_OR_COMMENT: /\n[ \t]*/ | /#.*\n/ | /\/\/.*\n/ | /\/\*(.|\n)*?(\*\/)/
+
+// Keywords
+IF : "if"
+IN : "in"
+FOR : "for"
+FOR_EACH : "for_each"
+
+// Identifiers and Names
+NAME : /[a-zA-Z_][a-zA-Z0-9_-]*/
+IDENTIFIER: NAME | IN | FOR | IF | FOR_EACH
+
+// Literals
+ESCAPED_INTERPOLATION.2: /\$\$\{[^}]*\}/
+STRING_CHARS.1: /(?:(?!\$\$\{)(?!\$\{)[^"\\]|\\.|(?:\$(?!\$?\{)))+/
+DECIMAL : "0".."9"
+NEGATIVE_DECIMAL : "-" DECIMAL
+EXP_MARK : ("e" | "E") ("+" | "-")? DECIMAL+
+INT_LITERAL: NEGATIVE_DECIMAL? DECIMAL+
+FLOAT_LITERAL: (NEGATIVE_DECIMAL? DECIMAL+ | NEGATIVE_DECIMAL+) "." DECIMAL+ (EXP_MARK)?
+               | (NEGATIVE_DECIMAL? DECIMAL+ | NEGATIVE_DECIMAL+) (EXP_MARK)
+
+// Operators
+BINARY_OP : DOUBLE_EQ | NEQ | LT | GT | LEQ | GEQ | MINUS | ASTERISK | SLASH | PERCENT | DOUBLE_AMP | DOUBLE_PIPE | PLUS
+DOUBLE_EQ : "=="
+NEQ : "!="
+LT : "<"
+GT : ">"
+LEQ : "<="
+GEQ : ">="
+MINUS : "-"
+ASTERISK : "*"
+SLASH : "/"
+PERCENT : "%"
+DOUBLE_AMP : "&&"
+DOUBLE_PIPE : "||"
+PLUS : "+"
+NOT : "!"
+QMARK : "?"
+
+// Punctuation
+LPAR : "("
+RPAR : ")"
+LBRACE : "{"
+RBRACE : "}"
+LSQB : "["
+RSQB : "]"
+COMMA : ","
+DOT : "."
+EQ : /[ \t]*=(?!=|>)/
+COLON : ":"
+DBLQUOTE : "\""
+
+// Interpolation
+INTERP_START : "${"
+
+// Splat Operators
+ATTR_SPLAT : ".*"
+FULL_SPLAT_START : "[*]"
+
+// Special Operators
+FOR_OBJECT_ARROW : "=>"
+ELLIPSIS : "..."
+COLONS: "::"
+
+// Heredocs
+HEREDOC_TEMPLATE : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n?(?:.|\n)*?\n\s*(?P=heredoc)\n/
+HEREDOC_TEMPLATE_TRIM : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)\n?(?:.|\n)*?\n\s*(?P=heredoc_trim)\n/
+
+// Ignore whitespace (but not newlines, as they're significant in HCL)
+%ignore /[ \t]+/
+
+// ============================================================================
+// Rules
+// ============================================================================
+
+// Top-level structure
+start : body
+
+// Body and basic constructs
+body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
+attribute : identifier EQ expression
+block : identifier (identifier | string)* new_line_or_comment? LBRACE body RBRACE
+
+// Whitespace and comments
+new_line_or_comment: ( NL_OR_COMMENT )+
+
+// Basic literals and identifiers
+identifier: IDENTIFIER
+int_lit: INT_LITERAL
+float_lit: FLOAT_LITERAL
+string: DBLQUOTE string_part* DBLQUOTE
+string_part: STRING_CHARS
+           | ESCAPED_INTERPOLATION
+           | interpolation
+
+// Expressions
+?expression : expr_term | operation | conditional
+interpolation: INTERP_START expression RBRACE
+conditional : expression QMARK new_line_or_comment? expression new_line_or_comment? COLON new_line_or_comment? expression
+
+// Operations
+?operation : unary_op | binary_op
+!unary_op : (MINUS | NOT) expr_term
+binary_op : expression binary_term new_line_or_comment?
+binary_term : binary_operator new_line_or_comment? expression
+!binary_operator : BINARY_OP
+
+// Expression terms
+expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
+            | float_lit
+            | int_lit
+            | string
+            | tuple
+            | object
+            | function_call
+            | index_expr_term
+            | get_attr_expr_term
+            | identifier
+            | provider_function_call
+            | heredoc_template
+            | heredoc_template_trim
+            | attr_splat_expr_term
+            | full_splat_expr_term
+            | for_tuple_expr
+            | for_object_expr
+
+// Collections
+tuple : LSQB (new_line_or_comment* expression new_line_or_comment* COMMA)* (new_line_or_comment* expression)? new_line_or_comment* RSQB
+object : LBRACE new_line_or_comment? (new_line_or_comment* (object_elem | (object_elem COMMA)) new_line_or_comment*)* RBRACE
+object_elem : object_elem_key ( EQ | COLON ) expression
+object_elem_key : float_lit | int_lit | identifier | string | object_elem_key_dot_accessor | object_elem_key_expression
+object_elem_key_expression : LPAR expression RPAR
+object_elem_key_dot_accessor : identifier (DOT identifier)+
+
+// Heredocs
+heredoc_template : HEREDOC_TEMPLATE
+heredoc_template_trim : HEREDOC_TEMPLATE_TRIM
+
+// Functions
+function_call : identifier LPAR new_line_or_comment? arguments? new_line_or_comment? RPAR
+arguments : (expression (new_line_or_comment* COMMA new_line_or_comment*  expression)* (COMMA | ELLIPSIS)? new_line_or_comment*)
+provider_function_call: identifier COLONS identifier COLONS identifier LPAR new_line_or_comment? arguments? new_line_or_comment? RPAR
+
+// Indexing and attribute access
+index_expr_term : expr_term index
+get_attr_expr_term : expr_term get_attr
+attr_splat_expr_term : expr_term attr_splat
+full_splat_expr_term : expr_term full_splat
+?index : braces_index | short_index
+braces_index : LSQB new_line_or_comment? expression new_line_or_comment? RSQB
+short_index : DOT INT_LITERAL
+get_attr : DOT identifier
+attr_splat : ATTR_SPLAT get_attr*
+full_splat : FULL_SPLAT_START (get_attr | index)*
+
+// For expressions
+!for_tuple_expr : LSQB new_line_or_comment? for_intro new_line_or_comment? expression new_line_or_comment? for_cond? new_line_or_comment? RSQB
+!for_object_expr : LBRACE new_line_or_comment? for_intro new_line_or_comment? expression FOR_OBJECT_ARROW new_line_or_comment? expression new_line_or_comment? ELLIPSIS? new_line_or_comment? for_cond? new_line_or_comment? RBRACE
+!for_intro : FOR new_line_or_comment? identifier (COMMA identifier new_line_or_comment?)? new_line_or_comment? IN new_line_or_comment? expression new_line_or_comment? COLON new_line_or_comment?
+!for_cond : IF new_line_or_comment? expression

@@ -1,19 +1,19 @@
-from typing import Optional, List, Any
+from abc import ABC
+from typing import Optional, List, Any, Tuple
 
-from hcl2.rule_transformer.rules.abstract import TokenSequence, LarkToken, LarkRule
+from hcl2.rule_transformer.rules.abstract import LarkToken, LarkRule
+from hcl2.rule_transformer.rules.literal_rules import TokenRule
 from hcl2.rule_transformer.utils import SerializationOptions
 
 
-class NewLineOrCommentRule(LarkRule):
-
-    _children: List[LarkToken]
-
-    @staticmethod
-    def rule_name() -> str:
+class NewLineOrCommentRule(TokenRule):
+    @property
+    def lark_name(self) -> str:
         return "new_line_or_comment"
 
-    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
-        return TokenSequence(self._children).serialize(options)
+    @classmethod
+    def from_string(cls, string: str) -> "NewLineOrCommentRule":
+        return cls([LarkToken("NL_OR_COMMENT", string)])
 
     def to_list(
         self, options: SerializationOptions = SerializationOptions()
@@ -38,5 +38,31 @@ class NewLineOrCommentRule(LarkRule):
 
             if comment != "":
                 result.append(comment.strip())
+
+        return result
+
+
+class InlineCommentMixIn(LarkRule, ABC):
+    def _possibly_insert_null_comments(self, children: List, indexes: List[int] = None):
+        for index in indexes:
+            try:
+                child = children[index]
+            except IndexError:
+                children.insert(index, None)
+            else:
+                if not isinstance(child, NewLineOrCommentRule):
+                    children.insert(index, None)
+
+    def inline_comments(self):
+        result = []
+        for child in self._children:
+
+            if isinstance(child, NewLineOrCommentRule):
+                comments = child.to_list()
+                if comments is not None:
+                    result.extend(comments)
+
+            elif isinstance(child, InlineCommentMixIn):
+                result.extend(child.inline_comments())
 
         return result

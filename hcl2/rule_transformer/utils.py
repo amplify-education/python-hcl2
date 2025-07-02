@@ -1,11 +1,15 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass
 class SerializationOptions:
     with_comments: bool = True
     with_meta: bool = False
-
+    unwrap_dollar_string: bool = False
+    
+    def replace(self, **kwargs) -> "SerializationOptions":
+        return replace(self, **kwargs)
+    
 
 def is_dollar_string(value: str) -> bool:
     if not isinstance(value, str):
