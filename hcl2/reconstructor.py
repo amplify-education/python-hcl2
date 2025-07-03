@@ -1,7 +1,6 @@
 """A reconstructor for HCL2 implemented using Lark's experimental reconstruction functionality"""
 
 import re
-import json
 from typing import List, Dict, Callable, Optional, Union, Any, Tuple
 
 from lark import Lark, Tree
@@ -137,7 +136,7 @@ class HCLReconstructor(Reconstructor):
         )
 
     # pylint: disable=too-many-branches, too-many-return-statements
-    def _should_add_space(self, rule, current_terminal):
+    def _should_add_space(self, rule, current_terminal, is_block_label: bool = False):
         """
         This method documents the situations in which we add space around
         certain tokens while reconstructing the generated HCL.
@@ -155,6 +154,7 @@ class HCLReconstructor(Reconstructor):
 
         This should be sufficient to make a spacing decision.
         """
+
         # we don't need to add multiple spaces
         if self._last_char_space:
             return False
@@ -165,6 +165,14 @@ class HCLReconstructor(Reconstructor):
 
         if self._is_equals_sign(current_terminal):
             return True
+
+        if is_block_label and isinstance(rule, Token) and rule.value == "string":
+            if (
+                current_terminal == self._last_terminal == Terminal("DBLQUOTE")
+                or current_terminal == Terminal("DBLQUOTE")
+                and self._last_terminal == Terminal("NAME")
+            ):
+                return True
 
         # if we're in a ternary or binary operator, add space around the operator
         if (
@@ -235,7 +243,7 @@ class HCLReconstructor(Reconstructor):
                 return True
 
             # always add space between string literals
-            if current_terminal == Terminal("STRING_LIT"):
+            if current_terminal == Terminal("STRING_CHARS"):
                 return True
 
         # if we just opened a block, add a space, unless the block is empty
@@ -257,7 +265,7 @@ class HCLReconstructor(Reconstructor):
             # preceded by a space if they're following a comma in a tuple or
             # function arg
             if current_terminal in [
-                Terminal("STRING_LIT"),
+                Terminal("DBLQUOTE"),
                 Terminal("DECIMAL"),
                 Terminal("NAME"),
                 Terminal("NEGATIVE_DECIMAL"),
@@ -267,13 +275,15 @@ class HCLReconstructor(Reconstructor):
         # the catch-all case, we're not sure, so don't add a space
         return False
 
-    def _reconstruct(self, tree):
+    def _reconstruct(self, tree, is_block_label=False):
         unreduced_tree = self.match_tree(tree, tree.data)
         res = self.write_tokens.transform(unreduced_tree)
         for item in res:
             # any time we encounter a child tree, we recurse
             if isinstance(item, Tree):
-                yield from self._reconstruct(item)
+                yield from self._reconstruct(
+                    item, (unreduced_tree.data == "block" and item.data != "body")
+                )
 
             # every leaf should be a tuple, which contains information about
             # which terminal the leaf represents
@@ -309,7 +319,7 @@ class HCLReconstructor(Reconstructor):
                     self._deferred_item = None
 
                 # potentially add a space before the next token
-                if self._should_add_space(rule, terminal):
+                if self._should_add_space(rule, terminal, is_block_label):
                     yield " "
                     self._last_char_space = True
 
@@ -353,21 +363,21 @@ class HCLReverseTransformer:
 
     @staticmethod
     def _escape_interpolated_str(interp_s: str) -> str:
-        if interp_s.strip().startswith('<<-') or interp_s.strip().startswith('<<'):
+        if interp_s.strip().startswith("<<-") or interp_s.strip().startswith("<<"):
             # For heredoc strings, preserve their format exactly
             return reverse_quotes_within_interpolation(interp_s)
         # Escape backslashes first (very important to do this first)
-        escaped = interp_s.replace('\\', '\\\\')
+        escaped = interp_s.replace("\\", "\\\\")
         # Escape quotes
         escaped = escaped.replace('"', '\\"')
         # Escape control characters
-        escaped = escaped.replace('\n', '\\n')
-        escaped = escaped.replace('\r', '\\r')
-        escaped = escaped.replace('\t', '\\t')
-        escaped = escaped.replace('\b', '\\b')
-        escaped = escaped.replace('\f', '\\f')
+        escaped = escaped.replace("\n", "\\n")
+        escaped = escaped.replace("\r", "\\r")
+        escaped = escaped.replace("\t", "\\t")
+        escaped = escaped.replace("\b", "\\b")
+        escaped = escaped.replace("\f", "\\f")
         # find each interpolation within the string and remove the backslashes
-        interp_s = reverse_quotes_within_interpolation(f'"{escaped}"')
+        interp_s = reverse_quotes_within_interpolation(f"{escaped}")
         return interp_s
 
     @staticmethod
@@ -419,6 +429,48 @@ class HCLReverseTransformer:
             Token("RULE", "new_line_or_comment"),
             [Token("NL_OR_COMMENT", f"\n{'  ' * level}") for _ in range(count)],
         )
+
+    def _build_string_rule(self, string: str, level: int = 0) -> Tree:
+        # grammar in hcl2.lark defines that a string is built of any number of string parts,
+        #   each string part can be either interpolation expression, escaped interpolation string
+        #   or regular string
+        # this method build hcl2 string rule based on arbitrary string,
+        #   splitting such string into individual parts and building a lark tree out of them
+        #
+        result = []
+
+        pattern = re.compile(r"(\${1,2}\{(?:[^{}]|\{[^{}]*})*})")
+        parts = re.split(pattern, string)
+        # e.g. 'aaa$${bbb}ccc${"ddd-${eee}"}' -> ['aaa', '$${bbb}', 'ccc', '${"ddd-${eee}"}']
+
+        if parts[-1] == "":
+            parts.pop()
+        if len(parts) > 0 and parts[0] == "":
+            parts.pop(0)
+
+        for part in parts:
+            if part.startswith("$${") and part.endswith("}"):
+                result.append(Token("ESCAPED_INTERPOLATION", part))
+
+            # unwrap interpolation expression and recurse into it
+            elif part.startswith("${") and part.endswith("}"):
+                part = part[2:-1]
+                if part.startswith('"') and part.endswith('"'):
+                    part = part[1:-1]
+                    part = self._transform_value_to_expr_term(part, level)
+                else:
+                    part = Tree(
+                        Token("RULE", "expr_term"),
+                        [Tree(Token("RULE", "identifier"), [Token("NAME", part)])],
+                    )
+
+                result.append(Tree(Token("RULE", "interpolation"), [part]))
+
+            else:
+                result.append(Token("STRING_CHARS", part))
+
+        result = [Tree(Token("RULE", "string_part"), [element]) for element in result]
+        return Tree(Token("RULE", "string"), result)
 
     def _is_block(self, value: Any) -> bool:
         if isinstance(value, dict):
@@ -485,8 +537,8 @@ class HCLReverseTransformer:
                     block_labels, block_body_dict = self._calculate_block_labels(
                         block_v
                     )
-                    block_label_tokens = [
-                        Token("STRING_LIT", f'"{block_label}"')
+                    block_label_trees = [
+                        self._build_string_rule(block_label, level)
                         for block_label in block_labels
                     ]
                     block_body = self._transform_dict_to_body(
@@ -496,7 +548,7 @@ class HCLReverseTransformer:
                     # create our actual block to add to our own body
                     block = Tree(
                         Token("RULE", "block"),
-                        [identifier_name] + block_label_tokens + [block_body],
+                        [identifier_name] + block_label_trees + [block_body],
                     )
                     children.append(block)
                     # add empty line after block
@@ -675,10 +727,10 @@ class HCLReverseTransformer:
                 parsed_value = attribute.children[2]
                 return parsed_value
 
-            # otherwise it's just a string.
+            # otherwise it's a string
             return Tree(
                 Token("RULE", "expr_term"),
-                [Token("STRING_LIT", self._escape_interpolated_str(value))],
+                [self._build_string_rule(self._escape_interpolated_str(value), level)],
             )
 
         # otherwise, we don't know the type
