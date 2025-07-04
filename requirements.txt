@@ -1,3 +1,4 @@
 # Place dependencies in this file, following the distutils format:
 # http://docs.python.org/2/distutils/setupscript.html#relationships-between-distributions-and-packages
 lark>=1.1.5,<2.0
+regex>=2024.4.16
