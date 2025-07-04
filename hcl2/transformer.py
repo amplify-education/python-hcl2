@@ -247,7 +247,8 @@ class DictTransformer(Transformer):
             raise RuntimeError(f"Invalid Heredoc token: {args[0]}")
 
         trim_chars = "\n\t "
-        return f'"{match.group(2).rstrip(trim_chars)}"'
+        result = match.group(2).rstrip(trim_chars)
+        return f'"{result}"'
 
     def heredoc_template_trim(self, args: List) -> str:
         # See https://github.com/hashicorp/hcl2/blob/master/hcl/hclsyntax/spec.md#template-expressions
@@ -297,12 +298,17 @@ class DictTransformer(Transformer):
         # e.g. f"{2 + 2} {{2 + 2}}" == "4 {2 + 2}"
         return f"{{{for_expr}}}"
 
-    def string_with_interpolation(self, args: List) -> str:
-        return '"' + ("".join(args)) + '"'
+    def string(self, args: List) -> str:
+        return '"' + "".join(args) + '"'
 
-    def interpolation_maybe_nested(self, args: List) -> str:
-        # return "".join(args)
-        return "${" + ("".join(args)) + "}"
+    def string_part(self, args: List) -> str:
+        value = self.to_tf_inline(args[0])
+        if value.startswith('"') and value.endswith('"'):
+            value = value[1:-1]
+        return value
+
+    def interpolation(self, args: List) -> str:
+        return '"${' + str(args[0]) + '}"'
 
     def strip_new_line_tokens(self, args: List) -> List:
         """
