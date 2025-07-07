@@ -9,6 +9,7 @@ from lark.lexer import Token, PatternStr, TerminalDef
 from lark.reconstruct import Reconstructor
 from lark.tree_matcher import is_discarded_terminal
 from lark.visitors import Transformer_InPlace
+from regex import regex
 
 from hcl2.const import START_LINE_KEY, END_LINE_KEY
 from hcl2.parser import reconstruction_parser
@@ -439,14 +440,10 @@ class HCLReverseTransformer:
         #
         result = []
 
-        pattern = re.compile(r"(\${1,2}\{(?:[^{}]|\{[^{}]*})*})")
-        parts = re.split(pattern, string)
+        pattern = regex.compile(r"(\${1,2}\{(?:[^{}]|(?R))*\})")
+        parts = [part for part in pattern.split(string) if part != ""]
         # e.g. 'aaa$${bbb}ccc${"ddd-${eee}"}' -> ['aaa', '$${bbb}', 'ccc', '${"ddd-${eee}"}']
-
-        if parts[-1] == "":
-            parts.pop()
-        if len(parts) > 0 and parts[0] == "":
-            parts.pop(0)
+        # 'aa-${"bb-${"cc-${"dd-${5 + 5}"}"}"}' -> ['aa-', '${"bb-${"cc-${"dd-${5 + 5}"}"}"}']
 
         for part in parts:
             if part.startswith("$${") and part.endswith("}"):
