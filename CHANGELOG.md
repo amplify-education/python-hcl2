@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+- Nothing yet.
+
+## \[7.3.0\] - 2025-07-23
+
+### Fixed
+
 - Issue parsing interpolations and escaped interpolations in a single string. ([#239](https://github.com/amplify-education/python-hcl2/pull/239))
 
 ## \[7.2.1\] - 2025-05-16
