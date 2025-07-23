@@ -1,15 +1,48 @@
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
+from typing import Generator
 
 
 @dataclass
 class SerializationOptions:
     with_comments: bool = True
     with_meta: bool = False
-    unwrap_dollar_string: bool = False
-    
-    def replace(self, **kwargs) -> "SerializationOptions":
+    wrap_objects: bool = False
+    wrap_tuples: bool = False
+
+
+@dataclass
+class DeserializationOptions:
+    pass
+
+
+@dataclass
+class SerializationContext:
+    inside_dollar_string: bool = False
+
+    def replace(self, **kwargs) -> "SerializationContext":
         return replace(self, **kwargs)
-    
+
+    @contextmanager
+    def copy(self, **kwargs) -> Generator["SerializationContext", None, None]:
+        """Context manager that yields a modified copy of the context"""
+        modified_context = self.replace(**kwargs)
+        yield modified_context
+
+    @contextmanager
+    def modify(self, **kwargs):
+        original_values = {key: getattr(self, key) for key in kwargs}
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        try:
+            yield
+        finally:
+            # Restore original values
+            for key, value in original_values.items():
+                setattr(self, key, value)
+
 
 def is_dollar_string(value: str) -> bool:
     if not isinstance(value, str):

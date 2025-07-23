@@ -3,34 +3,37 @@ from typing import Tuple, Any, List, Union, Optional
 
 from lark.tree import Meta
 
+from hcl2.dict_transformer import START_LINE, END_LINE
 from hcl2.rule_transformer.rules.abstract import LarkRule, LarkToken
-from hcl2.rule_transformer.rules.expression import Expression
-from hcl2.rule_transformer.rules.tokens import IdentifierToken, EQ_TOKEN
+from hcl2.rule_transformer.rules.expressions import ExpressionRule
+from hcl2.rule_transformer.rules.tokens import NAME, EQ
 
 from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
-from hcl2.rule_transformer.utils import SerializationOptions
+from hcl2.rule_transformer.utils import SerializationOptions, SerializationContext
 
 
 class AttributeRule(LarkRule):
     _children: Tuple[
-        IdentifierToken,
-        EQ_TOKEN,
-        Expression,
+        NAME,
+        EQ,
+        ExpressionRule,
     ]
 
-    @property
-    def lark_name(self) -> str:
+    @staticmethod
+    def lark_name() -> str:
         return "attribute"
 
     @property
-    def identifier(self) -> IdentifierToken:
+    def identifier(self) -> NAME:
         return self._children[0]
 
     @property
-    def expression(self) -> Expression:
+    def expression(self) -> ExpressionRule:
         return self._children[2]
 
-    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
         return {self.identifier.serialize(options): self.expression.serialize(options)}
 
 
@@ -44,11 +47,13 @@ class BodyRule(LarkRule):
         ]
     ]
 
-    @property
-    def lark_name(self) -> str:
+    @staticmethod
+    def lark_name() -> str:
         return "body"
 
-    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
         blocks: List[BlockRule] = []
         attributes: List[AttributeRule] = []
         comments = []
@@ -99,11 +104,13 @@ class StartRule(LarkRule):
     def body(self) -> BodyRule:
         return self._children[0]
 
-    @property
-    def lark_name(self) -> str:
+    @staticmethod
+    def lark_name() -> str:
         return "start"
 
-    def serialize(self, options: SerializationOptions = SerializationOptions()) -> Any:
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
         return self.body.serialize(options)
 
 
@@ -118,12 +125,12 @@ class BlockRule(LarkRule):
             child for child in children if not isinstance(child, LarkToken)
         ]
 
-    @property
-    def lark_name(self) -> str:
+    @staticmethod
+    def lark_name() -> str:
         return "block"
 
     @property
-    def labels(self) -> List[IdentifierToken]:
+    def labels(self) -> List[NAME]:
         return list(filter(lambda label: label is not None, self._labels))
 
     @property
@@ -131,10 +138,18 @@ class BlockRule(LarkRule):
         return self._body
 
     def serialize(
-        self, options: SerializationOptions = SerializationOptions()
-    ) -> BodyRule:
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
         result = self._body.serialize(options)
         labels = self._labels
-        for label in reversed(labels):
+        for label in reversed(labels[1:]):
             result = {label.serialize(options): result}
+
+        result.update(
+            {
+                START_LINE: self._meta.line,
+                END_LINE: self._meta.end_line,
+            }
+        )
+
         return result

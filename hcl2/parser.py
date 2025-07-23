@@ -12,7 +12,7 @@ PARSER_FILE = Path(__file__).absolute().resolve().parent / ".lark_cache.bin"
 def parser() -> Lark:
     """Build standard parser for transforming HCL2 text into python structures"""
     return Lark.open(
-        "rule_transformer/hcl2.lark.lark",
+        "rule_transformer/hcl2.lark",
         parser="lalr",
         cache=str(PARSER_FILE),  # Disable/Delete file to effect changes to the grammar
         rel_to=__file__,

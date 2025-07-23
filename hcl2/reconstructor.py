@@ -167,12 +167,17 @@ class HCLReconstructor(Reconstructor):
         if self._is_equals_sign(current_terminal):
             return True
 
+        if is_block_label:
+            pass
+            # print(rule, self._last_rule, current_terminal, self._last_terminal)
+
         if is_block_label and isinstance(rule, Token) and rule.value == "string":
             if (
                 current_terminal == self._last_terminal == Terminal("DBLQUOTE")
                 or current_terminal == Terminal("DBLQUOTE")
-                and self._last_terminal == Terminal("NAME")
+                and self._last_terminal == Terminal("IDENTIFIER")
             ):
+                # print("true")
                 return True
 
         # if we're in a ternary or binary operator, add space around the operator

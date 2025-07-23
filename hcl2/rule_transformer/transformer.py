@@ -14,18 +14,28 @@ from hcl2.rule_transformer.rules.containers import (
     ObjectRule,
     ObjectElemRule,
     ObjectElemKeyRule,
+    TupleRule,
+    ObjectElemKeyExpressionRule,
+    ObjectElemKeyDotAccessor,
 )
-from hcl2.rule_transformer.rules.expression import (
+from hcl2.rule_transformer.rules.expressions import (
     BinaryTermRule,
     UnaryOpRule,
     BinaryOpRule,
     ExprTermRule,
     ConditionalRule,
 )
+from hcl2.rule_transformer.rules.functions import ArgumentsRule, FunctionCallRule
 from hcl2.rule_transformer.rules.indexing import (
     IndexExprTermRule,
-    SqbIndex,
+    SqbIndexRule,
     ShortIndexRule,
+    GetAttrRule,
+    GetAttrExprTermRule,
+    AttrSplatExprTermRule,
+    AttrSplatRule,
+    FullSplatRule,
+    FullSplatExprTermRule,
 )
 from hcl2.rule_transformer.rules.literal_rules import (
     FloatLitRule,
@@ -36,10 +46,10 @@ from hcl2.rule_transformer.rules.literal_rules import (
 )
 from hcl2.rule_transformer.rules.strings import InterpolationRule, StringRule
 from hcl2.rule_transformer.rules.tokens import (
-    IdentifierToken,
+    NAME,
+    IntLiteral,
+    FloatLiteral,
     StringToken,
-    IntToken,
-    FloatToken,
 )
 from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
 
@@ -59,16 +69,16 @@ class RuleTransformer(Transformer):
         self.discard_new_line_or_comments = discard_new_line_or_comments
 
     def __default_token__(self, token: Token) -> StringToken:
-        return StringToken(token.type, token.value)
+        return StringToken[token.type](token.value)
 
-    def IDENTIFIER(self, token: Token) -> IdentifierToken:
-        return IdentifierToken(token.value)
+    def FLOAT_LITERAL(self, token: Token) -> FloatLiteral:
+        return FloatLiteral(token.value)
 
-    def INT_LITERAL(self, token: Token) -> IntToken:
-        return IntToken(token.value)
+    def NAME(self, token: Token) -> NAME:
+        return NAME(token.value)
 
-    def FLOAT_LITERAL(self, token: Token) -> FloatToken:
-        return FloatToken(token.value)
+    def INT_LITERAL(self, token: Token) -> IntLiteral:
+        return IntLiteral(token.value)
 
     @v_args(meta=True)
     def start(self, meta: Meta, args) -> StartRule:
@@ -141,6 +151,10 @@ class RuleTransformer(Transformer):
         return BinaryOpRule(args, meta)
 
     @v_args(meta=True)
+    def tuple(self, meta: Meta, args) -> TupleRule:
+        return TupleRule(args, meta)
+
+    @v_args(meta=True)
     def object(self, meta: Meta, args) -> ObjectRule:
         return ObjectRule(args, meta)
 
@@ -153,13 +167,61 @@ class RuleTransformer(Transformer):
         return ObjectElemKeyRule(args, meta)
 
     @v_args(meta=True)
+    def object_elem_key_expression(
+        self, meta: Meta, args
+    ) -> ObjectElemKeyExpressionRule:
+        return ObjectElemKeyExpressionRule(args, meta)
+
+    @v_args(meta=True)
+    def object_elem_key_dot_accessor(
+        self, meta: Meta, args
+    ) -> ObjectElemKeyDotAccessor:
+        return ObjectElemKeyDotAccessor(args, meta)
+
+    @v_args(meta=True)
+    def arguments(self, meta: Meta, args) -> ArgumentsRule:
+        return ArgumentsRule(args, meta)
+
+    @v_args(meta=True)
+    def function_call(self, meta: Meta, args) -> FunctionCallRule:
+        return FunctionCallRule(args, meta)
+
+    # @v_args(meta=True)
+    # def provider_function_call(self, meta: Meta, args) -> ProviderFunctionCallRule:
+    #     return ProviderFunctionCallRule(args, meta)
+
+    @v_args(meta=True)
     def index_expr_term(self, meta: Meta, args) -> IndexExprTermRule:
         return IndexExprTermRule(args, meta)
 
     @v_args(meta=True)
-    def braces_index(self, meta: Meta, args) -> SqbIndex:
-        return SqbIndex(args, meta)
+    def braces_index(self, meta: Meta, args) -> SqbIndexRule:
+        return SqbIndexRule(args, meta)
 
     @v_args(meta=True)
     def short_index(self, meta: Meta, args) -> ShortIndexRule:
         return ShortIndexRule(args, meta)
+
+    @v_args(meta=True)
+    def get_attr(self, meta: Meta, args) -> GetAttrRule:
+        return GetAttrRule(args, meta)
+
+    @v_args(meta=True)
+    def get_attr_expr_term(self, meta: Meta, args) -> GetAttrExprTermRule:
+        return GetAttrExprTermRule(args, meta)
+
+    @v_args(meta=True)
+    def attr_splat(self, meta: Meta, args) -> AttrSplatRule:
+        return AttrSplatRule(args, meta)
+
+    @v_args(meta=True)
+    def attr_splat_expr_term(self, meta: Meta, args) -> AttrSplatExprTermRule:
+        return AttrSplatExprTermRule(args, meta)
+
+    @v_args(meta=True)
+    def full_splat(self, meta: Meta, args) -> FullSplatRule:
+        return FullSplatRule(args, meta)
+
+    @v_args(meta=True)
+    def full_splat_expr_term(self, meta: Meta, args) -> FullSplatExprTermRule:
+        return FullSplatExprTermRule(args, meta)
