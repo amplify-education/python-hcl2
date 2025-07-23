@@ -7,8 +7,8 @@ from hcl2.rule_transformer.utils import SerializationOptions
 
 
 class NewLineOrCommentRule(TokenRule):
-    @property
-    def lark_name(self) -> str:
+    @staticmethod
+    def lark_name() -> str:
         return "new_line_or_comment"
 
     @classmethod

@@ -11,11 +11,9 @@ IN : "in"
 FOR : "for"
 FOR_EACH : "for_each"
 
-// Identifiers and Names
-NAME : /[a-zA-Z_][a-zA-Z0-9_-]*/
-IDENTIFIER: NAME | IN | FOR | IF | FOR_EACH
 
 // Literals
+NAME : /[a-zA-Z_][a-zA-Z0-9_-]*/
 ESCAPED_INTERPOLATION.2: /\$\$\{[^}]*\}/
 STRING_CHARS.1: /(?:(?!\$\$\{)(?!\$\{)[^"\\]|\\.|(?:\$(?!\$?\{)))+/
 DECIMAL : "0".."9"
@@ -91,7 +89,8 @@ block : identifier (identifier | string)* new_line_or_comment? LBRACE body RBRAC
 new_line_or_comment: ( NL_OR_COMMENT )+
 
 // Basic literals and identifiers
-identifier: IDENTIFIER
+identifier : NAME
+keyword: IN | FOR | IF | FOR_EACH
 int_lit: INT_LITERAL
 float_lit: FLOAT_LITERAL
 string: DBLQUOTE string_part* DBLQUOTE
@@ -118,21 +117,20 @@ expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
             | string
             | tuple
             | object
-            | function_call
-            | index_expr_term
-            | get_attr_expr_term
             | identifier
-            | provider_function_call
+            | function_call
             | heredoc_template
             | heredoc_template_trim
+            | index_expr_term
+            | get_attr_expr_term
             | attr_splat_expr_term
             | full_splat_expr_term
             | for_tuple_expr
             | for_object_expr
 
 // Collections
-tuple : LSQB (new_line_or_comment* expression new_line_or_comment* COMMA)* (new_line_or_comment* expression)? new_line_or_comment* RSQB
-object : LBRACE new_line_or_comment? (new_line_or_comment* (object_elem | (object_elem COMMA)) new_line_or_comment*)* RBRACE
+tuple : LSQB new_line_or_comment? (expression new_line_or_comment? COMMA new_line_or_comment?)* (expression new_line_or_comment? COMMA? new_line_or_comment?)?  RSQB
+object : LBRACE new_line_or_comment? ((object_elem | (object_elem new_line_or_comment? COMMA)) new_line_or_comment?)* RBRACE
 object_elem : object_elem_key ( EQ | COLON ) expression
 object_elem_key : float_lit | int_lit | identifier | string | object_elem_key_dot_accessor | object_elem_key_expression
 object_elem_key_expression : LPAR expression RPAR
@@ -143,9 +141,8 @@ heredoc_template : HEREDOC_TEMPLATE
 heredoc_template_trim : HEREDOC_TEMPLATE_TRIM
 
 // Functions
-function_call : identifier LPAR new_line_or_comment? arguments? new_line_or_comment? RPAR
-arguments : (expression (new_line_or_comment* COMMA new_line_or_comment*  expression)* (COMMA | ELLIPSIS)? new_line_or_comment*)
-provider_function_call: identifier COLONS identifier COLONS identifier LPAR new_line_or_comment? arguments? new_line_or_comment? RPAR
+function_call : identifier (COLONS identifier COLONS identifier)? LPAR new_line_or_comment? arguments? new_line_or_comment? RPAR
+arguments : (expression (new_line_or_comment? COMMA new_line_or_comment? expression)* (COMMA | ELLIPSIS)? new_line_or_comment?)
 
 // Indexing and attribute access
 index_expr_term : expr_term index
@@ -156,7 +153,7 @@ full_splat_expr_term : expr_term full_splat
 braces_index : LSQB new_line_or_comment? expression new_line_or_comment? RSQB
 short_index : DOT INT_LITERAL
 get_attr : DOT identifier
-attr_splat : ATTR_SPLAT get_attr*
+attr_splat : ATTR_SPLAT (get_attr | index)*
 full_splat : FULL_SPLAT_START (get_attr | index)*
 
 // For expressions
