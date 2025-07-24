@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+- Nothing yet.
+
+## \[7.3.1\] - 2025-07-24
+
 ### Fixed
 
 - Updated pyproject.toml dependencies. Thanks, @kkorlyak ([#244](https://github.com/amplify-education/python-hcl2/pull/244))
