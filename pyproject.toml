@@ -25,7 +25,11 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 requires-python = ">=3.7.0"
-dependencies = ["lark>=1,<2"]
+
+dependencies = [
+    "lark>=1.1.5,<2.0",
+    "regex>=2024.4.16"
+]
 dynamic = ["version"]
 
 [project.readme]
