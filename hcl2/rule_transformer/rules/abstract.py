@@ -36,7 +36,7 @@ class LarkElement(ABC):
 
 
 class LarkToken(LarkElement, ABC):
-    def __init__(self, value: Union[str, int]):
+    def __init__(self, value: Union[str, int, float]):
         self._value = value
         super().__init__()
 
@@ -100,7 +100,6 @@ class LarkRule(LarkElement, ABC):
 
         for index, child in enumerate(children):
             if child is not None:
-                print(child)
                 child.set_index(index)
                 child.set_parent(self)
 

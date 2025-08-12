@@ -9,6 +9,7 @@ class SerializationOptions:
     with_meta: bool = False
     wrap_objects: bool = False
     wrap_tuples: bool = False
+    explicit_blocks: bool = True
 
 
 @dataclass

@@ -1,6 +1,4 @@
 # pylint: disable=missing-function-docstring,unused-argument
-from typing import List, Union
-
 from lark import Token, Tree, v_args, Transformer, Discard
 from lark.tree import Meta
 
@@ -42,9 +40,12 @@ from hcl2.rule_transformer.rules.literal_rules import (
     IntLitRule,
     IdentifierRule,
     BinaryOperatorRule,
+)
+from hcl2.rule_transformer.rules.strings import (
+    InterpolationRule,
+    StringRule,
     StringPartRule,
 )
-from hcl2.rule_transformer.rules.strings import InterpolationRule, StringRule
 from hcl2.rule_transformer.rules.tokens import (
     NAME,
     IntLiteral,

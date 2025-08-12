@@ -3,9 +3,11 @@ from typing import Tuple, Any, List, Union, Optional
 
 from lark.tree import Meta
 
-from hcl2.dict_transformer import START_LINE, END_LINE
+from hcl2.const import IS_BLOCK
 from hcl2.rule_transformer.rules.abstract import LarkRule, LarkToken
 from hcl2.rule_transformer.rules.expressions import ExpressionRule
+from hcl2.rule_transformer.rules.literal_rules import IdentifierRule
+from hcl2.rule_transformer.rules.strings import StringRule
 from hcl2.rule_transformer.rules.tokens import NAME, EQ
 
 from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
@@ -42,7 +44,7 @@ class BodyRule(LarkRule):
     _children: List[
         Union[
             NewLineOrCommentRule,
-            # AttributeRule,
+            AttributeRule,
             "BlockRule",
         ]
     ]
@@ -58,6 +60,7 @@ class BodyRule(LarkRule):
         attributes: List[AttributeRule] = []
         comments = []
         inline_comments = []
+
         for child in self._children:
 
             if isinstance(child, BlockRule):
@@ -116,7 +119,11 @@ class StartRule(LarkRule):
 
 class BlockRule(LarkRule):
 
-    _children: Tuple[BodyRule]
+    _children: Tuple[
+        IdentifierRule,
+        Optional[Union[IdentifierRule, StringRule]],
+        BodyRule,
+    ]
 
     def __init__(self, children, meta: Optional[Meta] = None):
         super().__init__(children, meta)
@@ -141,15 +148,11 @@ class BlockRule(LarkRule):
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
         result = self._body.serialize(options)
+        if options.explicit_blocks:
+            result.update({IS_BLOCK: True})
+
         labels = self._labels
         for label in reversed(labels[1:]):
             result = {label.serialize(options): result}
-
-        result.update(
-            {
-                START_LINE: self._meta.line,
-                END_LINE: self._meta.end_line,
-            }
-        )
 
         return result

@@ -43,12 +43,6 @@ class FloatLitRule(TokenRule):
         return "float_lit"
 
 
-class StringPartRule(TokenRule):
-    @staticmethod
-    def lark_name() -> str:
-        return "string_part"
-
-
 class BinaryOperatorRule(TokenRule):
     @staticmethod
     def lark_name() -> str:
