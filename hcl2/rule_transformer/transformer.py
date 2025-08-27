@@ -44,7 +44,9 @@ from hcl2.rule_transformer.rules.literal_rules import (
 from hcl2.rule_transformer.rules.strings import (
     InterpolationRule,
     StringRule,
-    StringPartRule,
+    StringPartRule, 
+    HeredocTemplateRule, 
+    HeredocTrimTemplateRule,
 )
 from hcl2.rule_transformer.rules.tokens import (
     NAME,
@@ -127,6 +129,14 @@ class RuleTransformer(Transformer):
     def interpolation(self, meta: Meta, args) -> InterpolationRule:
         return InterpolationRule(args, meta)
 
+    @v_args(meta=True)
+    def heredoc_template(self, meta: Meta, args) -> HeredocTemplateRule:
+        return HeredocTemplateRule(args, meta)
+        
+    @v_args(meta=True)
+    def heredoc_template_trim(self, meta: Meta, args) -> HeredocTrimTemplateRule:
+        return HeredocTrimTemplateRule(args, meta)
+    
     @v_args(meta=True)
     def expr_term(self, meta: Meta, args) -> ExprTermRule:
         return ExprTermRule(args, meta)

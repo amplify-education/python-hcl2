@@ -67,8 +67,8 @@ ELLIPSIS : "..."
 COLONS: "::"
 
 // Heredocs
-HEREDOC_TEMPLATE : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n?(?:.|\n)*?\n\s*(?P=heredoc)\n/
-HEREDOC_TEMPLATE_TRIM : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)\n?(?:.|\n)*?\n\s*(?P=heredoc_trim)\n/
+HEREDOC_TEMPLATE : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?\n\s*(?P=heredoc)\n/
+HEREDOC_TEMPLATE_TRIM : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:.|\n)*?\n\s*(?P=heredoc_trim)\n/
 
 // Ignore whitespace (but not newlines, as they're significant in HCL)
 %ignore /[ \t]+/

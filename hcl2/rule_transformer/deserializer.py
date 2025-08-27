@@ -1,6 +1,6 @@
 import json
 from functools import lru_cache
-from typing import Any, TextIO, List
+from typing import Any, TextIO, List, Union
 
 from regex import regex
 
@@ -31,6 +31,8 @@ from hcl2.rule_transformer.rules.strings import (
     StringRule,
     InterpolationRule,
     StringPartRule,
+    HeredocTemplateRule, 
+    HeredocTrimTemplateRule,
 )
 from hcl2.rule_transformer.rules.tokens import (
     NAME,
@@ -47,9 +49,11 @@ from hcl2.rule_transformer.rules.tokens import (
     COMMA,
     DOT,
     LBRACE,
+    HEREDOC_TRIM_TEMPLATE,
+    HEREDOC_TEMPLATE,
 )
 from hcl2.rule_transformer.transformer import RuleTransformer
-from hcl2.rule_transformer.utils import DeserializationOptions
+from hcl2.rule_transformer.utils import DeserializationOptions, HEREDOC_TRIM_PATTERN, HEREDOC_PATTERN
 
 
 class Deserializer:
@@ -99,7 +103,7 @@ class Deserializer:
 
         return children
 
-    def _deserialize_text(self, value) -> LarkRule:
+    def _deserialize_text(self, value: Any) -> LarkRule:
         try:
             int_val = int(value)
             return IntLitRule([IntLiteral(int_val)])
@@ -114,6 +118,16 @@ class Deserializer:
 
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
+                if not self.options.heredocs_to_strings and value.startswith('"<<-'):
+                    match = HEREDOC_TRIM_PATTERN.match(value[1:-1])
+                    if match:
+                        return self._deserialize_heredoc(value[1:-1], True)
+                    
+                if not self.options.heredocs_to_strings and value.startswith('"<<'):
+                    match = HEREDOC_PATTERN.match(value[1:-1])
+                    if match:
+                        return self._deserialize_heredoc(value[1:-1], False)
+                    
                 return self._deserialize_string(value)
 
             if self._is_expression(value):
@@ -131,11 +145,12 @@ class Deserializer:
 
     def _deserialize_string(self, value: str) -> StringRule:
         result = []
-
-        pattern = regex.compile(r"(\${1,2}\{(?:[^{}]|(?R))*\})")
-        parts = [part for part in pattern.split(value) if part != ""]
+        # split string into individual parts based on lark grammar
         # e.g. 'aaa$${bbb}ccc${"ddd-${eee}"}' -> ['aaa', '$${bbb}', 'ccc', '${"ddd-${eee}"}']
         # 'aa-${"bb-${"cc-${"dd-${5 + 5}"}"}"}' -> ['aa-', '${"bb-${"cc-${"dd-${5 + 5}"}"}"}']
+        pattern = regex.compile(r"(\${1,2}\{(?:[^{}]|(?R))*\})")
+        parts = [part for part in pattern.split(value) if part != ""]
+
 
         for part in parts:
             if part == '"':
@@ -165,6 +180,11 @@ class Deserializer:
             )
 
         return StringPartRule([STRING_CHARS(value)])
+
+    def _deserialize_heredoc(self, value: str, trim: bool) -> Union[HeredocTemplateRule, HeredocTrimTemplateRule]:
+        if trim:
+            return HeredocTrimTemplateRule([HEREDOC_TRIM_TEMPLATE(value)])
+        return HeredocTemplateRule([HEREDOC_TEMPLATE(value)]) 
 
     def _deserialize_expression(self, value: str) -> ExprTermRule:
         """Deserialize an expression string into an ExprTermRule."""

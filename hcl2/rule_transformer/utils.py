@@ -1,6 +1,11 @@
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import Generator
+
+HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
+HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
+
 
 
 @dataclass
@@ -10,11 +15,12 @@ class SerializationOptions:
     wrap_objects: bool = False
     wrap_tuples: bool = False
     explicit_blocks: bool = True
+    preserve_heredocs: bool = True
 
 
 @dataclass
 class DeserializationOptions:
-    pass
+    heredocs_to_strings: bool = False
 
 
 @dataclass

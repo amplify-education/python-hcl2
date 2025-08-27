@@ -67,12 +67,14 @@ class StaticStringToken(LarkToken):
 
 
 # explicitly define various kinds of string-based tokens for type hinting
-# variable value
+# variable values
 NAME = StringToken["NAME"]
 STRING_CHARS = StringToken["STRING_CHARS"]
 ESCAPED_INTERPOLATION = StringToken["ESCAPED_INTERPOLATION"]
 BINARY_OP = StringToken["BINARY_OP"]
-# static value
+HEREDOC_TEMPLATE = STRING_CHARS["HEREDOC_TEMPLATE"]
+HEREDOC_TRIM_TEMPLATE = STRING_CHARS["HEREDOC_TRIM_TEMPLATE"]
+# static values
 EQ = StaticStringToken[("EQ", "=")]
 COLON = StaticStringToken[("COLON", ":")]
 LPAR = StaticStringToken[("LPAR", "(")]
