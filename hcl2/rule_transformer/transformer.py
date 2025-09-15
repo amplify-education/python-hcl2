@@ -23,6 +23,12 @@ from hcl2.rule_transformer.rules.expressions import (
     ExprTermRule,
     ConditionalRule,
 )
+from hcl2.rule_transformer.rules.for_expressions import (
+    ForTupleExprRule,
+    ForObjectExprRule,
+    ForIntroRule,
+    ForCondRule,
+)
 from hcl2.rule_transformer.rules.functions import ArgumentsRule, FunctionCallRule
 from hcl2.rule_transformer.rules.indexing import (
     IndexExprTermRule,
@@ -40,12 +46,13 @@ from hcl2.rule_transformer.rules.literal_rules import (
     IntLitRule,
     IdentifierRule,
     BinaryOperatorRule,
+    KeywordRule,
 )
 from hcl2.rule_transformer.rules.strings import (
     InterpolationRule,
     StringRule,
-    StringPartRule, 
-    HeredocTemplateRule, 
+    StringPartRule,
+    HeredocTemplateRule,
     HeredocTrimTemplateRule,
 )
 from hcl2.rule_transformer.rules.tokens import (
@@ -72,6 +79,7 @@ class RuleTransformer(Transformer):
         self.discard_new_line_or_comments = discard_new_line_or_comments
 
     def __default_token__(self, token: Token) -> StringToken:
+        # TODO make this return StaticStringToken where applicable
         return StringToken[token.type](token.value)
 
     def FLOAT_LITERAL(self, token: Token) -> FloatLiteral:
@@ -110,6 +118,10 @@ class RuleTransformer(Transformer):
         return IdentifierRule(args, meta)
 
     @v_args(meta=True)
+    def keyword(self, meta: Meta, args) -> KeywordRule:
+        return KeywordRule(args, meta)
+
+    @v_args(meta=True)
     def int_lit(self, meta: Meta, args) -> IntLitRule:
         return IntLitRule(args, meta)
 
@@ -132,11 +144,11 @@ class RuleTransformer(Transformer):
     @v_args(meta=True)
     def heredoc_template(self, meta: Meta, args) -> HeredocTemplateRule:
         return HeredocTemplateRule(args, meta)
-        
+
     @v_args(meta=True)
     def heredoc_template_trim(self, meta: Meta, args) -> HeredocTrimTemplateRule:
         return HeredocTrimTemplateRule(args, meta)
-    
+
     @v_args(meta=True)
     def expr_term(self, meta: Meta, args) -> ExprTermRule:
         return ExprTermRule(args, meta)
@@ -236,3 +248,19 @@ class RuleTransformer(Transformer):
     @v_args(meta=True)
     def full_splat_expr_term(self, meta: Meta, args) -> FullSplatExprTermRule:
         return FullSplatExprTermRule(args, meta)
+
+    @v_args(meta=True)
+    def for_tuple_expr(self, meta: Meta, args) -> ForTupleExprRule:
+        return ForTupleExprRule(args, meta)
+
+    @v_args(meta=True)
+    def for_object_expr(self, meta: Meta, args) -> ForObjectExprRule:
+        return ForObjectExprRule(args, meta)
+
+    @v_args(meta=True)
+    def for_intro(self, meta: Meta, args) -> ForIntroRule:
+        return ForIntroRule(args, meta)
+
+    @v_args(meta=True)
+    def for_cond(self, meta: Meta, args) -> ForCondRule:
+        return ForCondRule(args, meta)

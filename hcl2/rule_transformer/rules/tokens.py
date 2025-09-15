@@ -91,6 +91,10 @@ INTERP_START = StaticStringToken[("INTERP_START", "${")]
 DBLQUOTE = StaticStringToken[("DBLQUOTE", '"')]
 ATTR_SPLAT = StaticStringToken[("ATTR_SPLAT", ".*")]
 FULL_SPLAT = StaticStringToken[("FULL_SPLAT", "[*]")]
+FOR = StaticStringToken[("FOR", "for")]
+IN = StaticStringToken[("IN", "in")]
+IF = StaticStringToken[("IF", "if")]
+FOR_OBJECT_ARROW = StaticStringToken[("FOR_OBJECT_ARROW", "=>")]
 
 
 class IntLiteral(LarkToken):

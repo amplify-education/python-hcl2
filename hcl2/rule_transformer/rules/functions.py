@@ -40,7 +40,7 @@ class ArgumentsRule(InlineCommentMixIn):
         return [child for child in self._children if isinstance(child, ExpressionRule)]
 
     def serialize(self, options = SerializationOptions(), context = SerializationContext()) -> Any:
-        result = ", ".join([argument.serialize(options, context) for argument in self.arguments])
+        result = ", ".join([str(argument.serialize(options, context)) for argument in self.arguments])
         if self.has_ellipsis:
             result += " ..."
         return result
