@@ -16,7 +16,6 @@ from hcl2.rule_transformer.rules.whitespace import (
 from hcl2.rule_transformer.utils import (
     wrap_into_parentheses,
     to_dollar_string,
-    unwrap_dollar_string,
     SerializationOptions,
     SerializationContext,
 )
@@ -58,7 +57,7 @@ class ExprTermRule(ExpressionRule):
             self._parentheses = True
         else:
             children = [None, *children, None]
-        self._possibly_insert_null_comments(children, [1, 3])
+        self._insert_optionals(children, [1, 3])
         super().__init__(children, meta)
 
     @property
@@ -100,7 +99,7 @@ class ConditionalRule(ExpressionRule):
         return "conditional"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        self._possibly_insert_null_comments(children, [2, 4, 6])
+        self._insert_optionals(children, [2, 4, 6])
         super().__init__(children, meta)
 
     @property
@@ -118,7 +117,7 @@ class ConditionalRule(ExpressionRule):
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-        with context.modify(inside_dollar_string=False):
+        with context.modify(inside_dollar_string=True):
             result = (
                 f"{self.condition.serialize(options, context)} "
                 f"? {self.if_true.serialize(options, context)} "
@@ -144,7 +143,7 @@ class BinaryTermRule(ExpressionRule):
         return "binary_term"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        self._possibly_insert_null_comments(children, [1])
+        self._insert_optionals(children, [1])
         super().__init__(children, meta)
 
     @property

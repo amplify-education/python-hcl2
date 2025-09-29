@@ -3,7 +3,7 @@ from typing import Optional, List, Any, Tuple
 
 from hcl2.rule_transformer.rules.abstract import LarkToken, LarkRule
 from hcl2.rule_transformer.rules.literal_rules import TokenRule
-from hcl2.rule_transformer.utils import SerializationOptions
+from hcl2.rule_transformer.utils import SerializationOptions, SerializationContext
 
 
 class NewLineOrCommentRule(TokenRule):
@@ -14,6 +14,11 @@ class NewLineOrCommentRule(TokenRule):
     @classmethod
     def from_string(cls, string: str) -> "NewLineOrCommentRule":
         return cls([LarkToken("NL_OR_COMMENT", string)])
+
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
+        return self.token.serialize()
 
     def to_list(
         self, options: SerializationOptions = SerializationOptions()
@@ -43,7 +48,7 @@ class NewLineOrCommentRule(TokenRule):
 
 
 class InlineCommentMixIn(LarkRule, ABC):
-    def _possibly_insert_null_comments(self, children: List, indexes: List[int] = None):
+    def _insert_optionals(self, children: List, indexes: List[int] = None):
         for index in indexes:
             try:
                 child = children[index]

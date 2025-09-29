@@ -60,6 +60,7 @@ from hcl2.rule_transformer.rules.tokens import (
     IntLiteral,
     FloatLiteral,
     StringToken,
+    StaticStringToken,
 )
 from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
 
@@ -80,6 +81,8 @@ class RuleTransformer(Transformer):
 
     def __default_token__(self, token: Token) -> StringToken:
         # TODO make this return StaticStringToken where applicable
+        if token.value in StaticStringToken.classes_by_value.keys():
+            return StaticStringToken.classes_by_value[token.value]()
         return StringToken[token.type](token.value)
 
     def FLOAT_LITERAL(self, token: Token) -> FloatLiteral:

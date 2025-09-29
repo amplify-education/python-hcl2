@@ -67,7 +67,7 @@ class SqbIndexRule(InlineCommentMixIn):
         return f"[{self.index_expression.serialize(options)}]"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        self._possibly_insert_null_comments(children, [1, 3])
+        self._insert_optionals(children, [1, 3])
         super().__init__(children, meta)
 
 

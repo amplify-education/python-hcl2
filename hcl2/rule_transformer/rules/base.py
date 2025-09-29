@@ -5,10 +5,10 @@ from lark.tree import Meta
 
 from hcl2.const import IS_BLOCK
 from hcl2.rule_transformer.rules.abstract import LarkRule, LarkToken
-from hcl2.rule_transformer.rules.expressions import ExpressionRule
+from hcl2.rule_transformer.rules.expressions import ExpressionRule, ExprTermRule
 from hcl2.rule_transformer.rules.literal_rules import IdentifierRule
 from hcl2.rule_transformer.rules.strings import StringRule
-from hcl2.rule_transformer.rules.tokens import NAME, EQ
+from hcl2.rule_transformer.rules.tokens import NAME, EQ, LBRACE, RBRACE
 
 from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
 from hcl2.rule_transformer.utils import SerializationOptions, SerializationContext
@@ -16,9 +16,9 @@ from hcl2.rule_transformer.utils import SerializationOptions, SerializationConte
 
 class AttributeRule(LarkRule):
     _children: Tuple[
-        NAME,
+        IdentifierRule,
         EQ,
-        ExpressionRule,
+        ExprTermRule,
     ]
 
     @staticmethod
@@ -26,11 +26,11 @@ class AttributeRule(LarkRule):
         return "attribute"
 
     @property
-    def identifier(self) -> NAME:
+    def identifier(self) -> IdentifierRule:
         return self._children[0]
 
     @property
-    def expression(self) -> ExpressionRule:
+    def expression(self) -> ExprTermRule:
         return self._children[2]
 
     def serialize(
@@ -56,39 +56,31 @@ class BodyRule(LarkRule):
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-        blocks: List[BlockRule] = []
-        attributes: List[AttributeRule] = []
+        attribute_names = set()
         comments = []
         inline_comments = []
+
+        result = defaultdict(list)
 
         for child in self._children:
 
             if isinstance(child, BlockRule):
-                blocks.append(child)
+                name = child.labels[0].serialize(options)
+                if name in attribute_names:
+                    raise RuntimeError(f"Attribute {name} is already defined.")
+                result[name].append(child.serialize(options))
 
             if isinstance(child, AttributeRule):
-                attributes.append(child)
-                # collect in-line comments from attribute assignments, expressions etc
-                inline_comments.extend(child.expression.inline_comments())
+                attribute_names.add(child)
+                result.update(child.serialize(options))
+                if options.with_comments:
+                    # collect in-line comments from attribute assignments, expressions etc
+                    inline_comments.extend(child.expression.inline_comments())
 
-            if isinstance(child, NewLineOrCommentRule):
+            if isinstance(child, NewLineOrCommentRule) and options.with_comments:
                 child_comments = child.to_list()
                 if child_comments:
                     comments.extend(child_comments)
-
-        result = {}
-
-        for attribute in attributes:
-            result.update(attribute.serialize(options))
-
-        result_blocks = defaultdict(list)
-        for block in blocks:
-            name = block.labels[0].serialize(options)
-            if name in result.keys():
-                raise RuntimeError(f"Attribute {name} is already defined.")
-            result_blocks[name].append(block.serialize(options))
-
-        result.update(**result_blocks)
 
         if options.with_comments:
             if comments:
@@ -122,7 +114,9 @@ class BlockRule(LarkRule):
     _children: Tuple[
         IdentifierRule,
         Optional[Union[IdentifierRule, StringRule]],
+        LBRACE,
         BodyRule,
+        RBRACE,
     ]
 
     def __init__(self, children, meta: Optional[Meta] = None):

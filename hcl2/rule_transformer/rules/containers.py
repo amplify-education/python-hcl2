@@ -14,13 +14,22 @@ from hcl2.rule_transformer.rules.tokens import (
     EQ,
     LBRACE,
     COMMA,
-    RBRACE, LSQB, RSQB, LPAR, RPAR, DOT,
+    RBRACE,
+    LSQB,
+    RSQB,
+    LPAR,
+    RPAR,
+    DOT,
 )
 from hcl2.rule_transformer.rules.whitespace import (
     NewLineOrCommentRule,
     InlineCommentMixIn,
 )
-from hcl2.rule_transformer.utils import SerializationOptions, SerializationContext, to_dollar_string
+from hcl2.rule_transformer.utils import (
+    SerializationOptions,
+    SerializationContext,
+    to_dollar_string,
+)
 
 
 class TupleRule(InlineCommentMixIn):
@@ -33,7 +42,7 @@ class TupleRule(InlineCommentMixIn):
             Optional[NewLineOrCommentRule],
             COMMA,
             Optional[NewLineOrCommentRule],
-            ...
+            # ...
         ],
         ExpressionRule,
         Optional[NewLineOrCommentRule],
@@ -52,14 +61,18 @@ class TupleRule(InlineCommentMixIn):
             child for child in self.children[1:-1] if isinstance(child, ExpressionRule)
         ]
 
-    def serialize(self, options = SerializationOptions(), context = SerializationContext()) -> Any:
-        if not options.wrap_tuples:
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
+        if not options.wrap_tuples and not context.inside_dollar_string:
             return [element.serialize(options, context) for element in self.elements]
 
         with context.modify(inside_dollar_string=True):
-            result = f"[{", ".join(
+            result = "["
+            result += ", ".join(
                 str(element.serialize(options, context)) for element in self.elements
-            )}]"
+            )
+            result += "]"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
@@ -81,7 +94,9 @@ class ObjectElemKeyRule(LarkRule):
     def value(self) -> key_T:
         return self._children[0]
 
-    def serialize(self, options = SerializationOptions(), context = SerializationContext()) -> Any:
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
         return self.value.serialize(options, context)
 
 
@@ -93,7 +108,6 @@ class ObjectElemKeyExpressionRule(LarkRule):
         RPAR,
     ]
 
-
     @staticmethod
     def lark_name() -> str:
         return "object_elem_key_expression"
@@ -102,7 +116,9 @@ class ObjectElemKeyExpressionRule(LarkRule):
     def expression(self) -> ExpressionRule:
         return self._children[1]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
         with context.modify(inside_dollar_string=True):
             result = f"({self.expression.serialize(options, context)})"
         if not context.inside_dollar_string:
@@ -117,8 +133,7 @@ class ObjectElemKeyDotAccessor(LarkRule):
         Tuple[
             IdentifierRule,
             DOT,
-            ...
-        ]
+        ],
     ]
 
     @staticmethod
@@ -129,8 +144,12 @@ class ObjectElemKeyDotAccessor(LarkRule):
     def identifiers(self) -> List[IdentifierRule]:
         return [child for child in self._children if isinstance(child, IdentifierRule)]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
-        return ".".join(identifier.serialize(options, context) for identifier in self.identifiers)
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
+        return ".".join(
+            identifier.serialize(options, context) for identifier in self.identifiers
+        )
 
 
 class ObjectElemRule(LarkRule):
@@ -153,9 +172,13 @@ class ObjectElemRule(LarkRule):
     def expression(self):
         return self._children[2]
 
-    def serialize(self, options = SerializationOptions(), context = SerializationContext()) -> Any:
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
         return {
-            self.key.serialize(options, context): self.expression.serialize(options, context)
+            self.key.serialize(options, context): self.expression.serialize(
+                options, context
+            )
         }
 
 
@@ -169,7 +192,6 @@ class ObjectRule(InlineCommentMixIn):
             Optional[NewLineOrCommentRule],
             Optional[COMMA],
             Optional[NewLineOrCommentRule],
-            ...
         ],
         RBRACE,
     ]
@@ -184,8 +206,10 @@ class ObjectRule(InlineCommentMixIn):
             child for child in self.children[1:-1] if isinstance(child, ObjectElemRule)
         ]
 
-    def serialize(self, options = SerializationOptions(), context = SerializationContext()) -> Any:
-        if not options.wrap_objects:
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
+        if not options.wrap_objects and not context.inside_dollar_string:
             result = {}
             for element in self.elements:
                 result.update(element.serialize(options, context))
@@ -193,12 +217,13 @@ class ObjectRule(InlineCommentMixIn):
             return result
 
         with context.modify(inside_dollar_string=True):
-            result = f"{{{", ".join(
+            result = "{"
+            result += ", ".join(
                 f"{element.key.serialize(options, context)} = {element.expression.serialize(options,context)}"
                 for element in self.elements
-            )}}}"
+            )
+            result += "}"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
-
         return result

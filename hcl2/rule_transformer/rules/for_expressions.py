@@ -52,18 +52,23 @@ class ForIntroRule(InlineCommentMixIn):
         return "for_intro"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        # Insert null comments at positions where they might be missing
-        self._possibly_insert_null_second_identifier(children)
-        self._possibly_insert_null_comments(children, [1, 5, 7, 9, 11])
+
+        self._insert_optionals(children)
         super().__init__(children, meta)
 
-    def _possibly_insert_null_second_identifier(self, children: List[LarkRule]):
-        second_identifier_present = (
-            len([child for child in children if isinstance(child, IdentifierRule)]) == 2
-        )
-        if not second_identifier_present:
-            children.insert(3, None)
-            children.insert(4, None)
+    def _insert_optionals(self, children: List, indexes: List[int] = None):
+        identifiers = [child for child in children if isinstance(child, IdentifierRule)]
+        second_identifier = identifiers[1] if len(identifiers) == 2 else None
+
+        indexes = [1, 5, 7, 9, 11]
+        if second_identifier is None:
+            indexes.extend([3, 4])
+
+        super()._insert_optionals(children, sorted(indexes))
+
+        if second_identifier is not None:
+            children[3] = COMMA()
+            children[4] = second_identifier
 
     @property
     def first_iterator(self) -> IdentifierRule:
@@ -90,7 +95,6 @@ class ForIntroRule(InlineCommentMixIn):
             result += f", {self.second_iterator.serialize(options, context)}"
 
         result += f" in {self.iterable.serialize(options, context)} : "
-
         return result
 
 
@@ -108,7 +112,7 @@ class ForCondRule(InlineCommentMixIn):
         return "for_cond"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        self._possibly_insert_null_comments(children, [1])
+        self._insert_optionals(children, [1])
         super().__init__(children, meta)
 
     @property
@@ -142,13 +146,25 @@ class ForTupleExprRule(ExpressionRule):
         return "for_tuple_expr"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        self._possibly_insert_null_comments(children, [1, 3, 5, 7])
-        self._possibly_insert_null_condition(children)
+        self._insert_optionals(children)
         super().__init__(children, meta)
 
-    def _possibly_insert_null_condition(self, children: List[LarkElement]):
-        if not len([child for child in children if isinstance(child, ForCondRule)]):
-            children.insert(6, None)
+    def _insert_optionals(self, children: List, indexes: List[int] = None):
+        condition = None
+
+        for child in children:
+            if isinstance(child, ForCondRule):
+                condition = child
+                break
+
+        indexes = [1, 3, 5, 7]
+
+        if condition is None:
+            indexes.append(6)
+
+        super()._insert_optionals(children, sorted(indexes))
+
+        children[6] = condition
 
     @property
     def for_intro(self) -> ForIntroRule:
@@ -209,30 +225,30 @@ class ForObjectExprRule(ExpressionRule):
         return "for_object_expr"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        self._possibly_insert_null_comments(children, [1, 3, 6, 8, 10, 12])
-        self._possibly_insert_null_optionals(children)
+        self._insert_optionals(children)
         super().__init__(children, meta)
 
-    def _possibly_insert_null_optionals(self, children: List[LarkElement]):
-        has_ellipsis = False
-        has_condition = False
+    def _insert_optionals(self, children: List, indexes: List[int] = None):
+        ellipsis_ = None
+        condition = None
 
         for child in children:
-            # if not has_ellipsis and isinstance(child, ELLIPSIS):
-            if (
-                has_ellipsis is False
-                and child is not None
-                and child.lark_name() == ELLIPSIS.lark_name()
-            ):
-                has_ellipsis = True
-            if not has_condition and isinstance(child, ForCondRule):
-                has_condition = True
+            if ellipsis_ is None and isinstance(child, ELLIPSIS):
+                ellipsis_ = child
+            if condition is None and isinstance(child, ForCondRule):
+                condition = child
 
-        if not has_ellipsis:
-            children.insert(9, None)
+        indexes = [1, 3, 6, 8, 10, 12]
 
-        if not has_condition:
-            children.insert(11, None)
+        if ellipsis_ is None:
+            indexes.append(9)
+        if condition is None:
+            indexes.append(11)
+
+        super()._insert_optionals(children, sorted(indexes))
+
+        children[9] = ellipsis_
+        children[11] = condition
 
     @property
     def for_intro(self) -> ForIntroRule:
@@ -262,6 +278,7 @@ class ForObjectExprRule(ExpressionRule):
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
+
         result = "{"
         with context.modify(inside_dollar_string=True):
             result += self.for_intro.serialize(options, context)
@@ -270,7 +287,6 @@ class ForObjectExprRule(ExpressionRule):
             result += self.value_expr.serialize(
                 SerializationOptions(wrap_objects=True), context
             )
-
             if self.ellipsis is not None:
                 result += self.ellipsis.serialize(options, context)
 

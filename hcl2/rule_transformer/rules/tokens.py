@@ -37,6 +37,9 @@ class StringToken(LarkToken):
 
 
 class StaticStringToken(LarkToken):
+
+    classes_by_value = {}
+
     @classmethod
     @lru_cache(maxsize=None)
     def __build_subclass(
@@ -44,7 +47,7 @@ class StaticStringToken(LarkToken):
     ) -> Type["StringToken"]:
         """Create a subclass with a constant `lark_name`."""
 
-        return type(  # type: ignore
+        result = type(  # type: ignore
             f"{name}_TOKEN",
             (cls,),
             {
@@ -53,6 +56,8 @@ class StaticStringToken(LarkToken):
                 "_default_value": default_value,
             },
         )
+        cls.classes_by_value[default_value] = result
+        return result
 
     def __class_getitem__(cls, value: Tuple[str, str]) -> Type["StringToken"]:
         name, default_value = value
@@ -72,8 +77,9 @@ NAME = StringToken["NAME"]
 STRING_CHARS = StringToken["STRING_CHARS"]
 ESCAPED_INTERPOLATION = StringToken["ESCAPED_INTERPOLATION"]
 BINARY_OP = StringToken["BINARY_OP"]
-HEREDOC_TEMPLATE = STRING_CHARS["HEREDOC_TEMPLATE"]
-HEREDOC_TRIM_TEMPLATE = STRING_CHARS["HEREDOC_TRIM_TEMPLATE"]
+HEREDOC_TEMPLATE = StringToken["HEREDOC_TEMPLATE"]
+HEREDOC_TRIM_TEMPLATE = StringToken["HEREDOC_TRIM_TEMPLATE"]
+NL_OR_COMMENT = StringToken["NL_OR_COMMENT"]
 # static values
 EQ = StaticStringToken[("EQ", "=")]
 COLON = StaticStringToken[("COLON", ":")]

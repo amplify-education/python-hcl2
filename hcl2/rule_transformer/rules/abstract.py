@@ -49,6 +49,9 @@ class LarkToken(LarkElement, ABC):
     def value(self):
         return self._value
 
+    def set_value(self, value: Any):
+        self._value = value
+
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
@@ -96,7 +99,7 @@ class LarkRule(LarkElement, ABC):
     def __init__(self, children: List[LarkElement], meta: Optional[Meta] = None):
         super().__init__()
         self._children = children
-        self._meta = meta
+        self._meta = meta or Meta()
 
         for index, child in enumerate(children):
             if child is not None:
