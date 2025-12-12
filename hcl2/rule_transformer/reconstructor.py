@@ -167,7 +167,8 @@ class HCLReconstructor:
             result = " " + result
 
         self._last_token_name = token.type
-        self._last_was_space = result[-1].endswith(" ") or result[-1].endswith("\n")
+        if len(token) != 0:
+            self._last_was_space = result[-1].endswith(" ") or result[-1].endswith("\n")
 
         return result
 

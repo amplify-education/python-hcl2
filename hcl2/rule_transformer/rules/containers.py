@@ -1,4 +1,3 @@
-import json
 from typing import Tuple, List, Optional, Union, Any
 
 from hcl2.rule_transformer.rules.abstract import LarkRule

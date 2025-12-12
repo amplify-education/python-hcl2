@@ -89,10 +89,9 @@ class FunctionCallRule(InlineCommentMixIn):
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-        result = f"{'::'.join(identifier.serialize(options, context) for identifier in self.identifiers)}"
-        result += (
-            f"({self.arguments.serialize(options, context) if self.arguments else ''})"
-        )
+        with context.modify(inside_dollar_string=True):
+            result = f"{'::'.join(identifier.serialize(options, context) for identifier in self.identifiers)}"
+            result += f"({self.arguments.serialize(options, context) if self.arguments else ''})"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
