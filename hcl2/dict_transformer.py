@@ -277,6 +277,10 @@ class DictTransformer(Transformer):
     def new_line_or_comment(self, args: List) -> _DiscardType:
         return Discard
 
+    # def EQ(self, args: List):
+    #     print("EQ", args)
+    #     return args
+
     def for_tuple_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
         for_expr = " ".join([self.to_tf_inline(arg) for arg in args[1:-1]])
