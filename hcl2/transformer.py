@@ -178,7 +178,7 @@ class DictTransformer(Transformer):
 
     def conditional(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        args = self.process_nulls(args)
+        args = self.all_to_tf_inline(args)
         return f"{args[0]} ? {args[1]} : {args[2]}"
 
     def binary_op(self, args: List) -> str:
@@ -187,13 +187,13 @@ class DictTransformer(Transformer):
         )
 
     def unary_op(self, args: List) -> str:
-        args = self.process_nulls(args)
-        return "".join([self.to_tf_inline(arg) for arg in args])
+        args = self.all_to_tf_inline(args)
+        return "".join(args)
 
     def binary_term(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        args = self.process_nulls(args)
-        return " ".join([self.to_tf_inline(arg) for arg in args])
+        args = self.all_to_tf_inline(args)
+        return " ".join(args)
 
     def body(self, args: List) -> Dict[str, List]:
         # See https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#bodies
@@ -279,20 +279,24 @@ class DictTransformer(Transformer):
 
     def for_tuple_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        for_expr = " ".join([self.to_tf_inline(arg) for arg in args[1:-1]])
+        args = self.all_to_tf_inline(args[1:-1])
+        for_expr = " ".join(args)
         return f"[{for_expr}]"
 
     def for_intro(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return " ".join([self.to_tf_inline(arg) for arg in args])
+        args = self.all_to_tf_inline(args)
+        return " ".join(args)
 
     def for_cond(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        return " ".join([self.to_tf_inline(arg) for arg in args])
+        args = self.all_to_tf_inline(args)
+        return " ".join(args)
 
     def for_object_expr(self, args: List) -> str:
         args = self.strip_new_line_tokens(args)
-        for_expr = " ".join([self.to_tf_inline(arg) for arg in args[1:-1]])
+        args = self.all_to_tf_inline(args[1:-1])
+        for_expr = " ".join(args)
         # doubled curly braces stands for inlining the braces
         # and the third pair of braces is for the interpolation
         # e.g. f"{2 + 2} {{2 + 2}}" == "4 {2 + 2}"
@@ -308,7 +312,7 @@ class DictTransformer(Transformer):
         return value
 
     def interpolation(self, args: List) -> str:
-        return '"${' + str(args[0]) + '}"'
+        return '"${' + self.to_tf_inline(args[0]) + '}"'
 
     def strip_new_line_tokens(self, args: List) -> List:
         """
@@ -369,6 +373,12 @@ class DictTransformer(Transformer):
     def process_nulls(self, args: List) -> List:
         return ["null" if arg is None else arg for arg in args]
 
+    def all_to_tf_inline(self, args: List) -> List:
+        """
+        Convert all items in a list to "inline" HCL syntax
+        """
+        return [self.to_tf_inline(arg) for arg in args]
+
     def to_tf_inline(self, value: Any) -> str:
         """
         Converts complex objects (e.g.) dicts to an "inline" HCL syntax
@@ -387,7 +397,7 @@ class DictTransformer(Transformer):
         if isinstance(value, (int, float)):
             return str(value)
         if value is None:
-            return "None"
+            return "null"
 
         raise RuntimeError(f"Invalid type to convert to inline HCL: {type(value)}")
 
