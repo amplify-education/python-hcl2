@@ -393,7 +393,7 @@ class DictTransformer(Transformer):
         if isinstance(value, bool):
             return "true" if value else "false"
         if isinstance(value, str):
-            return value
+            return self.unwrap_string_dollar(value)
         if isinstance(value, (int, float)):
             return str(value)
         if value is None:
