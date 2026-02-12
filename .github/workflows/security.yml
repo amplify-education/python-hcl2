@@ -10,7 +10,7 @@ on:
 
 jobs:
   security:
-    runs-on: self-hosted
+    runs-on: github-hosted-static-ip
     steps:
       - uses: actions/checkout@v4
         with:
