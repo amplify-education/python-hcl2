@@ -13,7 +13,7 @@ on:
 jobs:
   analyse:
     name: Analyse
-    runs-on: self-hosted
+    runs-on: github-hosted-static-ip
 
     steps:
       - name: Checkout repository
