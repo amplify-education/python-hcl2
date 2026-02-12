@@ -132,9 +132,7 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
                         arg1, arg2,
                         arg3,
                     )
-            """: {
-                "r": "${function(arg1, arg2, arg3)}"
-            },
+            """: {"r": "${function(arg1, arg2, arg3)}"},
         }
 
         for call, expected in calls.items():
@@ -191,3 +189,11 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
         for actual, expected in literals.items():
             result = self.load_to_dict(actual)
             self.assertDictEqual(result, expected)
+
+    def test_dict_in_conditional(self):
+        cond = "x = a ? { id = 1 } : null"
+
+        expected = {"x": '${a ? {"id": 1} : null}'}
+
+        result = self.load_to_dict(cond)
+        self.assertDictEqual(result, expected)
