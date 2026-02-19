@@ -261,7 +261,6 @@ class HCLReconstructor(Reconstructor):
         if isinstance(self._last_rule, str) and re.match(
             r"^__(tuple|arguments)_(star|plus)_.*", self._last_rule
         ):
-
             # string literals, decimals, and identifiers should always be
             # preceded by a space if they're following a comma in a tuple or
             # function arg
@@ -361,6 +360,10 @@ class HCLReverseTransformer:
     def _name_to_identifier(name: str) -> Tree:
         """Converts a string to a NAME token within an identifier rule."""
         return Tree(Token("RULE", "identifier"), [Token("NAME", name)])
+
+    @staticmethod
+    def _is_valid_identifier(name: str) -> bool:
+        return re.match(r"^\w[\w\d]*$", name) is not None
 
     @staticmethod
     def _escape_interpolated_str(interp_s: str) -> str:
@@ -620,14 +623,14 @@ class HCLReverseTransformer:
                     continue
 
                 value_expr_term = self._transform_value_to_expr_term(dict_v, level + 1)
-                k = self._unwrap_interpolation(k)
+                k = self._transform_value_to_key(k, level + 1)
                 elements.append(
                     Tree(
                         Token("RULE", "object_elem"),
                         [
                             Tree(
                                 Token("RULE", "object_elem_key"),
-                                [Tree(Token("RULE", "identifier"), [Token("NAME", k)])],
+                                [k],
                             ),
                             Token("EQ", " ="),
                             value_expr_term,
@@ -732,3 +735,20 @@ class HCLReverseTransformer:
 
         # otherwise, we don't know the type
         raise RuntimeError(f"Unknown type to transform {type(value)}")
+
+    def _transform_value_to_key(self, value, level) -> Tree:
+        """
+        Convert any value to a suitable key for an object
+        """
+        if self._is_valid_identifier(value):
+            return self._name_to_identifier(value)
+        expr = self._transform_value_to_expr_term(value, level)
+        # If the expression is a string, then return an object_elem_key of the string
+        if expr.data == "expr_term" and expr.children[0].data == "string":
+            return expr.children[0]
+        else:
+            # Otherwise return an expression
+            return Tree(
+                Token("RULE", "object_elem_key_expression"),
+                [Token("LPAR", "("), expr, Token("RPAR", ")")],
+            )

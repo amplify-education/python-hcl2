@@ -1,4 +1,5 @@
 """A Lark Transformer for transforming a Lark parse tree into a Python dict"""
+
 import json
 import re
 import sys
@@ -103,9 +104,7 @@ class DictTransformer(Transformer):
         # into a bigger dict that is returned by the "object" function
 
         key = str(args[0].children[0])
-        if not re.match(r".*?(\${).*}.*", key):
-            # do not strip quotes of a interpolation string
-            key = self.strip_quotes(key)
+        key = self.strip_quotes(key)
 
         value = self.to_string_dollar(args[2])
         return {key: value}
@@ -114,7 +113,8 @@ class DictTransformer(Transformer):
         return "".join(args)
 
     def object_elem_key_expression(self, args: List) -> str:
-        return self.to_string_dollar("".join(args))
+        # the first and third arguments are parentheses
+        return self.to_string_dollar(args[1])
 
     def object(self, args: List) -> Dict:
         args = self.strip_new_line_tokens(args)
