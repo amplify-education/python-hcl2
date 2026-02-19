@@ -1,6 +1,7 @@
 locals {
   terraform = {
     channels = (local.running_in_ci ? local.ci_channels : local.local_channels)
+    channels_object = (local.running_in_ci ? {channels = local.ci_channels} : {channels = local.local_channels})
     authentication = []
     foo = null
   }

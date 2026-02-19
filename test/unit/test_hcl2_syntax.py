@@ -132,7 +132,9 @@ class TestHcl2Syntax(Hcl2Helper, TestCase):
                         arg1, arg2,
                         arg3,
                     )
-            """: {"r": "${function(arg1, arg2, arg3)}"},
+            """: {
+                "r": "${function(arg1, arg2, arg3)}"
+            },
         }
 
         for call, expected in calls.items():
