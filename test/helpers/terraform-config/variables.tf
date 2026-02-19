@@ -10,9 +10,13 @@ locals {
     baz : 1
     (var.account) : 2
     (format("key_prefix_%s", local.foo)) : 3
-    "prefix_${var.account}:${var.user}_suffix":"interpolation",
+    "prefix_${var.account}:${var.user}_suffix" : "interpolation",
+    "${var.start}-mid-${var.end}" : 4
+    "a:b" : 5
+    123 : 6
+    (var.x + 1) : 7
   }
-  tuple = [local.foo]
+  tuple       = [local.foo]
   empty_tuple = []
 }
 
@@ -76,7 +80,7 @@ locals {
 
   for_whitespace = { for i in [1, 2, 3] :
     i =>
-    i ...
+    i...
   }
 }
 
