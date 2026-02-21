@@ -24,7 +24,6 @@ FLOAT_LITERAL: (NEGATIVE_DECIMAL? DECIMAL+ | NEGATIVE_DECIMAL+) "." DECIMAL+ (EX
                | (NEGATIVE_DECIMAL? DECIMAL+ | NEGATIVE_DECIMAL+) (EXP_MARK)
 
 // Operators
-BINARY_OP : DOUBLE_EQ | NEQ | LT | GT | LEQ | GEQ | MINUS | ASTERISK | SLASH | PERCENT | DOUBLE_AMP | DOUBLE_PIPE | PLUS
 DOUBLE_EQ : "=="
 NEQ : "!="
 LT : "<"
@@ -99,16 +98,61 @@ string_part: STRING_CHARS
            | interpolation
 
 // Expressions
-?expression : expr_term | operation | conditional
+?expression : or_expr QMARK new_line_or_comment? expression new_line_or_comment? COLON new_line_or_comment? expression -> conditional
+            | or_expr
 interpolation: INTERP_START expression RBRACE
-conditional : expression QMARK new_line_or_comment? expression new_line_or_comment? COLON new_line_or_comment? expression
 
-// Operations
-?operation : unary_op | binary_op
+// Operator precedence ladder (lowest to highest)
+// Each level uses left recursion for left-associativity.
+// Rule aliases (-> binary_op, -> binary_term, -> binary_operator) maintain
+// transformer compatibility with BinaryOpRule / BinaryTermRule / BinaryOperatorRule.
+
+// Logical OR
+?or_expr : or_expr or_binary_term new_line_or_comment? -> binary_op
+         | and_expr
+or_binary_term : or_binary_operator new_line_or_comment? and_expr -> binary_term
+!or_binary_operator : DOUBLE_PIPE -> binary_operator
+
+// Logical AND
+?and_expr : and_expr and_binary_term new_line_or_comment? -> binary_op
+          | eq_expr
+and_binary_term : and_binary_operator new_line_or_comment? eq_expr -> binary_term
+!and_binary_operator : DOUBLE_AMP -> binary_operator
+
+// Equality
+?eq_expr : eq_expr eq_binary_term new_line_or_comment? -> binary_op
+         | rel_expr
+eq_binary_term : eq_binary_operator new_line_or_comment? rel_expr -> binary_term
+!eq_binary_operator : DOUBLE_EQ -> binary_operator
+                    | NEQ -> binary_operator
+
+// Relational
+?rel_expr : rel_expr rel_binary_term new_line_or_comment? -> binary_op
+          | add_expr
+rel_binary_term : rel_binary_operator new_line_or_comment? add_expr -> binary_term
+!rel_binary_operator : LT -> binary_operator
+                     | GT -> binary_operator
+                     | LEQ -> binary_operator
+                     | GEQ -> binary_operator
+
+// Additive
+?add_expr : add_expr add_binary_term new_line_or_comment? -> binary_op
+          | mul_expr
+add_binary_term : add_binary_operator new_line_or_comment? mul_expr -> binary_term
+!add_binary_operator : PLUS -> binary_operator
+                     | MINUS -> binary_operator
+
+// Multiplicative
+?mul_expr : mul_expr mul_binary_term new_line_or_comment? -> binary_op
+          | unary_expr
+mul_binary_term : mul_binary_operator new_line_or_comment? unary_expr -> binary_term
+!mul_binary_operator : ASTERISK -> binary_operator
+                     | SLASH -> binary_operator
+                     | PERCENT -> binary_operator
+
+// Unary (highest precedence for operations)
+?unary_expr : unary_op | expr_term
 !unary_op : (MINUS | NOT) expr_term
-binary_op : expression binary_term new_line_or_comment?
-binary_term : binary_operator new_line_or_comment? expression
-!binary_operator : BINARY_OP
 
 // Expression terms
 expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR

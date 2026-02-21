@@ -6,11 +6,31 @@ from hcl2.rule_transformer.rules.base import BlockRule
 from hcl2.rule_transformer.rules.for_expressions import ForIntroRule
 from hcl2.rule_transformer.rules.literal_rules import IdentifierRule
 from hcl2.rule_transformer.rules.strings import StringRule
-from hcl2.rule_transformer.rules.expressions import ExprTermRule, ConditionalRule
+from hcl2.rule_transformer.rules.expressions import (
+    ExprTermRule,
+    ConditionalRule,
+    UnaryOpRule,
+)
 
 
 class HCLReconstructor:
     """This class converts a Lark.Tree AST back into a string representing the underlying HCL code."""
+
+    _binary_op_types = {
+        "DOUBLE_EQ",
+        "NEQ",
+        "LT",
+        "GT",
+        "LEQ",
+        "GEQ",
+        "MINUS",
+        "ASTERISK",
+        "SLASH",
+        "PERCENT",
+        "DOUBLE_AMP",
+        "DOUBLE_PIPE",
+        "PLUS",
+    }
 
     def __init__(self):
         self._reset_state()
@@ -105,8 +125,14 @@ class HCLReconstructor:
             if tokens.EQ.lark_name() in [token_type, self._last_token_name]:
                 return True
 
-            # space around binary operators
-            if tokens.BINARY_OP.lark_name() in [token_type, self._last_token_name]:
+            # Don't add space around operator tokens inside unary_op
+            if parent_rule_name == UnaryOpRule.lark_name():
+                return False
+
+            if (
+                token_type in self._binary_op_types
+                or self._last_token_name in self._binary_op_types
+            ):
                 return True
 
         elif isinstance(current_node, Tree):
@@ -130,7 +156,14 @@ class HCLReconstructor:
         result = []
         rule_name = tree.data
 
-        if rule_name == ExprTermRule.lark_name():
+        if rule_name == UnaryOpRule.lark_name():
+            for i, child in enumerate(tree.children):
+                result.extend(self._reconstruct_node(child, rule_name))
+                if i == 0:
+                    # Suppress space between unary operator and its operand
+                    self._last_was_space = True
+
+        elif rule_name == ExprTermRule.lark_name():
             # Check if parenthesized
             if (
                 len(tree.children) >= 3

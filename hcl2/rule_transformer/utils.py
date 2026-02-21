@@ -15,11 +15,13 @@ class SerializationOptions:
     wrap_tuples: bool = False
     explicit_blocks: bool = True
     preserve_heredocs: bool = True
+    force_operation_parentheses: bool = False
 
 
 @dataclass
 class SerializationContext:
     inside_dollar_string: bool = False
+    inside_parentheses: bool = False
 
     def replace(self, **kwargs) -> "SerializationContext":
         return replace(self, **kwargs)

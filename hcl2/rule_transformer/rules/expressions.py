@@ -26,8 +26,30 @@ class ExpressionRule(InlineCommentMixIn, ABC):
     def lark_name() -> str:
         return "expression"
 
-    def __init__(self, children, meta: Optional[Meta] = None):
+    def __init__(
+        self, children, meta: Optional[Meta] = None, parentheses: bool = False
+    ):
         super().__init__(children, meta)
+        self._parentheses = parentheses
+
+    def _wrap_into_parentheses(
+        self, value: str, options=SerializationOptions(), context=SerializationContext()
+    ) -> str:
+        # do not wrap into parentheses if
+        #   1. already wrapped or
+        #   2. is top-level expression (unless explicitly wrapped)
+        if context.inside_parentheses:
+            return value
+        # Look through ExprTermRule wrapper to determine if truly nested
+        parent = getattr(self, "parent", None)
+        if parent is None:
+            return value
+        if isinstance(parent, ExprTermRule):
+            if not isinstance(parent.parent, ExpressionRule):
+                return value
+        elif not isinstance(parent, ExpressionRule):
+            return value
+        return wrap_into_parentheses(value)
 
 
 class ExprTermRule(ExpressionRule):
@@ -47,18 +69,18 @@ class ExprTermRule(ExpressionRule):
         return "expr_term"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        self._parentheses = False
+        parentheses = False
         if (
             isinstance(children[0], LarkToken)
             and children[0].lark_name() == "LPAR"
             and isinstance(children[-1], LarkToken)
             and children[-1].lark_name() == "RPAR"
         ):
-            self._parentheses = True
+            parentheses = True
         else:
             children = [None, *children, None]
         self._insert_optionals(children, [1, 3])
-        super().__init__(children, meta)
+        super().__init__(children, meta, parentheses)
 
     @property
     def parentheses(self) -> bool:
@@ -71,7 +93,10 @@ class ExprTermRule(ExpressionRule):
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-        result = self.expression.serialize(options, context)
+        with context.modify(
+            inside_parentheses=self.parentheses or context.inside_parentheses
+        ):
+            result = self.expression.serialize(options, context)
 
         if self.parentheses:
             result = wrap_into_parentheses(result)
@@ -126,6 +151,9 @@ class ConditionalRule(ExpressionRule):
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
+
+        if options.force_operation_parentheses:
+            result = self._wrap_into_parentheses(result, options, context)
 
         return result
 
@@ -192,6 +220,9 @@ class BinaryOpRule(ExpressionRule):
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
+
+        if options.force_operation_parentheses:
+            result = self._wrap_into_parentheses(result, options, context)
         return result
 
 
@@ -214,6 +245,14 @@ class UnaryOpRule(ExpressionRule):
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-        return to_dollar_string(
-            f"{self.operator}{self.expr_term.serialize(options, context)}"
-        )
+
+        with context.modify(inside_dollar_string=True):
+            result = f"{self.operator}{self.expr_term.serialize(options, context)}"
+
+        if not context.inside_dollar_string:
+            result = to_dollar_string(result)
+
+        if options.force_operation_parentheses:
+            result = self._wrap_into_parentheses(result, options, context)
+
+        return result
