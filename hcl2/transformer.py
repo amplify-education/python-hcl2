@@ -2,13 +2,13 @@
 from lark import Token, Tree, v_args, Transformer, Discard
 from lark.tree import Meta
 
-from hcl2.rule_transformer.rules.base import (
+from hcl2.rules.base import (
     StartRule,
     BodyRule,
     BlockRule,
     AttributeRule,
 )
-from hcl2.rule_transformer.rules.containers import (
+from hcl2.rules.containers import (
     ObjectRule,
     ObjectElemRule,
     ObjectElemKeyRule,
@@ -16,21 +16,21 @@ from hcl2.rule_transformer.rules.containers import (
     ObjectElemKeyExpressionRule,
     ObjectElemKeyDotAccessor,
 )
-from hcl2.rule_transformer.rules.expressions import (
+from hcl2.rules.expressions import (
     BinaryTermRule,
     UnaryOpRule,
     BinaryOpRule,
     ExprTermRule,
     ConditionalRule,
 )
-from hcl2.rule_transformer.rules.for_expressions import (
+from hcl2.rules.for_expressions import (
     ForTupleExprRule,
     ForObjectExprRule,
     ForIntroRule,
     ForCondRule,
 )
-from hcl2.rule_transformer.rules.functions import ArgumentsRule, FunctionCallRule
-from hcl2.rule_transformer.rules.indexing import (
+from hcl2.rules.functions import ArgumentsRule, FunctionCallRule
+from hcl2.rules.indexing import (
     IndexExprTermRule,
     SqbIndexRule,
     ShortIndexRule,
@@ -41,28 +41,28 @@ from hcl2.rule_transformer.rules.indexing import (
     FullSplatRule,
     FullSplatExprTermRule,
 )
-from hcl2.rule_transformer.rules.literal_rules import (
+from hcl2.rules.literal_rules import (
     FloatLitRule,
     IntLitRule,
     IdentifierRule,
     BinaryOperatorRule,
     KeywordRule,
 )
-from hcl2.rule_transformer.rules.strings import (
+from hcl2.rules.strings import (
     InterpolationRule,
     StringRule,
     StringPartRule,
     HeredocTemplateRule,
     HeredocTrimTemplateRule,
 )
-from hcl2.rule_transformer.rules.tokens import (
+from hcl2.rules.tokens import (
     NAME,
     IntLiteral,
     FloatLiteral,
     StringToken,
     StaticStringToken,
 )
-from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
+from hcl2.rules.whitespace import NewLineOrCommentRule
 
 
 class RuleTransformer(Transformer):

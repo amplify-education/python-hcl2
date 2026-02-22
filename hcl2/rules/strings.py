@@ -1,9 +1,9 @@
 import sys
 from typing import Tuple, List, Any, Union
 
-from hcl2.rule_transformer.rules.abstract import LarkRule
-from hcl2.rule_transformer.rules.expressions import ExpressionRule
-from hcl2.rule_transformer.rules.tokens import (
+from hcl2.rules.abstract import LarkRule
+from hcl2.rules.expressions import ExpressionRule
+from hcl2.rules.tokens import (
     INTERP_START,
     RBRACE,
     DBLQUOTE,
@@ -12,7 +12,7 @@ from hcl2.rule_transformer.rules.tokens import (
     HEREDOC_TEMPLATE, 
     HEREDOC_TRIM_TEMPLATE,
 )
-from hcl2.rule_transformer.utils import (
+from hcl2.utils import (
     SerializationOptions,
     SerializationContext,
     to_dollar_string,

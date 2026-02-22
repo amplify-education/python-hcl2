@@ -2,21 +2,21 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List
 
-from hcl2.rule_transformer.rules.abstract import LarkElement
-from hcl2.rule_transformer.rules.base import (
+from hcl2.rules.abstract import LarkElement
+from hcl2.rules.base import (
     StartRule,
     BlockRule,
     AttributeRule,
     BodyRule,
 )
-from hcl2.rule_transformer.rules.containers import ObjectRule, ObjectElemRule, TupleRule
-from hcl2.rule_transformer.rules.expressions import ExprTermRule, ExpressionRule
-from hcl2.rule_transformer.rules.for_expressions import (
+from hcl2.rules.containers import ObjectRule, ObjectElemRule, TupleRule
+from hcl2.rules.expressions import ExprTermRule, ExpressionRule
+from hcl2.rules.for_expressions import (
     ForTupleExprRule,
     ForObjectExprRule,
 )
-from hcl2.rule_transformer.rules.tokens import NL_OR_COMMENT, LBRACE, COLON, LSQB, COMMA
-from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
+from hcl2.rules.tokens import NL_OR_COMMENT, LBRACE, COLON, LSQB, COMMA
+from hcl2.rules.whitespace import NewLineOrCommentRule
 
 
 @dataclass

@@ -2,10 +2,10 @@ from typing import Any, Tuple, Optional, List
 
 from lark.tree import Meta
 
-from hcl2.rule_transformer.rules.abstract import LarkRule, LarkElement
-from hcl2.rule_transformer.rules.expressions import ExpressionRule
-from hcl2.rule_transformer.rules.literal_rules import IdentifierRule
-from hcl2.rule_transformer.rules.tokens import (
+from hcl2.rules.abstract import LarkRule, LarkElement
+from hcl2.rules.expressions import ExpressionRule
+from hcl2.rules.literal_rules import IdentifierRule
+from hcl2.rules.tokens import (
     LSQB,
     RSQB,
     LBRACE,
@@ -18,11 +18,11 @@ from hcl2.rule_transformer.rules.tokens import (
     ELLIPSIS,
     FOR_OBJECT_ARROW,
 )
-from hcl2.rule_transformer.rules.whitespace import (
+from hcl2.rules.whitespace import (
     NewLineOrCommentRule,
     InlineCommentMixIn,
 )
-from hcl2.rule_transformer.utils import (
+from hcl2.utils import (
     SerializationOptions,
     SerializationContext,
     to_dollar_string,

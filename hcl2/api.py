@@ -2,9 +2,9 @@
 from typing import TextIO
 
 from lark.tree import Tree
-from hcl2.parser import parser, reconstruction_parser
-from hcl2.dict_transformer import DictTransformer
-from hcl2.reconstructor import HCLReconstructor, HCLReverseTransformer
+from hcl2.parser import parser
+from hcl2.reconstructor import HCLReconstructor
+from hcl2.transformer import RuleTransformer
 
 
 def load(file: TextIO, with_meta=False) -> dict:
@@ -27,7 +27,7 @@ def loads(text: str, with_meta=False) -> dict:
     # This means that all blocks must end in a new line even if the file ends
     # Append a new line as a temporary fix
     tree = parser().parse(text + "\n")
-    return DictTransformer(with_meta=with_meta).transform(tree)
+    return RuleTransformer().transform(tree)
 
 
 def parse(file: TextIO) -> Tree:
@@ -41,7 +41,7 @@ def parses(text: str) -> Tree:
     """Load HCL2 syntax tree from a string.
     :param text: Text with hcl2 to be loaded as a dict.
     """
-    return reconstruction_parser().parse(text)
+    return parser().parse(text)
 
 
 def transform(ast: Tree, with_meta=False) -> dict:
@@ -50,18 +50,11 @@ def transform(ast: Tree, with_meta=False) -> dict:
     :param with_meta: If set to true then adds `__start_line__` and `__end_line__`
         parameters to the output dict. Default to false.
     """
-    return DictTransformer(with_meta=with_meta).transform(ast)
-
-
-def reverse_transform(hcl2_dict: dict) -> Tree:
-    """Convert a dictionary to an HCL2 AST.
-    :param hcl2_dict: a dictionary produced by `load` or `transform`
-    """
-    return HCLReverseTransformer().transform(hcl2_dict)
+    return RuleTransformer().transform(ast)
 
 
 def writes(ast: Tree) -> str:
     """Convert an HCL2 syntax tree to a string.
     :param ast: HCL2 syntax tree, output from `parse` or `parses`
     """
-    return HCLReconstructor(reconstruction_parser()).reconstruct(ast)
+    return HCLReconstructor().reconstruct(ast)

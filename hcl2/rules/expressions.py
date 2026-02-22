@@ -4,16 +4,16 @@ from typing import Any, Tuple, Optional
 
 from lark.tree import Meta
 
-from hcl2.rule_transformer.rules.abstract import (
+from hcl2.rules.abstract import (
     LarkToken,
 )
-from hcl2.rule_transformer.rules.literal_rules import BinaryOperatorRule
-from hcl2.rule_transformer.rules.tokens import LPAR, RPAR, QMARK, COLON
-from hcl2.rule_transformer.rules.whitespace import (
+from hcl2.rules.literal_rules import BinaryOperatorRule
+from hcl2.rules.tokens import LPAR, RPAR, QMARK, COLON
+from hcl2.rules.whitespace import (
     NewLineOrCommentRule,
     InlineCommentMixIn,
 )
-from hcl2.rule_transformer.utils import (
+from hcl2.utils import (
     wrap_into_parentheses,
     to_dollar_string,
     SerializationOptions,

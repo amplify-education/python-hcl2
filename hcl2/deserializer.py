@@ -8,14 +8,14 @@ from regex import regex
 
 from hcl2 import parses
 from hcl2.const import IS_BLOCK
-from hcl2.rule_transformer.rules.abstract import LarkElement, LarkRule
-from hcl2.rule_transformer.rules.base import (
+from hcl2.rules.abstract import LarkElement, LarkRule
+from hcl2.rules.base import (
     BlockRule,
     AttributeRule,
     BodyRule,
     StartRule,
 )
-from hcl2.rule_transformer.rules.containers import (
+from hcl2.rules.containers import (
     TupleRule,
     ObjectRule,
     ObjectElemRule,
@@ -23,20 +23,20 @@ from hcl2.rule_transformer.rules.containers import (
     ObjectElemKeyDotAccessor,
     ObjectElemKeyRule,
 )
-from hcl2.rule_transformer.rules.expressions import ExprTermRule
-from hcl2.rule_transformer.rules.literal_rules import (
+from hcl2.rules.expressions import ExprTermRule
+from hcl2.rules.literal_rules import (
     IdentifierRule,
     IntLitRule,
     FloatLitRule,
 )
-from hcl2.rule_transformer.rules.strings import (
+from hcl2.rules.strings import (
     StringRule,
     InterpolationRule,
     StringPartRule,
     HeredocTemplateRule,
     HeredocTrimTemplateRule,
 )
-from hcl2.rule_transformer.rules.tokens import (
+from hcl2.rules.tokens import (
     NAME,
     EQ,
     DBLQUOTE,
@@ -55,9 +55,9 @@ from hcl2.rule_transformer.rules.tokens import (
     HEREDOC_TEMPLATE,
     COLON,
 )
-from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
-from hcl2.rule_transformer.transformer import RuleTransformer
-from hcl2.rule_transformer.utils import HEREDOC_TRIM_PATTERN, HEREDOC_PATTERN
+from hcl2.rules.whitespace import NewLineOrCommentRule
+from hcl2.transformer import RuleTransformer
+from hcl2.utils import HEREDOC_TRIM_PATTERN, HEREDOC_PATTERN
 
 
 @dataclass

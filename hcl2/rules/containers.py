@@ -1,14 +1,14 @@
 from typing import Tuple, List, Optional, Union, Any
 
-from hcl2.rule_transformer.rules.abstract import LarkRule
-from hcl2.rule_transformer.rules.expressions import ExpressionRule
-from hcl2.rule_transformer.rules.literal_rules import (
+from hcl2.rules.abstract import LarkRule
+from hcl2.rules.expressions import ExpressionRule
+from hcl2.rules.literal_rules import (
     FloatLitRule,
     IntLitRule,
     IdentifierRule,
 )
-from hcl2.rule_transformer.rules.strings import StringRule
-from hcl2.rule_transformer.rules.tokens import (
+from hcl2.rules.strings import StringRule
+from hcl2.rules.tokens import (
     COLON,
     EQ,
     LBRACE,
@@ -20,11 +20,11 @@ from hcl2.rule_transformer.rules.tokens import (
     RPAR,
     DOT,
 )
-from hcl2.rule_transformer.rules.whitespace import (
+from hcl2.rules.whitespace import (
     NewLineOrCommentRule,
     InlineCommentMixIn,
 )
-from hcl2.rule_transformer.utils import (
+from hcl2.utils import (
     SerializationOptions,
     SerializationContext,
     to_dollar_string,

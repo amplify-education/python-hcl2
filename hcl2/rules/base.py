@@ -4,14 +4,14 @@ from typing import Tuple, Any, List, Union, Optional
 from lark.tree import Meta
 
 from hcl2.const import IS_BLOCK
-from hcl2.rule_transformer.rules.abstract import LarkRule, LarkToken
-from hcl2.rule_transformer.rules.expressions import ExpressionRule, ExprTermRule
-from hcl2.rule_transformer.rules.literal_rules import IdentifierRule
-from hcl2.rule_transformer.rules.strings import StringRule
-from hcl2.rule_transformer.rules.tokens import NAME, EQ, LBRACE, RBRACE
+from hcl2.rules.abstract import LarkRule, LarkToken
+from hcl2.rules.expressions import ExpressionRule, ExprTermRule
+from hcl2.rules.literal_rules import IdentifierRule
+from hcl2.rules.strings import StringRule
+from hcl2.rules.tokens import NAME, EQ, LBRACE, RBRACE
 
-from hcl2.rule_transformer.rules.whitespace import NewLineOrCommentRule
-from hcl2.rule_transformer.utils import SerializationOptions, SerializationContext
+from hcl2.rules.whitespace import NewLineOrCommentRule
+from hcl2.utils import SerializationOptions, SerializationContext
 
 
 class AttributeRule(LarkRule):

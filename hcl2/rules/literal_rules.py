@@ -1,8 +1,8 @@
 from abc import ABC
 from typing import Any, Tuple
 
-from hcl2.rule_transformer.rules.abstract import LarkRule, LarkToken
-from hcl2.rule_transformer.utils import SerializationOptions, SerializationContext
+from hcl2.rules.abstract import LarkRule, LarkToken
+from hcl2.utils import SerializationOptions, SerializationContext
 
 
 class TokenRule(LarkRule, ABC):

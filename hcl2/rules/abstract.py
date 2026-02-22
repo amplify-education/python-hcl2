@@ -5,7 +5,7 @@ from lark import Token, Tree
 from lark.exceptions import VisitError
 from lark.tree import Meta
 
-from hcl2.rule_transformer.utils import SerializationOptions, SerializationContext
+from hcl2.utils import SerializationOptions, SerializationContext
 
 
 class LarkElement(ABC):

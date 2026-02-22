@@ -1,14 +1,14 @@
 from functools import lru_cache
 from typing import Any, Optional, Tuple, Union, List
 
-from hcl2.rule_transformer.rules.expressions import ExpressionRule
-from hcl2.rule_transformer.rules.literal_rules import IdentifierRule
-from hcl2.rule_transformer.rules.tokens import COMMA, ELLIPSIS, StringToken, LPAR, RPAR
-from hcl2.rule_transformer.rules.whitespace import (
+from hcl2.rules.expressions import ExpressionRule
+from hcl2.rules.literal_rules import IdentifierRule
+from hcl2.rules.tokens import COMMA, ELLIPSIS, StringToken, LPAR, RPAR
+from hcl2.rules.whitespace import (
     InlineCommentMixIn,
     NewLineOrCommentRule,
 )
-from hcl2.rule_transformer.utils import (
+from hcl2.utils import (
     SerializationOptions,
     SerializationContext,
     to_dollar_string,

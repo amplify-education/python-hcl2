@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Callable, Any, Type, Optional, Tuple
 
-from hcl2.rule_transformer.rules.abstract import LarkToken
+from hcl2.rules.abstract import LarkToken
 
 
 class StringToken(LarkToken):
