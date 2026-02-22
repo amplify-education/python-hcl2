@@ -26,12 +26,13 @@ from hcl2.utils import SerializationOptions
 ROUND_TRIP_DIR = Path(__file__).absolute().parent
 HCL2_ORIGINAL_DIR = ROUND_TRIP_DIR / "hcl2_original"
 
+SPECIAL_DIR = ROUND_TRIP_DIR / "special"
+
 _STEP_DIRS = {
     "hcl2_original": HCL2_ORIGINAL_DIR,
     "hcl2_reconstructed": ROUND_TRIP_DIR / "hcl2_reconstructed",
     "json_serialized": ROUND_TRIP_DIR / "json_serialized",
     "json_reserialized": ROUND_TRIP_DIR / "json_reserialized",
-    "json_operator_precedence": ROUND_TRIP_DIR / "json_operator_precedence",
 }
 
 _STEP_SUFFIXES = {
@@ -39,7 +40,6 @@ _STEP_SUFFIXES = {
     "hcl2_reconstructed": ".tf",
     "json_serialized": ".json",
     "json_reserialized": ".json",
-    "json_operator_precedence": ".json",
 }
 
 
@@ -48,7 +48,6 @@ class SuiteStep(Enum):
     RECONSTRUCTED = "hcl2_reconstructed"
     JSON_SERIALIZED = "json_serialized"
     JSON_RESERIALIZED = "json_reserialized"
-    JSON_OPERATOR_PRECEDENCE = "json_operator_precedence"
 
 
 def _get_suites() -> List[str]:
@@ -109,20 +108,18 @@ class TestRoundTripSerialization(TestCase):
 
     def test_hcl_to_json(self):
         for suite in _get_suites():
-            yield self.check_hcl_to_json, suite
+            with self.subTest(suite=suite):
+                hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
+                json_path = _get_suite_file(suite, SuiteStep.JSON_SERIALIZED)
 
-    def check_hcl_to_json(self, suite: str):
-        hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
-        json_path = _get_suite_file(suite, SuiteStep.JSON_SERIALIZED)
+                actual = _parse_and_serialize(hcl_path.read_text())
+                expected = json.loads(json_path.read_text())
 
-        actual = _parse_and_serialize(hcl_path.read_text())
-        expected = json.loads(json_path.read_text())
-
-        self.assertEqual(
-            actual,
-            expected,
-            f"HCL → JSON serialization mismatch for {suite}",
-        )
+                self.assertEqual(
+                    actual,
+                    expected,
+                    f"HCL → JSON serialization mismatch for {suite}",
+                )
 
 
 class TestRoundTripReserialization(TestCase):
@@ -132,21 +129,19 @@ class TestRoundTripReserialization(TestCase):
 
     def test_json_reserialization(self):
         for suite in _get_suites():
-            yield self.check_json_reserialization, suite
+            with self.subTest(suite=suite):
+                hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
+                json_reserialized_path = _get_suite_file(suite, SuiteStep.JSON_RESERIALIZED)
 
-    def check_json_reserialization(self, suite: str):
-        hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
-        json_reserialized_path = _get_suite_file(suite, SuiteStep.JSON_RESERIALIZED)
+                serialized = _parse_and_serialize(hcl_path.read_text())
+                actual = _deserialize_and_reserialize(serialized)
 
-        serialized = _parse_and_serialize(hcl_path.read_text())
-        actual = _deserialize_and_reserialize(serialized)
-
-        expected = json.loads(json_reserialized_path.read_text())
-        self.assertEqual(
-            actual,
-            expected,
-            f"JSON reserialization mismatch for {suite}",
-        )
+                expected = json.loads(json_reserialized_path.read_text())
+                self.assertEqual(
+                    actual,
+                    expected,
+                    f"JSON reserialization mismatch for {suite}",
+                )
 
 
 class TestRoundTripReconstruction(TestCase):
@@ -156,21 +151,19 @@ class TestRoundTripReconstruction(TestCase):
 
     def test_json_to_hcl(self):
         for suite in _get_suites():
-            yield self.check_json_to_hcl, suite
+            with self.subTest(suite=suite):
+                hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
+                hcl_reconstructed_path = _get_suite_file(suite, SuiteStep.RECONSTRUCTED)
 
-    def check_json_to_hcl(self, suite: str):
-        hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
-        hcl_reconstructed_path = _get_suite_file(suite, SuiteStep.RECONSTRUCTED)
+                serialized = _parse_and_serialize(hcl_path.read_text())
+                actual = _deserialize_and_reconstruct(serialized)
 
-        serialized = _parse_and_serialize(hcl_path.read_text())
-        actual = _deserialize_and_reconstruct(serialized)
-
-        expected = hcl_reconstructed_path.read_text()
-        self.assertMultiLineEqual(
-            actual,
-            expected,
-            f"HCL reconstruction mismatch for {suite}",
-        )
+                expected = hcl_reconstructed_path.read_text()
+                self.assertMultiLineEqual(
+                    actual,
+                    expected,
+                    f"HCL reconstruction mismatch for {suite}",
+                )
 
 
 class TestRoundTripFull(TestCase):
@@ -180,27 +173,25 @@ class TestRoundTripFull(TestCase):
 
     def test_full_round_trip(self):
         for suite in _get_suites():
-            yield self.check_full_round_trip, suite
+            with self.subTest(suite=suite):
+                hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
+                original_hcl = hcl_path.read_text()
 
-    def check_full_round_trip(self, suite: str):
-        hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
-        original_hcl = hcl_path.read_text()
+                # Forward: HCL → JSON
+                serialized = _parse_and_serialize(original_hcl)
 
-        # Forward: HCL → JSON
-        serialized = _parse_and_serialize(original_hcl)
+                # Reconstruct: JSON → HCL
+                reconstructed_hcl = _deserialize_and_reconstruct(serialized)
 
-        # Reconstruct: JSON → HCL
-        reconstructed_hcl = _deserialize_and_reconstruct(serialized)
+                # Reparse: reconstructed HCL → JSON
+                reserialized = _parse_and_serialize(reconstructed_hcl)
 
-        # Re-parse: reconstructed HCL → JSON
-        reserialized = _parse_and_serialize(reconstructed_hcl)
-
-        self.assertEqual(
-            reserialized,
-            serialized,
-            f"Full round-trip mismatch for {suite}: "
-            f"HCL → JSON → HCL → JSON did not produce identical JSON",
-        )
+                self.assertEqual(
+                    reserialized,
+                    serialized,
+                    f"Full round-trip mismatch for {suite}: "
+                    f"HCL → JSON → HCL → JSON did not produce identical JSON",
+                )
 
 
 class TestOperatorPrecedence(TestCase):
