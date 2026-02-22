@@ -5,8 +5,8 @@ omit =
     hcl2/lark_parser.py
     hcl2/version.py
     hcl2/__init__.py
-    hcl2/rules/__init__.py  
+    hcl2/rules/__init__.py
 
 [report]
 show_missing = true
-fail_under = 80
+fail_under = 95
