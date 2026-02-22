@@ -42,8 +42,7 @@ class LarkElementTreeFormatter(ABC):
 class BaseFormatter(LarkElementTreeFormatter):
     def __init__(self, options: FormatterOptions = None):
         super().__init__(options)
-        self._current_line = 1
-        self._current_indent_level = 0
+        self._last_new_line: NewLineOrCommentRule = None
 
     def format_tree(self, tree: LarkElement):
         if isinstance(tree, StartRule):
@@ -51,9 +50,6 @@ class BaseFormatter(LarkElementTreeFormatter):
 
     def format_start_rule(self, rule: StartRule):
         self.format_body_rule(rule.body, 0)
-        # for child in rule.body.children:
-        #     if isinstance(child, BlockRule):
-        #         self.format_block_rule(child, 1)
 
     def format_block_rule(self, rule: BlockRule, indent_level: int = 0):
         if self.options.vertically_align_attributes:
@@ -87,7 +83,8 @@ class BaseFormatter(LarkElementTreeFormatter):
                     new_children.insert(-2, self._build_newline(indent_level))
                 new_children.append(self._build_newline(indent_level, 2))
 
-        new_children.pop(-1)
+        if new_children:
+            new_children.pop(-1)
         rule._children = new_children
 
     def format_attribute_rule(self, rule: AttributeRule, indent_level: int = 0):
@@ -158,7 +155,7 @@ class BaseFormatter(LarkElementTreeFormatter):
             self.format_forobjectexpr(rule.expression, indent_level)
 
         elif isinstance(rule.expression, ExprTermRule):
-            self.format_expression(rule.expression)
+            self.format_expression(rule.expression, indent_level)
 
     def format_fortupleexpr(self, expression: ForTupleExprRule, indent_level: int = 0):
         for child in expression.children:
@@ -169,7 +166,6 @@ class BaseFormatter(LarkElementTreeFormatter):
         for index in indexes:
             expression.children[index] = self._build_newline(indent_level)
         self._deindent_last_line()
-        # expression.children[8] = self._build_newline(indent_level - 1)
 
     def format_forobjectexpr(
         self, expression: ForObjectExprRule, indent_level: int = 0
@@ -192,23 +188,28 @@ class BaseFormatter(LarkElementTreeFormatter):
                 attributes_sequence.append(child)
 
             elif attributes_sequence:
-                max_length = max(
-                    len(attribute.identifier.token.value)
-                    for attribute in attributes_sequence
-                )
-                for attribute in attributes_sequence:
-                    name_length = len(attribute.identifier.token.value)
-                    spaces_to_add = max_length - name_length
-                    attribute.children[1].set_value(
-                        " " * spaces_to_add + attribute.children[1].value
-                    )
+                self._align_attributes_sequence(attributes_sequence)
                 attributes_sequence = []
+
+        if attributes_sequence:
+            self._align_attributes_sequence(attributes_sequence)
+
+    def _align_attributes_sequence(self, attributes_sequence: List[AttributeRule]):
+        max_length = max(
+            len(attribute.identifier.token.value)
+            for attribute in attributes_sequence
+        )
+        for attribute in attributes_sequence:
+            name_length = len(attribute.identifier.token.value)
+            spaces_to_add = max_length - name_length
+            attribute.children[1].set_value(
+                " " * spaces_to_add + attribute.children[1].value
+            )
 
     def _vertically_align_object_elems(self, rule: ObjectRule):
         max_length = max(len(elem.key.serialize()) for elem in rule.elements)
         for elem in rule.elements:
             key_length = len(elem.key.serialize())
-            print(elem.key.serialize(), key_length)
 
             spaces_to_add = max_length - key_length
 
@@ -217,17 +218,6 @@ class BaseFormatter(LarkElementTreeFormatter):
                 spaces_to_add += 1
 
             elem.children[1].set_value(" " * spaces_to_add + separator.value)
-
-    def _move_to_next_line(self, times: int = 1):
-        self._current_line += times
-
-    def _increase_indent_level(self, times: int = 1):
-        self._current_indent_level += times
-
-    def _decrease_indent_level(self, times: int = 1):
-        self._current_indent_level -= times
-        if self._current_indent_level < 0:
-            self._current_indent_level = 0
 
     def _build_newline(
         self, next_line_indent: int = 0, count: int = 1
@@ -247,16 +237,3 @@ class BaseFormatter(LarkElementTreeFormatter):
         for i in range(times):
             if token.value.endswith(" " * self.options.indent_length):
                 token.set_value(token.value[: -self.options.indent_length])
-
-    # def _build_meta(self, indent_level: int = 0, length: int = 0) -> Meta:
-    #     result = Meta()
-    #     result.empty = length == 0
-    #     result.line = self._current_line
-    #     result.column = indent_level * self.options.indent_length
-    #     # result.start_pos =
-    #     # result.end_line =
-    #     # result.end_column =
-    #     # result.end_pos =
-    #     # result.orig_expansion =
-    #     # result.match_tree =
-    #     return result

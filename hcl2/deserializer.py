@@ -1,8 +1,8 @@
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from functools import lru_cache
-from typing import Any, TextIO, List, Union, Optional
+from functools import cached_property
+from typing import Any, TextIO, List, Union
 
 from regex import regex
 
@@ -55,7 +55,6 @@ from hcl2.rules.tokens import (
     HEREDOC_TEMPLATE,
     COLON,
 )
-from hcl2.rules.whitespace import NewLineOrCommentRule
 from hcl2.transformer import RuleTransformer
 from hcl2.utils import HEREDOC_TRIM_PATTERN, HEREDOC_PATTERN
 
@@ -83,11 +82,8 @@ class LarkElementTreeDeserializer(ABC):
 class BaseDeserializer(LarkElementTreeDeserializer):
     def __init__(self, options=None):
         super().__init__(options)
-        self._current_line = 1
-        self._last_new_line: Optional[NewLineOrCommentRule] = None
 
-    @property
-    @lru_cache
+    @cached_property
     def _transformer(self) -> RuleTransformer:
         return RuleTransformer()
 
@@ -119,27 +115,29 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
     def _deserialize_block_elements(self, value: dict) -> List[LarkRule]:
         children = []
-        for key, value in value.items():
-            if self._is_block(value):
+        for key, val in value.items():
+            if self._is_block(val):
                 # this value is a list of blocks, iterate over each block and deserialize them
-                for block in value:
+                for block in val:
                     children.append(self._deserialize_block(key, block))
 
             else:
                 # otherwise it's just an attribute
                 if key != IS_BLOCK:
-                    children.append(self._deserialize_attribute(key, value))
+                    children.append(self._deserialize_attribute(key, val))
 
         return children
 
     def _deserialize_text(self, value: Any) -> LarkRule:
-        try:
-            int_val = int(value)
-            if "." in str(value):
-                return FloatLitRule([FloatLiteral(float(value))])
-            return IntLitRule([IntLiteral(int_val)])
-        except ValueError:
-            pass
+        # bool must be checked before int since bool is a subclass of int
+        if isinstance(value, bool):
+            return self._deserialize_identifier(str(value).lower())
+
+        if isinstance(value, float):
+            return FloatLitRule([FloatLiteral(value)])
+
+        if isinstance(value, int):
+            return IntLitRule([IntLiteral(value)])
 
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
@@ -159,9 +157,6 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                 return self._deserialize_expression(value)
 
             return self._deserialize_identifier(value)
-
-        elif isinstance(value, bool):
-            return self._deserialize_identifier(str(value).lower())
 
         return self._deserialize_identifier(str(value))
 
@@ -283,8 +278,8 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
     def _deserialize_object(self, value: dict) -> ObjectRule:
         children = []
-        for key, value in value.items():
-            children.append(self._deserialize_object_elem(key, value))
+        for key, val in value.items():
+            children.append(self._deserialize_object_elem(key, val))
 
             if self.options.object_elements_trailing_comma:
                 children.append(COMMA())
@@ -342,6 +337,6 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                 return True
             if isinstance(value, list):
                 for element in value:
-                    if self._contains_block_marker(element):
+                    if isinstance(element, dict) and self._contains_block_marker(element):
                         return True
         return False
