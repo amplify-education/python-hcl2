@@ -6,7 +6,7 @@ from typing import Any, TextIO, List, Union
 
 from regex import regex
 
-from hcl2 import parses
+from hcl2.parser import parser as _get_parser
 from hcl2.const import IS_BLOCK
 from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
@@ -217,7 +217,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         # create HCL2 snippet
         value = f"temp = {value}"
         # parse the above
-        parsed_tree = parses(value)
+        parsed_tree = _get_parser().parse(value)
         # transform parsed tree into LarkElement tree
         rules_tree = self._transformer.transform(parsed_tree)
         # extract expression from the tree

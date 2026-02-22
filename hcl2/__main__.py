@@ -19,6 +19,7 @@ import sys
 from lark import UnexpectedCharacters, UnexpectedToken
 
 from . import load
+from .utils import SerializationOptions
 from .version import __version__
 
 
@@ -58,7 +59,8 @@ def main():
                 else open(args.OUT_PATH, "w", encoding="utf-8")
             )
             print(args.PATH, file=sys.stderr, flush=True)
-            json.dump(load(in_file, with_meta=args.with_meta), out_file)
+            options = SerializationOptions(with_meta=True) if args.with_meta else None
+            json.dump(load(in_file, serialization_options=options), out_file)
             if args.OUT_PATH is None:
                 out_file.write("\n")
                 out_file.close()
