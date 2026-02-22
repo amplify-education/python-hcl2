@@ -87,8 +87,8 @@ class HCLReconstructor:
 
             # Space after commas in tuples and function arguments...
             if self._last_token_name == tokens.COMMA.lark_name():
-                # ... except for last comma
-                if token_type == tokens.RSQB.lark_name():
+                # ... except before closing brackets or newlines
+                if token_type in (tokens.RSQB.lark_name(), "NL_OR_COMMENT"):
                     return False
                 return True
 

@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Union, List, Optional, Tuple, Callable
+from typing import Any, Union, List, Optional, Callable
 
 from lark import Token, Tree
-from lark.exceptions import VisitError
 from lark.tree import Meta
 
 from hcl2.utils import SerializationOptions, SerializationContext
