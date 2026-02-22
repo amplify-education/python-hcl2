@@ -1,0 +1,64 @@
+{
+  "resource": [
+    {
+      "aws_instance": {
+        "web": {
+          "ami": "\"ami-12345\"",
+          "instance_type": "\"t2.micro\"",
+          "count": 2,
+          "__is_block__": true
+        }
+      }
+    },
+    {
+      "aws_s3_bucket": {
+        "data": {
+          "bucket": "\"my-bucket\"",
+          "acl": "\"private\"",
+          "__is_block__": true
+        }
+      }
+    },
+    {
+      "aws_instance": {
+        "nested": {
+          "ami": "\"ami-99999\"",
+          "provisioner": [
+            {
+              "local-exec": {
+                "command": "\"echo hello\"",
+                "__is_block__": true
+              }
+            },
+            {
+              "remote-exec": {
+                "inline": [
+                  "\"puppet apply\""
+                ],
+                "__is_block__": true
+              }
+            }
+          ],
+          "__is_block__": true
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "instance_type": {
+        "default": "\"t2.micro\"",
+        "description": "\"The instance type\"",
+        "__is_block__": true
+      }
+    }
+  ],
+  "locals": [
+    {
+      "port": 8080,
+      "enabled": "true",
+      "name": "\"my-app\"",
+      "__is_block__": true
+    }
+  ]
+}

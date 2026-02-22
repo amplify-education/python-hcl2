@@ -1,7 +1,7 @@
 """Round-trip tests for the HCL2 → JSON → HCL2 pipeline.
 
-Every test starts from the source HCL files in test/round_trip/hcl2/ and
-runs the pipeline forward from there, comparing actuals against expected
+Every test starts from the source HCL files in test/integration/hcl2_original/
+and runs the pipeline forward from there, comparing actuals against expected
 outputs at each stage:
 
 1. HCL → JSON serialization (parse + transform + serialize)
@@ -16,23 +16,20 @@ from pathlib import Path
 from typing import List
 from unittest import TestCase
 
-from hcl2 import parses
+from hcl2.api import parses_to_tree
 from hcl2.deserializer import BaseDeserializer
 from hcl2.formatter import BaseFormatter
 from hcl2.reconstructor import HCLReconstructor
 from hcl2.transformer import RuleTransformer
-from hcl2.utils import SerializationOptions
 
-ROUND_TRIP_DIR = Path(__file__).absolute().parent
-HCL2_ORIGINAL_DIR = ROUND_TRIP_DIR / "hcl2_original"
-
-SPECIAL_DIR = ROUND_TRIP_DIR / "special"
+INTEGRATION_DIR = Path(__file__).absolute().parent
+HCL2_ORIGINAL_DIR = INTEGRATION_DIR / "hcl2_original"
 
 _STEP_DIRS = {
     "hcl2_original": HCL2_ORIGINAL_DIR,
-    "hcl2_reconstructed": ROUND_TRIP_DIR / "hcl2_reconstructed",
-    "json_serialized": ROUND_TRIP_DIR / "json_serialized",
-    "json_reserialized": ROUND_TRIP_DIR / "json_reserialized",
+    "hcl2_reconstructed": INTEGRATION_DIR / "hcl2_reconstructed",
+    "json_serialized": INTEGRATION_DIR / "json_serialized",
+    "json_reserialized": INTEGRATION_DIR / "json_reserialized",
 }
 
 _STEP_SUFFIXES = {
@@ -53,7 +50,7 @@ class SuiteStep(Enum):
 def _get_suites() -> List[str]:
     """
     Get a list of the test suites.
-    Names of a test suite is a name of file in `test/round_trip/hcl2_original/` without the .tf suffix.
+    Names of a test suite is a name of file in `test/integration/hcl2_original/` without the .tf suffix.
 
     Override SUITES to run a specific subset, e.g. SUITES = ["config"]
     """
@@ -63,7 +60,7 @@ def _get_suites() -> List[str]:
 
 
 # set this to arbitrary list of test suites to run,
-#   e.g. `SUITES = ["smoke"]` to run the tests only for `test/round_trip/hcl2_original/smoke.tf`
+#   e.g. `SUITES = ["smoke"]` to run the tests only for `test/integration/hcl2_original/smoke.tf`
 SUITES: List[str] = []
 
 
@@ -72,9 +69,9 @@ def _get_suite_file(suite_name: str, step: SuiteStep) -> Path:
     return _STEP_DIRS[step.value] / (suite_name + _STEP_SUFFIXES[step.value])
 
 
-def _parse_and_serialize(hcl_text: str, options: SerializationOptions = None) -> dict:
+def _parse_and_serialize(hcl_text: str, options=None) -> dict:
     """Parse HCL text and serialize to a Python dict."""
-    parsed_tree = parses(hcl_text)
+    parsed_tree = parses_to_tree(hcl_text)
     rules = RuleTransformer().transform(parsed_tree)
     if options:
         return rules.serialize(options=options)
@@ -192,24 +189,3 @@ class TestRoundTripFull(TestCase):
                     f"Full round-trip mismatch for {suite}: "
                     f"HCL → JSON → HCL → JSON did not produce identical JSON",
                 )
-
-
-class TestOperatorPrecedence(TestCase):
-    """Test that parsed expressions correctly represent operator precedence.
-
-    Serializes with force_operation_parentheses=True so that implicit
-    precedence becomes explicit parentheses in the output.
-    See: https://github.com/amplify-education/python-hcl2/issues/248
-    """
-
-    maxDiff = None
-    _OPTIONS = SerializationOptions(force_operation_parentheses=True)
-
-    def test_operator_precedence(self):
-        hcl_path = _get_suite_file("operator_precedence", SuiteStep.ORIGINAL)
-        json_path = SPECIAL_DIR / "operator_precedence.json"
-
-        actual = _parse_and_serialize(hcl_path.read_text(), options=self._OPTIONS)
-        expected = json.loads(json_path.read_text())
-
-        self.assertEqual(actual, expected)
