@@ -1,7 +1,6 @@
 from unittest import TestCase
 
 from hcl2.rules.literal_rules import (
-    TokenRule,
     KeywordRule,
     IdentifierRule,
     IntLitRule,
@@ -9,6 +8,7 @@ from hcl2.rules.literal_rules import (
     BinaryOperatorRule,
 )
 from hcl2.rules.tokens import NAME, BINARY_OP, IntLiteral, FloatLiteral
+from hcl2.utils import SerializationContext, SerializationOptions
 
 
 class TestKeywordRule(TestCase):
@@ -58,6 +58,36 @@ class TestFloatLitRule(TestCase):
         rule = FloatLitRule([FloatLiteral("3.14")])
         result = rule.serialize()
         self.assertAlmostEqual(result, 3.14)
+        self.assertIsInstance(result, float)
+
+    def test_serialize_scientific_notation_as_dollar_string(self):
+        """Scientific notation is preserved as ${...} to survive dict round-trip."""
+        rule = FloatLitRule([FloatLiteral("1.23e5")])
+        self.assertEqual(rule.serialize(), "${1.23e5}")
+
+    def test_serialize_scientific_negative_exponent(self):
+        rule = FloatLitRule([FloatLiteral("9.87e-3")])
+        self.assertEqual(rule.serialize(), "${9.87e-3}")
+
+    def test_serialize_scientific_inside_dollar_string(self):
+        """Inside a dollar string context, return raw value without wrapping."""
+        rule = FloatLitRule([FloatLiteral("1.23e5")])
+        ctx = SerializationContext(inside_dollar_string=True)
+        self.assertEqual(rule.serialize(context=ctx), "1.23e5")
+
+    def test_serialize_regular_float_not_wrapped(self):
+        """Non-scientific floats should remain plain Python floats."""
+        rule = FloatLitRule([FloatLiteral("123.456")])
+        result = rule.serialize()
+        self.assertEqual(result, 123.456)
+        self.assertIsInstance(result, float)
+
+    def test_serialize_scientific_disabled(self):
+        """With preserve_scientific_notation=False, returns plain float."""
+        rule = FloatLitRule([FloatLiteral("1.23e5")])
+        opts = SerializationOptions(preserve_scientific_notation=False)
+        result = rule.serialize(options=opts)
+        self.assertEqual(result, 123000.0)
         self.assertIsInstance(result, float)
 
 

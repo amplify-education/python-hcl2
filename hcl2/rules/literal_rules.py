@@ -2,7 +2,7 @@ from abc import ABC
 from typing import Any, Tuple
 
 from hcl2.rules.abstract import LarkRule, LarkToken
-from hcl2.utils import SerializationOptions, SerializationContext
+from hcl2.utils import SerializationOptions, SerializationContext, to_dollar_string
 
 
 class TokenRule(LarkRule, ABC):
@@ -41,6 +41,18 @@ class FloatLitRule(TokenRule):
     @staticmethod
     def lark_name() -> str:
         return "float_lit"
+
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
+        value = self.token.value
+        # Scientific notation (e.g. 1.23e5) cannot survive a Python float()
+        # round-trip, so preserve it as a ${...} expression string.
+        if options.preserve_scientific_notation and isinstance(value, str) and "e" in value.lower():
+            if context.inside_dollar_string:
+                return value
+            return to_dollar_string(value)
+        return self.token.serialize()
 
 
 class BinaryOperatorRule(TokenRule):

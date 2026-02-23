@@ -82,7 +82,7 @@ class FunctionCallRule(InlineCommentMixIn):
     @property
     @lru_cache(maxsize=None)
     def arguments(self) -> Optional[ArgumentsRule]:
-        for child in self._children[2:6]:
+        for child in self._children:
             if isinstance(child, ArgumentsRule):
                 return child
 

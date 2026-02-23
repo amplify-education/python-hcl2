@@ -16,6 +16,7 @@ class SerializationOptions:
     explicit_blocks: bool = True
     preserve_heredocs: bool = True
     force_operation_parentheses: bool = False
+    preserve_scientific_notation: bool = True
 
 
 @dataclass

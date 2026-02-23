@@ -30,7 +30,7 @@
        3
       ],
       "${f(a)}",
-      "${provider::func::aa()}"
+      "${provider::func::aa(5)}"
      ],
      "j": "${func(a, b, c, d ...)}",
      "k": "${a.b.5}",

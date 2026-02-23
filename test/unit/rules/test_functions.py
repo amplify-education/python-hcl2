@@ -7,7 +7,7 @@ from hcl2.rules.functions import (
     ProviderFunctionCallRule,
 )
 from hcl2.rules.literal_rules import IdentifierRule
-from hcl2.rules.tokens import NAME, COMMA, ELLIPSIS, LPAR, RPAR
+from hcl2.rules.tokens import NAME, COMMA, ELLIPSIS, LPAR, RPAR, StringToken
 from hcl2.utils import SerializationOptions, SerializationContext
 
 
@@ -127,6 +127,23 @@ class TestFunctionCallRule(TestCase):
         rule = _make_function_call(["func"], ["a"])
         ctx = SerializationContext(inside_dollar_string=True)
         self.assertEqual(rule.serialize(context=ctx), "func(a)")
+
+    def test_arguments_with_colons_tokens(self):
+        """FunctionCallRule with COLONS tokens (provider syntax) should still find arguments."""
+        COLONS = StringToken["COLONS"]
+        children = [
+            _make_identifier("provider"),
+            COLONS("::"),
+            _make_identifier("func"),
+            COLONS("::"),
+            _make_identifier("aa"),
+            LPAR(),
+            _make_arguments([5]),
+            RPAR(),
+        ]
+        rule = FunctionCallRule(children)
+        self.assertIsNotNone(rule.arguments)
+        self.assertEqual(rule.serialize(), "${provider::func::aa(5)}")
 
 
 # --- ProviderFunctionCallRule tests ---

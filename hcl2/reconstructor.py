@@ -156,6 +156,10 @@ class HCLReconstructor:
         result = []
         rule_name = tree.data
 
+        # Check spacing BEFORE processing children, while _last_rule_name
+        # still reflects the previous sibling (not a child of this tree).
+        needs_space = self._should_add_space_before(tree, parent_rule_name)
+
         if rule_name == UnaryOpRule.lark_name():
             for i, child in enumerate(tree.children):
                 result.extend(self._reconstruct_node(child, rule_name))
@@ -183,7 +187,7 @@ class HCLReconstructor:
             for child in tree.children:
                 result.extend(self._reconstruct_node(child, rule_name))
 
-        if self._should_add_space_before(tree, parent_rule_name):
+        if needs_space:
             result.insert(0, " ")
 
         # Update state tracking
