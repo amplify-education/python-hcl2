@@ -28,7 +28,7 @@ block label1 label2 {
     f(a),
     provider::func::aa(),
   ]
-  j = func(a, b, c, d)
+  j = func(a, b, c, d ... )
   k = a.b.5
   l = a.*.b
   m = a[*][c].a.*.1

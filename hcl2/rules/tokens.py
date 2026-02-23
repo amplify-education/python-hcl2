@@ -36,7 +36,7 @@ class StringToken(LarkToken):
         return str
 
 
-class StaticStringToken(LarkToken):
+class StaticStringToken(StringToken):
 
     classes_by_value = {}
 
