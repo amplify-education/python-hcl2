@@ -9,6 +9,9 @@ import json
 from pathlib import Path
 from unittest import TestCase
 
+from hcl2.deserializer import BaseDeserializer, DeserializerOptions
+from hcl2.formatter import BaseFormatter
+from hcl2.reconstructor import HCLReconstructor
 from hcl2.utils import SerializationOptions
 
 from test.integration.test_round_trip import (
@@ -75,3 +78,76 @@ class TestBuilderRoundTrip(TestCase):
         reserialized = _deserialize_and_reserialize(builder_dict)
         expected = json.loads(self._load_special("builder_basic_reserialized", ".json"))
         self.assertEqual(reserialized, expected)
+
+
+def _deserialize_and_reconstruct_with_options(
+    serialized: dict,
+    deserializer_options: DeserializerOptions = None,
+) -> str:
+    """Deserialize a Python dict and reconstruct HCL text with custom options."""
+    deserializer = BaseDeserializer(deserializer_options)
+    formatter = BaseFormatter()
+    reconstructor = HCLReconstructor()
+    deserialized = deserializer.load_python(serialized)
+    formatter.format_tree(deserialized)
+    lark_tree = deserialized.to_lark()
+    return reconstructor.reconstruct(lark_tree)
+
+
+class TestHeredocs(TestCase):
+    """Test heredoc serialization, flattening, restoration, and round-trips.
+
+    Scenarios:
+    1. HCL with heredocs → JSON (preserve_heredocs=True)
+    2. HCL with heredocs → JSON (preserve_heredocs=False, newlines escaped)
+    3. Flattened JSON → HCL (strings_to_heredocs=True restores multiline)
+    4. Full round-trip: flatten → restore → reparse → reflatten matches
+    """
+
+    maxDiff = None
+    _FLATTEN_OPTIONS = SerializationOptions(preserve_heredocs=False)
+
+    def _load_special(self, name, suffix):
+        return (SPECIAL_DIR / f"{name}{suffix}").read_text()
+
+    def test_parse_preserves_heredocs(self):
+        """HCL → JSON with default options preserves heredoc markers."""
+        hcl_text = self._load_special("heredocs", ".tf")
+        actual = _parse_and_serialize(hcl_text)
+        expected = json.loads(self._load_special("heredocs_preserved", ".json"))
+        self.assertEqual(actual, expected)
+
+    def test_parse_flattens_heredocs(self):
+        """HCL → JSON with preserve_heredocs=False escapes newlines in quoted strings."""
+        hcl_text = self._load_special("heredocs", ".tf")
+        actual = _parse_and_serialize(hcl_text, options=self._FLATTEN_OPTIONS)
+        expected = json.loads(self._load_special("heredocs_flattened", ".json"))
+        self.assertEqual(actual, expected)
+
+    def test_flattened_to_hcl_restores_heredocs(self):
+        """Flattened JSON → HCL with strings_to_heredocs=True restores multiline heredocs."""
+        flattened = json.loads(self._load_special("heredocs_flattened", ".json"))
+        d_opts = DeserializerOptions(strings_to_heredocs=True)
+        actual = _deserialize_and_reconstruct_with_options(flattened, d_opts)
+        expected = self._load_special("heredocs_restored", ".tf")
+        self.assertMultiLineEqual(actual, expected)
+
+    def test_flatten_restore_round_trip(self):
+        """Flatten → restore → reparse → reflatten produces identical flattened JSON."""
+        hcl_text = self._load_special("heredocs", ".tf")
+
+        # Forward: HCL → flattened JSON
+        flattened = _parse_and_serialize(hcl_text, options=self._FLATTEN_OPTIONS)
+
+        # Restore: flattened JSON → HCL with heredocs
+        d_opts = DeserializerOptions(strings_to_heredocs=True)
+        restored_hcl = _deserialize_and_reconstruct_with_options(flattened, d_opts)
+
+        # Reflatten: restored HCL → flattened JSON
+        reflattened = _parse_and_serialize(restored_hcl, options=self._FLATTEN_OPTIONS)
+
+        self.assertEqual(
+            reflattened,
+            flattened,
+            "Flatten → restore → reflatten did not produce identical JSON",
+        )

@@ -1,4 +1,5 @@
 import json
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
@@ -62,7 +63,7 @@ from hcl2.utils import HEREDOC_TRIM_PATTERN, HEREDOC_PATTERN
 @dataclass
 class DeserializerOptions:
     heredocs_to_strings: bool = False
-    indent_length: int = 2
+    strings_to_heredocs: bool = False
     object_elements_colon: bool = False
     object_elements_trailing_comma: bool = True
 
@@ -156,6 +157,11 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                     if match:
                         return self._deserialize_heredoc(value[1:-1], False)
 
+                if self.options.strings_to_heredocs:
+                    inner = value[1:-1]
+                    if '\\n' in inner:
+                        return self._deserialize_string_as_heredoc(inner)
+
                 return self._deserialize_string(value)
 
             if self._is_expression(value):
@@ -211,6 +217,17 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         if trim:
             return HeredocTrimTemplateRule([HEREDOC_TRIM_TEMPLATE(value)])
         return HeredocTemplateRule([HEREDOC_TEMPLATE(value)])
+
+    def _deserialize_string_as_heredoc(self, inner: str) -> HeredocTemplateRule:
+        """Convert a quoted string with escaped newlines back into a heredoc."""
+        # Single-pass unescape: \\n → \n, \\" → ", \\\\ → \
+        content = re.sub(
+            r'\\(n|"|\\)',
+            lambda m: '\n' if m.group(1) == 'n' else m.group(1),
+            inner,
+        )
+        heredoc = f"<<EOF\n{content}\nEOF"
+        return HeredocTemplateRule([HEREDOC_TEMPLATE(heredoc)])
 
     def _deserialize_expression(self, value: str) -> ExprTermRule:
         """Deserialize an expression string into an ExprTermRule."""

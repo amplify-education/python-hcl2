@@ -191,7 +191,43 @@ class TestHeredocTemplateRule(TestCase):
         rule = HeredocTemplateRule([token])
         opts = SerializationOptions(preserve_heredocs=False)
         result = rule.serialize(opts)
-        self.assertEqual(result, '"line1\nline2"')
+        self.assertEqual(result, '"line1\\nline2"')
+
+    def test_serialize_no_preserve_escapes_quotes(self):
+        token = HEREDOC_TEMPLATE('<<EOF\nsay "hello"\nEOF')
+        rule = HeredocTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        result = rule.serialize(opts)
+        self.assertEqual(result, '"say \\"hello\\""')
+
+    def test_serialize_no_preserve_escapes_backslashes(self):
+        token = HEREDOC_TEMPLATE('<<EOF\npath\\to\\file\nEOF')
+        rule = HeredocTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        result = rule.serialize(opts)
+        self.assertEqual(result, '"path\\\\to\\\\file"')
+
+    def test_serialize_no_preserve_escapes_backslashes_before_quotes(self):
+        token = HEREDOC_TEMPLATE('<<EOF\n\\"escaped\\"\nEOF')
+        rule = HeredocTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        result = rule.serialize(opts)
+        # \ becomes \\, then " becomes \" → \\" and \\"
+        self.assertEqual(result, '"\\\\\\"escaped\\\\\\""')
+
+    def test_serialize_no_preserve_json_content(self):
+        token = HEREDOC_TEMPLATE('<<EOF\n{"key": "value"}\nEOF')
+        rule = HeredocTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        result = rule.serialize(opts)
+        self.assertEqual(result, '"{\\\"key\\\": \\\"value\\\"}"')
+
+    def test_serialize_no_preserve_escapes_newlines(self):
+        token = HEREDOC_TEMPLATE("<<EOF\nfirst\nsecond\nthird\nEOF")
+        rule = HeredocTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        result = rule.serialize(opts)
+        self.assertEqual(result, '"first\\nsecond\\nthird"')
 
     def test_serialize_no_preserve_invalid_raises(self):
         token = HEREDOC_TEMPLATE("not a heredoc")
@@ -229,7 +265,7 @@ class TestHeredocTrimTemplateRule(TestCase):
         # Extracted content: "    line1\n    line2"
         # Lines: ["    line1", "    line2"], min_spaces=4
         # Trimmed: ["line1", "line2"]
-        self.assertEqual(result, '"line1\nline2"')
+        self.assertEqual(result, '"line1\\nline2"')
 
     def test_serialize_no_preserve_mixed_indent(self):
         token = HEREDOC_TRIM_TEMPLATE("<<-EOF\n  line1\n    line2\n  line3\nEOF")
@@ -237,7 +273,35 @@ class TestHeredocTrimTemplateRule(TestCase):
         opts = SerializationOptions(preserve_heredocs=False)
         result = rule.serialize(opts)
         # Content: "  line1\n    line2\n  line3", min_spaces=2
-        self.assertEqual(result, '"line1\n  line2\nline3"')
+        self.assertEqual(result, '"line1\\n  line2\\nline3"')
+
+    def test_serialize_no_preserve_escapes_quotes(self):
+        token = HEREDOC_TRIM_TEMPLATE('<<-EOF\n    say "hello"\nEOF')
+        rule = HeredocTrimTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        result = rule.serialize(opts)
+        self.assertEqual(result, '"say \\"hello\\""')
+
+    def test_serialize_no_preserve_escapes_backslashes(self):
+        token = HEREDOC_TRIM_TEMPLATE('<<-EOF\n    path\\to\\file\nEOF')
+        rule = HeredocTrimTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        result = rule.serialize(opts)
+        self.assertEqual(result, '"path\\\\to\\\\file"')
+
+    def test_serialize_no_preserve_json_content(self):
+        token = HEREDOC_TRIM_TEMPLATE('<<-EOF\n    {"key": "value"}\nEOF')
+        rule = HeredocTrimTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        result = rule.serialize(opts)
+        self.assertEqual(result, '"{\\\"key\\\": \\\"value\\\"}"')
+
+    def test_serialize_no_preserve_escapes_newlines(self):
+        token = HEREDOC_TRIM_TEMPLATE("<<-EOF\n    first\n    second\n    third\nEOF")
+        rule = HeredocTrimTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        result = rule.serialize(opts)
+        self.assertEqual(result, '"first\\nsecond\\nthird"')
 
     def test_serialize_no_preserve_invalid_raises(self):
         token = HEREDOC_TRIM_TEMPLATE("not a heredoc")

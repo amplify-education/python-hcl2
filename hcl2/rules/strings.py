@@ -101,8 +101,10 @@ class HeredocTemplateRule(LarkRule):
             match = HEREDOC_PATTERN.match(heredoc)
             if not match:
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
-            heredoc = match.group(2)
-        
+            heredoc = match.group(2).rstrip(self._trim_chars)
+            heredoc = heredoc.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+            return f'"{heredoc}"'
+
         result = heredoc.rstrip(self._trim_chars)
         return f'"{result}"'
 
@@ -131,16 +133,21 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
             heredoc = match.group(2)
 
-        heredoc = heredoc.rstrip(self._trim_chars)  
+        heredoc = heredoc.rstrip(self._trim_chars)
         lines = heredoc.split("\n")
-    
+
         # calculate the min number of leading spaces in each line
         min_spaces = sys.maxsize
         for line in lines:
             leading_spaces = len(line) - len(line.lstrip(" "))
             min_spaces = min(min_spaces, leading_spaces)
-    
+
         # trim off that number of leading spaces from each line
         lines = [line[min_spaces:] for line in lines]
-        return '"' + "\n".join(lines) + '"'
+
+        if not options.preserve_heredocs:
+            lines = [line.replace('\\', '\\\\').replace('"', '\\"') for line in lines]
+
+        sep = "\\n" if not options.preserve_heredocs else "\n"
+        return '"' + sep.join(lines) + '"'
     
