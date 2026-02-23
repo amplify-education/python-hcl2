@@ -108,6 +108,9 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def attribute(self, meta: Meta, args) -> AttributeRule:
+        # _attribute_name is flattened, so args[0] may be KeywordRule or IdentifierRule
+        if isinstance(args[0], KeywordRule):
+            args[0] = IdentifierRule([NAME(args[0].token.value)], meta)
         return AttributeRule(args, meta)
 
     @v_args(meta=True)

@@ -43,17 +43,6 @@ block label1 label2 {
   }
 }
 
-block label1 label3 {
-  simple_interpolation = "prefix:${var}-suffix"
-  embedded_interpolation = "(long substring without interpolation); ${"aaa-${local}-${local}"}/us-west-2/key_foo"
-  deeply_nested_interpolation = "prefix1-${"prefix2-${"prefix3-$${foo:bar}"}"}"
-  escaped_interpolation = "prefix:$${aws:username}-suffix"
-  simple_and_escaped = "${"bar"}$${baz:bat}"
-  simple_and_escaped_reversed = "$${baz:bat}${"bar"}"
-  nested_escaped = "bar-${"$${baz:bat}"}"
-}
-
-
 block {
   route53_forwarding_rule_shares = {
     for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) :

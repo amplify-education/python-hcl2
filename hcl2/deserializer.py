@@ -88,7 +88,12 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         return RuleTransformer()
 
     def load_python(self, value: Any) -> LarkElement:
-        result = StartRule([self._deserialize(value)])
+        if isinstance(value, dict):
+            # Top-level dict is always a body (attributes + blocks), not an object
+            children = self._deserialize_block_elements(value)
+            result = StartRule([BodyRule(children)])
+        else:
+            result = StartRule([self._deserialize(value)])
         return result
 
     def loads(self, value: str) -> LarkElement:
@@ -286,7 +291,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         return ObjectRule([LBRACE(), *children, RBRACE()])
 
-    def _deserialize_object_elem(self, key: str, value: Any) -> ObjectElemRule:
+    def _deserialize_object_elem(self, key: Any, value: Any) -> ObjectElemRule:
         if self._is_expression(key):
             key = ObjectElemKeyExpressionRule(
                 [
@@ -295,7 +300,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                     if child is not None
                 ]
             )
-        elif "." in key:
+        elif isinstance(key, str) and "." in key:
             parts = key.split(".")
             children = []
             for part in parts:
@@ -313,8 +318,8 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         return ObjectElemRule(result)
 
-    def _is_expression(self, value: str) -> bool:
-        return value.startswith("${") and value.endswith("}")
+    def _is_expression(self, value: Any) -> bool:
+        return isinstance(value, str) and value.startswith("${") and value.endswith("}")
 
     def _is_block(self, value: Any) -> bool:
         """Simple check: if it's a list containing dicts with IS_BLOCK markers"""

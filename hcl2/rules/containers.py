@@ -96,7 +96,11 @@ class ObjectElemKeyRule(LarkRule):
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-        return self.value.serialize(options, context)
+        result = self.value.serialize(options, context)
+        # Object keys must be strings for JSON compatibility
+        if isinstance(result, (int, float)):
+            result = str(result)
+        return result
 
 
 class ObjectElemKeyExpressionRule(LarkRule):

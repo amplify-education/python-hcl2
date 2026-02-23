@@ -171,11 +171,11 @@ class TestObjectElemKeyRule(TestCase):
 
     def test_serialize_int_lit(self):
         rule = ObjectElemKeyRule([IntLitRule([IntLiteral("5")])])
-        self.assertEqual(rule.serialize(), 5)
+        self.assertEqual(rule.serialize(), "5")
 
     def test_serialize_float_lit(self):
         rule = ObjectElemKeyRule([FloatLitRule([FloatLiteral("3.14")])])
-        self.assertAlmostEqual(rule.serialize(), 3.14)
+        self.assertEqual(rule.serialize(), "3.14")
 
     def test_serialize_string(self):
         rule = ObjectElemKeyRule([_make_string_rule("k3")])

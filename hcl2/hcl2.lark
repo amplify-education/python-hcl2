@@ -81,7 +81,8 @@ start : body
 
 // Body and basic constructs
 body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
-attribute : identifier EQ expression
+attribute : _attribute_name EQ expression
+_attribute_name : identifier | keyword
 block : identifier (identifier | string)* new_line_or_comment? LBRACE body RBRACE
 
 // Whitespace and comments
