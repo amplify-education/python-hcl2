@@ -66,6 +66,7 @@ class DeserializerOptions:
     strings_to_heredocs: bool = False
     object_elements_colon: bool = False
     object_elements_trailing_comma: bool = True
+    # with_comments: bool = False # TODO 
 
 
 class LarkElementTreeDeserializer(ABC):

@@ -14,6 +14,8 @@ from hcl2.rules.expressions import ExprTermRule, ExpressionRule
 from hcl2.rules.for_expressions import (
     ForTupleExprRule,
     ForObjectExprRule,
+    ForIntroRule,
+    ForCondRule,
 )
 from hcl2.rules.tokens import NL_OR_COMMENT, LBRACE, COLON, LSQB, COMMA
 from hcl2.rules.whitespace import NewLineOrCommentRule
@@ -161,10 +163,20 @@ class BaseFormatter(LarkElementTreeFormatter):
         for child in expression.children:
             if isinstance(child, ExprTermRule):
                 self.format_expression(child, indent_level + 1)
+            elif isinstance(child, (ForIntroRule, ForCondRule)):
+                for sub_child in child.children:
+                    if isinstance(sub_child, ExprTermRule):
+                        self.format_expression(sub_child, indent_level + 1)
 
-        indexes = [1, 3, 5, 7]
-        for index in indexes:
+        for index in [1, 3]:
             expression.children[index] = self._build_newline(indent_level)
+
+        if expression.condition is not None:
+            expression.children[5] = self._build_newline(indent_level)
+        else:
+            expression.children[5] = None
+
+        expression.children[7] = self._build_newline(indent_level)
         self._deindent_last_line()
 
     def format_forobjectexpr(
@@ -173,11 +185,23 @@ class BaseFormatter(LarkElementTreeFormatter):
         for child in expression.children:
             if isinstance(child, ExprTermRule):
                 self.format_expression(child, indent_level + 1)
+            elif isinstance(child, (ForIntroRule, ForCondRule)):
+                for sub_child in child.children:
+                    if isinstance(sub_child, ExprTermRule):
+                        self.format_expression(sub_child, indent_level + 1)
 
-        indexes = [1, 3, 12]
-        for index in indexes:
+        for index in [1, 3]:
             expression.children[index] = self._build_newline(indent_level)
 
+        expression.children[6] = None
+        expression.children[8] = None
+
+        if expression.condition is not None:
+            expression.children[10] = self._build_newline(indent_level)
+        else:
+            expression.children[10] = None
+
+        expression.children[12] = self._build_newline(indent_level)
         self._deindent_last_line()
 
     def _vertically_align_attributes_in_body(self, body: BodyRule):
