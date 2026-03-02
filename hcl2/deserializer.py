@@ -8,7 +8,7 @@ from typing import Any, TextIO, List, Union
 from regex import regex
 
 from hcl2.parser import parser as _get_parser
-from hcl2.const import IS_BLOCK
+from hcl2.const import IS_BLOCK, COMMENTS_KEY
 from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
     BlockRule,
@@ -129,7 +129,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
             else:
                 # otherwise it's just an attribute
-                if key != IS_BLOCK:
+                if not self._is_reserved_key(key):
                     children.append(self._deserialize_attribute(key, val))
 
         return children
@@ -254,7 +254,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         # Keep peeling off single-key layers until we hit the body (dict with IS_BLOCK)
         while isinstance(body, dict) and not body.get(IS_BLOCK):
-            non_block_keys = [k for k in body.keys() if k != IS_BLOCK]
+            non_block_keys = [k for k in body.keys() if not self._is_reserved_key(k)]
             if len(non_block_keys) == 1:
                 # This is another label level
                 label = non_block_keys[0]
@@ -334,6 +334,10 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         ]
 
         return ObjectElemRule(result)
+
+    def _is_reserved_key(self, key: str) -> bool:
+        """Check if a key is a reserved metadata key that should be skipped during deserialization."""
+        return key in (IS_BLOCK, COMMENTS_KEY)
 
     def _is_expression(self, value: Any) -> bool:
         return isinstance(value, str) and value.startswith("${") and value.endswith("}")

@@ -115,7 +115,7 @@ class TestRoundTripSerialization(TestCase):
                 self.assertEqual(
                     actual,
                     expected,
-                    f"HCL → JSON serialization mismatch for {suite}",
+                    f"HCL → JSON serialization mismatch for suite {suite}",
                 )
 
 
@@ -137,7 +137,7 @@ class TestRoundTripReserialization(TestCase):
                 self.assertEqual(
                     actual,
                     expected,
-                    f"JSON reserialization mismatch for {suite}",
+                    f"JSON reserialization mismatch for suite {suite}",
                 )
 
 
@@ -159,7 +159,7 @@ class TestRoundTripReconstruction(TestCase):
                 self.assertMultiLineEqual(
                     actual,
                     expected,
-                    f"HCL reconstruction mismatch for {suite}",
+                    f"HCL reconstruction mismatch for suite {suite}",
                 )
 
 
@@ -186,6 +186,6 @@ class TestRoundTripFull(TestCase):
                 self.assertEqual(
                     reserialized,
                     serialized,
-                    f"Full round-trip mismatch for {suite}: "
+                    f"Full round-trip mismatch for suite {suite}: "
                     f"HCL → JSON → HCL → JSON did not produce identical JSON",
                 )
