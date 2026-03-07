@@ -1,5 +1,4 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/2e2015f9297346cbaa788c46ab957827)](https://app.codacy.com/gh/amplify-education/python-hcl2/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
-[![Build Status](https://travis-ci.org/amplify-education/python-hcl2.svg?branch=master)](https://travis-ci.org/amplify-education/python-hcl2)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/amplify-education/python-hcl2/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/python-hcl2.svg)](https://pypi.org/project/python-hcl2/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/python-hcl2.svg)](https://pypi.python.org/pypi/python-hcl2)
@@ -36,19 +35,58 @@ pip3 install python-hcl2
 
 ### Usage
 
+**HCL2 to Python dict:**
+
 ```python
 import hcl2
-with open('foo.tf', 'r') as file:
-    dict = hcl2.load(file)
+
+with open("main.tf") as f:
+    data = hcl2.load(f)
 ```
 
-### Parse Tree to HCL2 reconstruction
+**Python dict to HCL2:**
 
-With version 6.x the possibility of HCL2 reconstruction from the Lark Parse Tree and Python dictionaries directly was introduced.
+```python
+import hcl2
 
-Documentation and an example of manipulating Lark Parse Tree and reconstructing it back into valid HCL2 can be found in [tree-to-hcl2-reconstruction.md](https://github.com/amplify-education/python-hcl2/blob/main/tree-to-hcl2-reconstruction.md) file.
+hcl_string = hcl2.dumps(data)
 
-More details about reconstruction implementation can be found in PRs #169 and #177.
+with open("output.tf", "w") as f:
+    hcl2.dump(data, f)
+```
+
+**Building HCL from scratch:**
+
+```python
+import hcl2
+
+doc = hcl2.Builder()
+res = doc.block("resource", labels=["aws_instance", "web"], ami="abc-123", instance_type="t2.micro")
+res.block("tags", Name="HelloWorld")
+
+hcl_string = hcl2.dumps(doc.build())
+```
+
+For the full API reference, option dataclasses, intermediate pipeline stages, and more examples
+see [docs/usage.md](https://github.com/amplify-education/python-hcl2/blob/main/docs/usage.md).
+
+### CLI Tools
+
+python-hcl2 ships two command-line converters:
+
+```sh
+# HCL2 → JSON
+hcl2tojson main.tf                     # prints JSON to stdout
+hcl2tojson main.tf output.json         # writes to file
+hcl2tojson terraform/ output/          # converts a directory
+
+# JSON → HCL2
+jsontohcl2 output.json                 # prints HCL2 to stdout
+jsontohcl2 output.json main.tf         # writes to file
+jsontohcl2 output/ terraform/          # converts a directory
+```
+
+Both commands accept `-` as PATH to read from stdin. Run `hcl2tojson --help` or `jsontohcl2 --help` for the full list of flags.
 
 ## Building From Source
 
@@ -61,7 +99,7 @@ Running `tox` will automatically execute linters as well as the unit tests.
 
 You can also run them individually with the `-e` argument.
 
-For example, `tox -e py37-unit` will run the unit tests for python 3.7
+For example, `tox -e py310-unit` will run the unit tests for python 3.10
 
 To see all the available options, run `tox -l`.
 
@@ -81,9 +119,9 @@ You can reach us at <mailto:github@amplify.com>
 We welcome pull requests! For your pull request to be accepted smoothly, we suggest that you:
 
 - For any sizable change, first open a GitHub issue to discuss your idea.
-- Create a pull request.  Explain why you want to make the change and what it’s for.
+- Create a pull request. Explain why you want to make the change and what it's for.
 
-We’ll try to answer any PR’s promptly.
+We'll try to answer any PR's promptly.
 
 ## Limitations
 
