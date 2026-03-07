@@ -10,6 +10,6 @@ omit =
 
 [report]
 show_missing = true
-fail_under = 90
+fail_under = 95
 exclude_lines =
     raise NotImplementedError
