@@ -111,7 +111,6 @@ def main():
 
     def convert(in_file, out_file):
         _hcl_to_json(in_file, out_file, options, json_indent=json_indent)
-        out_file.write("\n")
 
     if args.PATH == "-":
         _convert_stdin(convert)

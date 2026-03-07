@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 from lark import Tree, Token
 from hcl2.rules import tokens
 from hcl2.rules.base import BlockRule
-from hcl2.rules.for_expressions import ForIntroRule
+from hcl2.rules.for_expressions import ForIntroRule, ForTupleExprRule, ForObjectExprRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.strings import StringRule
 from hcl2.rules.expressions import (
@@ -71,9 +71,8 @@ class HCLReconstructor:
                 return True
 
             # Space around Conditional Expression operators
-            if (
-                parent_rule_name == ConditionalRule.lark_name()
-                and token_type in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
+            if parent_rule_name == ConditionalRule.lark_name() and (
+                token_type in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
                 or self._last_token_name
                 in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
             ):
@@ -150,6 +149,27 @@ class HCLReconstructor:
                     IdentifierRule.lark_name(),
                 ]:
                     return True
+
+            # Space after QMARK/COLON in conditional expressions
+            if (
+                parent_rule_name == ConditionalRule.lark_name()
+                and self._last_token_name
+                in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
+            ):
+                return True
+
+            # Space after colon in for expressions (before value expression,
+            # but not before newline/comment which provides its own whitespace)
+            if (
+                self._last_token_name == tokens.COLON.lark_name()
+                and parent_rule_name
+                in [
+                    ForTupleExprRule.lark_name(),
+                    ForObjectExprRule.lark_name(),
+                ]
+                and rule_name != "new_line_or_comment"
+            ):
+                return True
 
         return False
 

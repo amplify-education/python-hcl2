@@ -34,9 +34,11 @@ class StubExpression(ExpressionRule):
 
     def __init__(self, value):
         self._stub_value = value
+        self._last_options = None
         super().__init__([], None)
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+        self._last_options = options
         return self._stub_value
 
 
@@ -390,3 +392,25 @@ class TestForObjectExprRule(TestCase):
         result = rule.serialize()
         self.assertIn("if cond", result)
         self.assertEqual(result, "${{for k, v in items : key => value if cond}}")
+
+    def test_serialize_preserves_caller_options(self):
+        value_expr = StubExpression("value")
+        rule = ForObjectExprRule(
+            [
+                LBRACE(),
+                _make_for_intro_dual("k", "v", "items"),
+                StubExpression("key"),
+                FOR_OBJECT_ARROW(),
+                value_expr,
+                RBRACE(),
+            ]
+        )
+        caller_options = SerializationOptions(
+            with_comments=True, preserve_heredocs=False
+        )
+        rule.serialize(options=caller_options)
+        # value_expr should receive options with wrap_objects=True but
+        # all other caller settings preserved
+        self.assertTrue(value_expr._last_options.wrap_objects)
+        self.assertTrue(value_expr._last_options.with_comments)
+        self.assertFalse(value_expr._last_options.preserve_heredocs)

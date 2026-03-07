@@ -1,5 +1,6 @@
 """Rule classes for HCL2 for-tuple and for-object expressions."""
 
+from dataclasses import replace
 from typing import Any, Tuple, Optional, List
 
 from lark.tree import Meta
@@ -306,7 +307,7 @@ class ForObjectExprRule(ExpressionRule):
             result += f"{self.key_expr.serialize(options, context)} => "
 
             result += self.value_expr.serialize(
-                SerializationOptions(wrap_objects=True), context
+                replace(options, wrap_objects=True), context
             )
             if self.ellipsis is not None:
                 result += self.ellipsis.serialize(options, context)

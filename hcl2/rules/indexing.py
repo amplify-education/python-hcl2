@@ -13,6 +13,7 @@ from hcl2.rules.tokens import (
     LSQB,
     RSQB,
     ATTR_SPLAT,
+    FULL_SPLAT,
 )
 from hcl2.rules.whitespace import (
     InlineCommentMixIn,
@@ -233,7 +234,7 @@ class FullSplatRule(LarkRule):
     """Rule for full splat expressions (e.g. [*].attr)."""
 
     _children_layout: Tuple[
-        ATTR_SPLAT,
+        FULL_SPLAT,
         Tuple[Union[GetAttrRule, Union[SqbIndexRule, ShortIndexRule]], ...],
     ]
 

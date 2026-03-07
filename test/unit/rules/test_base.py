@@ -168,6 +168,13 @@ class TestBodyRule(TestCase):
         result = body.serialize(options=SerializationOptions(with_comments=True))
         self.assertNotIn("__comments__", result)
 
+    def test_serialize_raises_when_block_name_collides_with_attribute(self):
+        attr = _make_attribute("resource", "value")
+        block = _make_block([_make_identifier("resource")])
+        body = BodyRule([attr, block])
+        with self.assertRaises(RuntimeError):
+            body.serialize()
+
     def test_serialize_skips_newline_children(self):
         nlc = _make_nlc("\n")
         attr = _make_attribute("x", 1)

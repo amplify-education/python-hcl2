@@ -43,12 +43,11 @@ class NewLineOrCommentRule(TokenRule):
             comment = comment.strip()
 
             for delimiter in ("//", "/*", "#"):
-
                 if comment.startswith(delimiter):
                     comment = comment[len(delimiter) :]
-
-                if comment.endswith("*/"):
-                    comment = comment[:-2]
+                    if delimiter == "/*" and comment.endswith("*/"):
+                        comment = comment[:-2]
+                    break
 
             if comment != "":
                 result.append(comment.strip())

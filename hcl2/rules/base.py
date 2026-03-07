@@ -82,7 +82,7 @@ class BodyRule(LarkRule):
                 result[name].append(child.serialize(options))
 
             if isinstance(child, AttributeRule):
-                attribute_names.add(child)
+                attribute_names.add(child.identifier.serialize(options))
                 result.update(child.serialize(options))
                 if options.with_comments:
                     # collect in-line comments from attribute assignments, expressions etc

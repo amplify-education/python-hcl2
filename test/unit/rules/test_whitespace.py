@@ -61,6 +61,18 @@ class TestNewLineOrCommentRule(TestCase):
         result = rule.to_list()
         self.assertEqual(result, ["block comment"])
 
+    def test_to_list_line_comment_ending_in_block_close(self):
+        """A // comment ending in */ should preserve the */ suffix."""
+        rule = _make_nlc("// comment ending in */\n")
+        result = rule.to_list()
+        self.assertEqual(result, ["comment ending in */"])
+
+    def test_to_list_hash_comment_ending_in_block_close(self):
+        """A # comment ending in */ should preserve the */ suffix."""
+        rule = _make_nlc("# comment ending in */\n")
+        result = rule.to_list()
+        self.assertEqual(result, ["comment ending in */"])
+
     def test_to_list_multiple_comments(self):
         rule = _make_nlc("// first\n// second\n")
         result = rule.to_list()

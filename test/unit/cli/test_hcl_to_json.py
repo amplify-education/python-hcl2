@@ -49,6 +49,23 @@ class TestHclToJson(TestCase):
             result = json.loads(_read_file(out_path))
             self.assertEqual(result["x"], 1)
 
+    def test_single_file_to_stdout_single_trailing_newline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "test.tf")
+            _write_file(hcl_path, SIMPLE_HCL)
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", hcl_path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue()
+            self.assertTrue(output.endswith("\n"), "output should end with newline")
+            self.assertFalse(
+                output.endswith("\n\n"),
+                "output should not have double trailing newline",
+            )
+
     def test_stdin(self):
         stdout = StringIO()
         stdin = StringIO(SIMPLE_HCL)
@@ -58,6 +75,19 @@ class TestHclToJson(TestCase):
 
         result = json.loads(stdout.getvalue())
         self.assertEqual(result["x"], 1)
+
+    def test_stdin_single_trailing_newline(self):
+        stdout = StringIO()
+        stdin = StringIO(SIMPLE_HCL)
+        with patch("sys.argv", ["hcl2tojson", "-"]):
+            with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
+                main()
+
+        output = stdout.getvalue()
+        self.assertTrue(output.endswith("\n"), "output should end with newline")
+        self.assertFalse(
+            output.endswith("\n\n"), "output should not have double trailing newline"
+        )
 
     def test_directory_mode(self):
         with tempfile.TemporaryDirectory() as tmpdir:
