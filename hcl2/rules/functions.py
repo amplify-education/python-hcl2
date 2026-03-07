@@ -111,23 +111,3 @@ class FunctionCallRule(InlineCommentMixIn):
             result = to_dollar_string(result)
 
         return result
-
-
-class ProviderFunctionCallRule(FunctionCallRule):
-    """Rule for provider-namespaced function calls."""
-
-    _children_layout: Tuple[
-        IdentifierRule,
-        IdentifierRule,
-        IdentifierRule,
-        LPAR,
-        Optional[NewLineOrCommentRule],
-        Optional[ArgumentsRule],
-        Optional[NewLineOrCommentRule],
-        RPAR,
-    ]
-
-    @staticmethod
-    def lark_name() -> str:
-        """Return the grammar rule name."""
-        return "provider_function_call"

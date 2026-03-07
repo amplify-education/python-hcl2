@@ -215,10 +215,8 @@ class TestSingleFileErrorHandling(TestCase):
             with patch("sys.argv", ["hcl2tojson", "-s", in_path, out_path]):
                 main()
 
-            # The output file is created (opened for writing) before
-            # conversion; on a skipped error it will be empty.
-            self.assertTrue(os.path.exists(out_path))
-            self.assertEqual(_read_file(out_path), "")
+            # The partial output file is cleaned up on skipped errors.
+            self.assertFalse(os.path.exists(out_path))
 
     def test_raise_error_with_output_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:

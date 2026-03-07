@@ -243,7 +243,7 @@ class TestHeredocTemplateRule(TestCase):
 
 class TestHeredocTrimTemplateRule(TestCase):
     def test_lark_name(self):
-        self.assertEqual(HeredocTrimTemplateRule.lark_name(), "heredoc_trim_template")
+        self.assertEqual(HeredocTrimTemplateRule.lark_name(), "heredoc_template_trim")
 
     def test_serialize_preserve_heredocs_trims_indent(self):
         token = HEREDOC_TRIM_TEMPLATE("<<-EOF\n    line1\n    line2\nEOF")

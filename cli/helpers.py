@@ -26,6 +26,8 @@ def _convert_single_file(
                     convert_fn(in_file, out_file)
             except skippable:
                 if skip:
+                    if os.path.exists(out_path):
+                        os.remove(out_path)
                     return
                 raise
         else:
@@ -83,6 +85,8 @@ def _convert_directory(
                         convert_fn(in_file, out_file)
                 except skippable:
                     if skip:
+                        if os.path.exists(out_file_path):
+                            os.remove(out_file_path)
                         continue
                     raise
 

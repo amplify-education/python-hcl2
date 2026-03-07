@@ -133,4 +133,4 @@ def main():
             out_extension=".tf",
         )
     else:
-        raise RuntimeError("Invalid Path", args.PATH)
+        raise RuntimeError(f"Invalid Path: {args.PATH}")

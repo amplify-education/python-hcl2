@@ -5,7 +5,7 @@ from typing import Tuple, Any, List, Union, Optional
 
 from lark.tree import Meta
 
-from hcl2.const import IS_BLOCK
+from hcl2.const import IS_BLOCK, INLINE_COMMENTS_KEY
 from hcl2.rules.abstract import LarkRule, LarkToken
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
@@ -97,7 +97,7 @@ class BodyRule(LarkRule):
             if comments:
                 result["__comments__"] = comments
             if inline_comments:
-                result["__inline_comments__"] = inline_comments
+                result[INLINE_COMMENTS_KEY] = inline_comments
 
         return result
 

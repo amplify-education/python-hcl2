@@ -129,4 +129,4 @@ def main():
             out_extension=".json",
         )
     else:
-        raise RuntimeError("Invalid Path", args.PATH)
+        raise RuntimeError(f"Invalid Path: {args.PATH}")

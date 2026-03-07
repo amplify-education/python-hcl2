@@ -143,7 +143,7 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
     @staticmethod
     def lark_name() -> str:
         """Return the grammar rule name."""
-        return "heredoc_trim_template"
+        return "heredoc_template_trim"
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()

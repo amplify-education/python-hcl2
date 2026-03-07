@@ -1,7 +1,7 @@
 # pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
-from hcl2.const import IS_BLOCK, COMMENTS_KEY
+from hcl2.const import IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY
 from hcl2.deserializer import BaseDeserializer, DeserializerOptions
 from hcl2.rules.base import StartRule, BodyRule, BlockRule, AttributeRule
 from hcl2.rules.containers import (
@@ -466,6 +466,10 @@ class TestBlockDetection(TestCase):
     def test_is_reserved_key_comments(self):
         d = _deser()
         self.assertTrue(d._is_reserved_key(COMMENTS_KEY))
+
+    def test_is_reserved_key_inline_comments(self):
+        d = _deser()
+        self.assertTrue(d._is_reserved_key(INLINE_COMMENTS_KEY))
 
     def test_is_reserved_key_normal_key(self):
         d = _deser()

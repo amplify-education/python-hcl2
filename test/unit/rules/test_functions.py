@@ -5,7 +5,6 @@ from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.functions import (
     ArgumentsRule,
     FunctionCallRule,
-    ProviderFunctionCallRule,
 )
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.tokens import NAME, COMMA, ELLIPSIS, LPAR, RPAR, StringToken
@@ -145,39 +144,3 @@ class TestFunctionCallRule(TestCase):
         rule = FunctionCallRule(children)
         self.assertIsNotNone(rule.arguments)
         self.assertEqual(rule.serialize(), "${provider::func::aa(5)}")
-
-
-# --- ProviderFunctionCallRule tests ---
-
-
-class TestProviderFunctionCallRule(TestCase):
-    def test_lark_name(self):
-        self.assertEqual(ProviderFunctionCallRule.lark_name(), "provider_function_call")
-
-    def test_inherits_function_call_rule(self):
-        self.assertTrue(issubclass(ProviderFunctionCallRule, FunctionCallRule))
-
-    def test_serialize_provider_function(self):
-        children = [
-            _make_identifier("ns"),
-            _make_identifier("mod"),
-            _make_identifier("func"),
-            LPAR(),
-            _make_arguments(["a"]),
-            RPAR(),
-        ]
-        rule = ProviderFunctionCallRule(children)
-        self.assertEqual(rule.serialize(), "${ns::mod::func(a)}")
-
-    def test_serialize_inside_dollar_string(self):
-        children = [
-            _make_identifier("ns"),
-            _make_identifier("mod"),
-            _make_identifier("func"),
-            LPAR(),
-            _make_arguments(["a"]),
-            RPAR(),
-        ]
-        rule = ProviderFunctionCallRule(children)
-        ctx = SerializationContext(inside_dollar_string=True)
-        self.assertEqual(rule.serialize(context=ctx), "ns::mod::func(a)")
