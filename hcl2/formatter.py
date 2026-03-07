@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
 
-from hcl2.rules.abstract import LarkElement
+from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
     StartRule,
     BlockRule,
@@ -13,7 +13,6 @@ from hcl2.rules.base import (
 from hcl2.rules.containers import (
     ObjectRule,
     ObjectElemRule,
-    ObjectElemKeyRule,
     ObjectElemKeyExpressionRule,
     TupleRule,
 )
@@ -104,7 +103,7 @@ class BaseFormatter(LarkElementTreeFormatter):
 
         if new_children:
             new_children.pop(-1)
-        rule._children = new_children
+        self._set_children(rule, new_children)
 
     def format_attribute_rule(self, rule: AttributeRule, indent_level: int = 0):
         """Format an attribute rule by formatting its value expression."""
@@ -127,7 +126,7 @@ class BaseFormatter(LarkElementTreeFormatter):
                 new_children.append(self._build_newline(indent_level))
 
         self._deindent_last_line()
-        rule._children = new_children
+        self._set_children(rule, new_children)
 
     def format_object_rule(self, rule: ObjectRule, indent_level: int = 0):
         """Format an object rule with one element per line and optional alignment."""
@@ -157,7 +156,7 @@ class BaseFormatter(LarkElementTreeFormatter):
         new_children.insert(-1, self._build_newline(indent_level))
         self._deindent_last_line()
 
-        rule._children = new_children
+        self._set_children(rule, new_children)
 
         if self.options.vertically_align_object_elements:
             self._vertically_align_object_elems(rule)
@@ -215,8 +214,10 @@ class BaseFormatter(LarkElementTreeFormatter):
         for index in [1, 3]:
             expression.children[index] = self._build_newline(indent_level)
 
-        expression.children[6] = None
-        expression.children[8] = None
+        for index in [6, 8]:
+            child = expression.children[index]
+            if not isinstance(child, NewLineOrCommentRule) or child.to_list() is None:
+                expression.children[index] = None
 
         if expression.condition is not None:
             expression.children[10] = self._build_newline(indent_level)
@@ -225,6 +226,15 @@ class BaseFormatter(LarkElementTreeFormatter):
 
         expression.children[12] = self._build_newline(indent_level)
         self._deindent_last_line()
+
+    @staticmethod
+    def _set_children(rule: LarkRule, new_children):
+        """Replace a rule's children and re-establish parent/index links."""
+        rule._children = new_children
+        for i, child in enumerate(new_children):
+            if child is not None:
+                child.set_index(i)
+                child.set_parent(rule)
 
     def _vertically_align_attributes_in_body(self, body: BodyRule):
         attributes_sequence: List[AttributeRule] = []
@@ -247,9 +257,8 @@ class BaseFormatter(LarkElementTreeFormatter):
         for attribute in attributes_sequence:
             name_length = len(attribute.identifier.token.value)
             spaces_to_add = max_length - name_length
-            attribute.children[1].set_value(
-                " " * spaces_to_add + attribute.children[1].value
-            )
+            base = attribute.children[1].value.lstrip(" ")
+            attribute.children[1].set_value(" " * spaces_to_add + base)
 
     def _vertically_align_object_elems(self, rule: ObjectRule):
         max_length = max(self._key_text_width(elem.key) for elem in rule.elements)
@@ -262,20 +271,15 @@ class BaseFormatter(LarkElementTreeFormatter):
             if isinstance(separator, COLON):  # type: ignore[misc]
                 spaces_to_add += 1
 
-            elem.children[1].set_value(" " * spaces_to_add + separator.value)
+            base = separator.value.lstrip(" ")
+            elem.children[1].set_value(" " * spaces_to_add + base)
 
     @staticmethod
     def _key_text_width(key: LarkElement) -> int:
         """Compute the HCL text width of an object element key."""
         width = len(str(key.serialize()))
         # Expression keys serialize with ${...} wrapping (+3 chars vs HCL text).
-        # Handle both direct ObjectElemKeyExpressionRule (from parser) and
-        # ObjectElemKeyRule wrapping one (from deserializer).
         if isinstance(key, ObjectElemKeyExpressionRule):
-            width -= 3
-        elif isinstance(key, ObjectElemKeyRule) and isinstance(
-            key.value, ObjectElemKeyExpressionRule
-        ):
             width -= 3
         return width
 

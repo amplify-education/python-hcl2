@@ -371,14 +371,14 @@ class TestDeserializeContainers(TestCase):
         result = d._deserialize_object_elem("${(var.key)}", 1)
         self.assertIsInstance(result, ObjectElemRule)
         key_rule = result.key
-        self.assertIsInstance(key_rule.value, ObjectElemKeyExpressionRule)
+        self.assertIsInstance(key_rule, ObjectElemKeyExpressionRule)
 
     def test_bare_expression_key_object_element(self):
         d = _deser()
         result = d._deserialize_object_elem("${1 + 1}", 1)
         self.assertIsInstance(result, ObjectElemRule)
         key_rule = result.key
-        self.assertIsInstance(key_rule.value, ObjectElemKeyExpressionRule)
+        self.assertIsInstance(key_rule, ObjectElemKeyExpressionRule)
 
     def test_object_elem_value_is_expr_term(self):
         d = _deser()

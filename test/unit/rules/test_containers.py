@@ -184,7 +184,9 @@ class TestObjectElemKeyRule(TestCase):
 
 class TestObjectElemKeyExpressionRule(TestCase):
     def test_lark_name(self):
-        self.assertEqual(ObjectElemKeyExpressionRule.lark_name(), "object_elem_key")
+        self.assertEqual(
+            ObjectElemKeyExpressionRule.lark_name(), "object_elem_key_expr"
+        )
 
     def test_expression_property(self):
         expr = StubExpression("1 + 1")

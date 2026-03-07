@@ -317,14 +317,17 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         return ObjectRule([LBRACE(), *children, RBRACE()])
 
     def _deserialize_object_elem(self, key: Any, value: Any) -> ObjectElemRule:
+        key_rule: Union[ObjectElemKeyExpressionRule, ObjectElemKeyRule]
+
         if self._is_expression(key):
             expr = self._deserialize_expression(key)
-            key = ObjectElemKeyExpressionRule([expr])
+            key_rule = ObjectElemKeyExpressionRule([expr])
         else:
             key = self._deserialize_text(key)
+            key_rule = ObjectElemKeyRule([key])
 
         result = [
-            ObjectElemKeyRule([key]),
+            key_rule,
             COLON() if self.options.object_elements_colon else EQ(),
             ExprTermRule([self._deserialize(value)]),
         ]

@@ -124,7 +124,7 @@ class ObjectElemKeyExpressionRule(LarkRule):
     @staticmethod
     def lark_name() -> str:
         """Return the grammar rule name."""
-        return "object_elem_key"
+        return "object_elem_key_expr"
 
     @property
     def expression(self) -> ExpressionRule:

@@ -790,3 +790,40 @@ class TestFormatForObjectExpr(TestCase):
 
         nlc_count = sum(1 for c in obj._children if isinstance(c, NewLineOrCommentRule))
         self.assertGreater(nlc_count, 0)
+
+
+# --- alignment idempotency ---
+
+
+class TestAlignmentIdempotency(TestCase):
+    """Alignment must not double-pad when applied multiple times (#7)."""
+
+    def test_attribute_alignment_does_not_double_pad(self):
+        """Running _vertically_align_attributes_in_body twice produces same padding."""
+        f = _fmt()
+        attr_short = _make_attribute("a", "x")
+        attr_long = _make_attribute("long_name", "y")
+        body = BodyRule([attr_short, attr_long])
+
+        f._vertically_align_attributes_in_body(body)
+        eq_val_first = attr_short.children[1].value
+
+        f._vertically_align_attributes_in_body(body)
+        eq_val_second = attr_short.children[1].value
+
+        self.assertEqual(eq_val_first, eq_val_second)
+
+    def test_object_elem_alignment_does_not_double_pad(self):
+        """Running _vertically_align_object_elems twice produces same padding."""
+        f = _fmt()
+        elem_short = _make_object_elem("a", "x")
+        elem_long = _make_object_elem("long_key", "y")
+        obj = _make_object([elem_short, elem_long], trailing_commas=False)
+
+        f._vertically_align_object_elems(obj)
+        sep_val_first = elem_short.children[1].value
+
+        f._vertically_align_object_elems(obj)
+        sep_val_second = elem_short.children[1].value
+
+        self.assertEqual(sep_val_first, sep_val_second)

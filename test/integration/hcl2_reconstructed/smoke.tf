@@ -43,7 +43,7 @@ block {
   route53_forwarding_rule_shares = {
     for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) : 
     "${forwarding_rule_key}" => {
-      aws_account_ids  = [
+      aws_account_ids = [
         for account_name in var.route53_resolver_forwarding_rule_shares[forwarding_rule_key].aws_account_names : 
         module.remote_state_subaccounts.map[account_name].outputs["aws_account_id"]
       ]

@@ -46,7 +46,7 @@ class InterpolationRule(LarkRule):
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
         """Serialize to ${expression} string."""
-        return to_dollar_string(self.expression.serialize(options))
+        return to_dollar_string(self.expression.serialize(options, context))
 
 
 class StringPartRule(LarkRule):
@@ -92,7 +92,11 @@ class StringRule(LarkRule):
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
         """Serialize to a quoted string."""
-        return '"' + "".join(part.serialize() for part in self.string_parts) + '"'
+        return (
+            '"'
+            + "".join(part.serialize(options, context) for part in self.string_parts)
+            + '"'
+        )
 
 
 class HeredocTemplateRule(LarkRule):

@@ -38,9 +38,6 @@ class HCLReconstructor:
         self._current_indent = 0
         self._last_token_name: Optional[str] = None
         self._last_rule_name: Optional[str] = None
-        self._in_parentheses = False
-        self._in_object = False
-        self._in_tuple = False
 
     def _reset_state(self):
         """Reset state tracking for formatting decisions."""
@@ -48,9 +45,6 @@ class HCLReconstructor:
         self._current_indent = 0
         self._last_token_name = None
         self._last_rule_name = None
-        self._in_parentheses = False
-        self._in_object = False
-        self._in_tuple = False
 
     # pylint:disable=R0911,R0912
     def _should_add_space_before(
@@ -178,20 +172,8 @@ class HCLReconstructor:
                     self._last_was_space = True
 
         elif rule_name == ExprTermRule.lark_name():
-            # Check if parenthesized
-            if (
-                len(tree.children) >= 3
-                and isinstance(tree.children[0], Token)
-                and tree.children[0].type == tokens.LPAR.lark_name()
-                and isinstance(tree.children[-1], Token)
-                and tree.children[-1].type == tokens.RPAR.lark_name()
-            ):
-                self._in_parentheses = True
-
             for child in tree.children:
                 result.extend(self._reconstruct_node(child, rule_name))
-
-            self._in_parentheses = False
 
         else:
             for child in tree.children:

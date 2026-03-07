@@ -47,7 +47,7 @@ class ShortIndexRule(LarkRule):
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
         """Serialize to '.N' string."""
-        return f".{self.index.serialize(options)}"
+        return f".{self.index.serialize(options, context)}"
 
 
 class SqbIndexRule(InlineCommentMixIn):
@@ -75,7 +75,7 @@ class SqbIndexRule(InlineCommentMixIn):
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
         """Serialize to '[expr]' string."""
-        return f"[{self.index_expression.serialize(options)}]"
+        return f"[{self.index_expression.serialize(options, context)}]"
 
     def __init__(self, children, meta: Optional[Meta] = None):
         self._insert_optionals(children, [1, 3])
@@ -97,8 +97,8 @@ class IndexExprTermRule(ExpressionRule):
     ) -> Any:
         """Serialize to 'expr[index]' string."""
         with context.modify(inside_dollar_string=True):
-            expr = self.children[0].serialize(options)
-            index = self.children[1].serialize(options)
+            expr = self.children[0].serialize(options, context)
+            index = self.children[1].serialize(options, context)
             result = f"{expr}{index}"
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
