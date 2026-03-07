@@ -10,7 +10,13 @@ from hcl2.rules.base import (
     AttributeRule,
     BodyRule,
 )
-from hcl2.rules.containers import ObjectRule, ObjectElemRule, TupleRule
+from hcl2.rules.containers import (
+    ObjectRule,
+    ObjectElemRule,
+    ObjectElemKeyRule,
+    ObjectElemKeyExpressionRule,
+    TupleRule,
+)
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.for_expressions import (
     ForTupleExprRule,
@@ -246,9 +252,9 @@ class BaseFormatter(LarkElementTreeFormatter):
             )
 
     def _vertically_align_object_elems(self, rule: ObjectRule):
-        max_length = max(len(elem.key.serialize()) for elem in rule.elements)
+        max_length = max(self._key_text_width(elem.key) for elem in rule.elements)
         for elem in rule.elements:
-            key_length = len(elem.key.serialize())
+            key_length = self._key_text_width(elem.key)
 
             spaces_to_add = max_length - key_length
 
@@ -257,6 +263,21 @@ class BaseFormatter(LarkElementTreeFormatter):
                 spaces_to_add += 1
 
             elem.children[1].set_value(" " * spaces_to_add + separator.value)
+
+    @staticmethod
+    def _key_text_width(key: LarkElement) -> int:
+        """Compute the HCL text width of an object element key."""
+        width = len(str(key.serialize()))
+        # Expression keys serialize with ${...} wrapping (+3 chars vs HCL text).
+        # Handle both direct ObjectElemKeyExpressionRule (from parser) and
+        # ObjectElemKeyRule wrapping one (from deserializer).
+        if isinstance(key, ObjectElemKeyExpressionRule):
+            width -= 3
+        elif isinstance(key, ObjectElemKeyRule) and isinstance(
+            key.value, ObjectElemKeyExpressionRule
+        ):
+            width -= 3
+        return width
 
     def _build_newline(
         self, next_line_indent: int = 0, count: int = 1
