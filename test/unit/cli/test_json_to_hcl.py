@@ -142,3 +142,64 @@ class TestJsonToHcl(TestCase):
         with patch("sys.argv", ["jsontohcl2", "/nonexistent/path/foo.json"]):
             with self.assertRaises(RuntimeError):
                 main()
+
+
+class TestJsonToHclFlags(TestCase):
+    def _run_json_to_hcl(self, json_dict, extra_flags=None):
+        """Helper: write JSON to a temp file, run main() with flags, return HCL output."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "test.json")
+            _write_file(json_path, json.dumps(json_dict))
+
+            stdout = StringIO()
+            argv = ["jsontohcl2"] + (extra_flags or []) + [json_path]
+            with patch("sys.argv", argv):
+                with patch("sys.stdout", stdout):
+                    main()
+            return stdout.getvalue()
+
+    def test_no_trailing_comma_flag(self):
+        data = {"x": {"a": 1, "b": 2}}
+        default = self._run_json_to_hcl(data)
+        no_comma = self._run_json_to_hcl(data, ["--no-trailing-comma"])
+        # Default has trailing commas in objects; without flag it doesn't
+        self.assertNotEqual(default, no_comma)
+
+    def test_heredocs_to_strings_flag(self):
+        # Serialized heredocs are quoted strings containing heredoc markers
+        data = {"x": '"<<EOF\nhello\nEOF"'}
+        default = self._run_json_to_hcl(data)
+        converted = self._run_json_to_hcl(data, ["--heredocs-to-strings"])
+        self.assertNotEqual(default, converted)
+        # Default reconstructs as a real heredoc (no surrounding quotes);
+        # with flag it stays as a quoted string
+        self.assertNotIn('"', default.split("=", 1)[1].strip())
+        self.assertIn('"', converted.split("=", 1)[1].strip())
+
+    def test_strings_to_heredocs_flag(self):
+        # Quoted strings with escaped newlines get converted to heredocs
+        data = {"x": '"hello\\nworld"'}
+        default = self._run_json_to_hcl(data)
+        converted = self._run_json_to_hcl(data, ["--strings-to-heredocs"])
+        self.assertNotEqual(default, converted)
+        self.assertIn("<<", converted)
+
+    def test_no_open_empty_blocks_flag(self):
+        data = {"resource": [{'"a"': {'"b"': {"__is_block__": True}}}]}
+        default = self._run_json_to_hcl(data)
+        collapsed = self._run_json_to_hcl(data, ["--no-open-empty-blocks"])
+        self.assertNotEqual(default, collapsed)
+        # Default opens empty block on multiple lines; collapsed uses single line
+        self.assertIn("{}", collapsed)
+
+    def test_no_open_empty_objects_flag(self):
+        data = {"x": {}}
+        default = self._run_json_to_hcl(data)
+        collapsed = self._run_json_to_hcl(data, ["--no-open-empty-objects"])
+        self.assertNotEqual(default, collapsed)
+
+    def test_open_empty_tuples_flag(self):
+        data = {"x": []}
+        default = self._run_json_to_hcl(data)
+        expanded = self._run_json_to_hcl(data, ["--open-empty-tuples"])
+        self.assertNotEqual(default, expanded)

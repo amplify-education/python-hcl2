@@ -217,10 +217,6 @@ class RuleTransformer(Transformer):
     def function_call(self, meta: Meta, args) -> FunctionCallRule:
         return FunctionCallRule(args, meta)
 
-    # @v_args(meta=True)
-    # def provider_function_call(self, meta: Meta, args) -> ProviderFunctionCallRule:
-    #     return ProviderFunctionCallRule(args, meta)
-
     @v_args(meta=True)
     def index_expr_term(self, meta: Meta, args) -> IndexExprTermRule:
         return IndexExprTermRule(args, meta)

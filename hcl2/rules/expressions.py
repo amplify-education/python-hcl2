@@ -27,8 +27,8 @@ class ExpressionRule(InlineCommentMixIn, ABC):
 
     @staticmethod
     def lark_name() -> str:
-        """Return the grammar rule name."""
-        return "expression"
+        """?expression is transparent in Lark — subclasses must override."""
+        raise NotImplementedError("ExpressionRule.lark_name() must be overridden")
 
     def __init__(
         self, children, meta: Optional[Meta] = None, parentheses: bool = False
@@ -220,6 +220,10 @@ class BinaryOpRule(ExpressionRule):
         BinaryTermRule,
         Optional[NewLineOrCommentRule],
     ]
+
+    def __init__(self, children, meta: Optional[Meta] = None):
+        self._insert_optionals(children, [2])
+        super().__init__(children, meta)
 
     @staticmethod
     def lark_name() -> str:

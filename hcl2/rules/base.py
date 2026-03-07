@@ -10,7 +10,7 @@ from hcl2.rules.abstract import LarkRule, LarkToken
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.strings import StringRule
-from hcl2.rules.tokens import NAME, EQ, LBRACE, RBRACE
+from hcl2.rules.tokens import EQ, LBRACE, RBRACE
 
 from hcl2.rules.whitespace import NewLineOrCommentRule
 from hcl2.utils import SerializationOptions, SerializationContext
@@ -148,7 +148,7 @@ class BlockRule(LarkRule):
         return "block"
 
     @property
-    def labels(self) -> List[NAME]:
+    def labels(self) -> List[Union[IdentifierRule, StringRule]]:
         """Return the block label chain (type name, optional string labels)."""
         return list(filter(lambda label: label is not None, self._labels))
 

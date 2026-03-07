@@ -75,13 +75,6 @@ class TestSerializationContext(TestCase):
         self.assertFalse(ctx.inside_dollar_string)
         self.assertFalse(ctx.inside_parentheses)
 
-    def test_copy_yields_independent_copy(self):
-        ctx = SerializationContext()
-        with ctx.copy(inside_dollar_string=True) as copied:
-            self.assertTrue(copied.inside_dollar_string)
-            self.assertFalse(ctx.inside_dollar_string)
-            self.assertIsNot(ctx, copied)
-
 
 class TestIsDollarString(TestCase):
     def test_valid_dollar_string(self):

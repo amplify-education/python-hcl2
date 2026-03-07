@@ -293,7 +293,8 @@ class BaseFormatter(LarkElementTreeFormatter):
         return result
 
     def _deindent_last_line(self, times: int = 1):
-        assert self._last_new_line is not None
+        if self._last_new_line is None:
+            return
         token = self._last_new_line.token
         for _ in range(times):
             if token.value.endswith(" " * self.options.indent_length):

@@ -49,9 +49,11 @@ class TestLoads(TestCase):
 
     def test_with_meta_option(self):
         result = loads(
-            SIMPLE_HCL, serialization_options=SerializationOptions(with_meta=True)
+            BLOCK_HCL, serialization_options=SerializationOptions(with_meta=True)
         )
-        self.assertIn("x", result)
+        self.assertIn("resource", result)
+        # Verify the option is accepted and produces a dict with expected content
+        self.assertIsInstance(result, dict)
 
     def test_block_parsing(self):
         result = loads(BLOCK_HCL)
@@ -83,6 +85,10 @@ class TestDumps(TestCase):
         result = dumps(SIMPLE_DICT)
         self.assertIn("x", result)
         self.assertIn("5", result)
+
+    def test_roundtrip(self):
+        result = loads(dumps(SIMPLE_DICT))
+        self.assertEqual(result, SIMPLE_DICT)
 
     def test_with_deserializer_options(self):
         result = dumps(SIMPLE_DICT, deserializer_options=DeserializerOptions())
@@ -239,3 +245,17 @@ class TestReconstruct(TestCase):
         hcl_text = reconstruct(tree)
         reparsed = loads(hcl_text)
         self.assertEqual(reparsed["x"], 5)
+
+
+class TestErrorPaths(TestCase):
+    def test_loads_raises_on_invalid_hcl(self):
+        with self.assertRaises(Exception):
+            loads("this is {{{{ not valid hcl")
+
+    def test_dumps_on_non_dict_returns_empty(self):
+        result = dumps("not a dict")
+        self.assertEqual(result, "")
+
+    def test_from_json_raises_on_invalid_json(self):
+        with self.assertRaises(Exception):
+            from_json("{not valid json")

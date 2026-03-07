@@ -185,8 +185,10 @@ class TestSingleFileErrorHandling(TestCase):
             with patch("sys.argv", ["hcl2tojson", "-s", in_path, out_path]):
                 main()
 
-            if os.path.exists(out_path):
-                self.assertEqual(_read_file(out_path), "")
+            # The output file is created (opened for writing) before
+            # conversion; on a skipped error it will be empty.
+            self.assertTrue(os.path.exists(out_path))
+            self.assertEqual(_read_file(out_path), "")
 
     def test_raise_error_with_output_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -220,6 +222,64 @@ class TestSingleFileErrorHandling(TestCase):
                 with patch("sys.stdout", stdout):
                     with self.assertRaises(Exception):
                         main()
+
+
+class TestHclToJsonFlags(TestCase):
+    def _run_hcl_to_json(self, hcl_content, extra_flags=None):
+        """Helper: write HCL to a temp file, run main() with flags, return parsed JSON."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "test.tf")
+            _write_file(hcl_path, hcl_content)
+
+            stdout = StringIO()
+            argv = ["hcl2tojson"] + (extra_flags or []) + [hcl_path]
+            with patch("sys.argv", argv):
+                with patch("sys.stdout", stdout):
+                    main()
+            return json.loads(stdout.getvalue())
+
+    def test_no_explicit_blocks_flag(self):
+        hcl = 'resource "a" "b" {\n  x = 1\n}\n'
+        default = self._run_hcl_to_json(hcl)
+        no_blocks = self._run_hcl_to_json(hcl, ["--no-explicit-blocks"])
+        # With explicit blocks, the value is wrapped in a list; without, it may differ
+        self.assertNotEqual(default, no_blocks)
+
+    def test_no_preserve_heredocs_flag(self):
+        hcl = "x = <<EOF\nhello\nEOF\n"
+        default = self._run_hcl_to_json(hcl)
+        no_heredocs = self._run_hcl_to_json(hcl, ["--no-preserve-heredocs"])
+        self.assertNotEqual(default, no_heredocs)
+
+    def test_force_parens_flag(self):
+        hcl = "x = 1 + 2 * 3\n"
+        default = self._run_hcl_to_json(hcl)
+        forced = self._run_hcl_to_json(hcl, ["--force-parens"])
+        self.assertNotEqual(default, forced)
+        self.assertIn("(", forced["x"])
+
+    def test_no_preserve_scientific_flag(self):
+        hcl = "x = 1e10\n"
+        default = self._run_hcl_to_json(hcl)
+        no_sci = self._run_hcl_to_json(hcl, ["--no-preserve-scientific"])
+        self.assertNotEqual(default, no_sci)
+
+    def test_json_indent_flag(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "test.tf")
+            _write_file(hcl_path, "x = {\n  a = 1\n}\n")
+
+            stdout_2 = StringIO()
+            stdout_4 = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--json-indent", "2", hcl_path]):
+                with patch("sys.stdout", stdout_2):
+                    main()
+            with patch("sys.argv", ["hcl2tojson", "--json-indent", "4", hcl_path]):
+                with patch("sys.stdout", stdout_4):
+                    main()
+
+            # 4-space indent produces longer output than 2-space
+            self.assertGreater(len(stdout_4.getvalue()), len(stdout_2.getvalue()))
 
 
 class TestDirectoryEdgeCases(TestCase):
