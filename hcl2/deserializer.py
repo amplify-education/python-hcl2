@@ -22,7 +22,6 @@ from hcl2.rules.containers import (
     ObjectRule,
     ObjectElemRule,
     ObjectElemKeyExpressionRule,
-    ObjectElemKeyDotAccessor,
     ObjectElemKeyRule,
 )
 from hcl2.rules.expressions import ExprTermRule
@@ -51,7 +50,6 @@ from hcl2.rules.tokens import (
     RSQB,
     LSQB,
     COMMA,
-    DOT,
     LBRACE,
     HEREDOC_TRIM_TEMPLATE,
     HEREDOC_TEMPLATE,
@@ -320,20 +318,8 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
     def _deserialize_object_elem(self, key: Any, value: Any) -> ObjectElemRule:
         if self._is_expression(key):
-            key = ObjectElemKeyExpressionRule(
-                [
-                    child
-                    for child in self._deserialize_expression(key).children
-                    if child is not None
-                ]
-            )
-        elif isinstance(key, str) and "." in key:
-            parts = key.split(".")
-            dot_children: List[Any] = []
-            for part in parts:
-                dot_children.append(self._deserialize_identifier(part))
-                dot_children.append(DOT())
-            key = ObjectElemKeyDotAccessor(dot_children[:-1])  # without the last dot
+            expr = self._deserialize_expression(key)
+            key = ObjectElemKeyExpressionRule([expr])
         else:
             key = self._deserialize_text(key)
 

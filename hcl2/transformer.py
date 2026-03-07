@@ -15,7 +15,6 @@ from hcl2.rules.containers import (
     ObjectElemKeyRule,
     TupleRule,
     ObjectElemKeyExpressionRule,
-    ObjectElemKeyDotAccessor,
 )
 from hcl2.rules.expressions import (
     BinaryTermRule,
@@ -198,20 +197,17 @@ class RuleTransformer(Transformer):
         return ObjectElemRule(args, meta)
 
     @v_args(meta=True)
-    def object_elem_key(self, meta: Meta, args) -> ObjectElemKeyRule:
-        return ObjectElemKeyRule(args, meta)
-
-    @v_args(meta=True)
-    def object_elem_key_expression(
-        self, meta: Meta, args
-    ) -> ObjectElemKeyExpressionRule:
-        return ObjectElemKeyExpressionRule(args, meta)
-
-    @v_args(meta=True)
-    def object_elem_key_dot_accessor(
-        self, meta: Meta, args
-    ) -> ObjectElemKeyDotAccessor:
-        return ObjectElemKeyDotAccessor(args, meta)
+    def object_elem_key(self, meta: Meta, args):
+        expr = args[0]
+        # Simple literals (identifier, string, int, float) wrapped in ExprTermRule
+        if isinstance(expr, ExprTermRule) and len(expr.children) == 5:
+            inner = expr.children[2]  # position 2 in [None, None, inner, None, None]
+            if isinstance(
+                inner, (IdentifierRule, StringRule, IntLitRule, FloatLitRule)
+            ):
+                return ObjectElemKeyRule([inner], meta)
+        # Any other expression (parenthesized or bare)
+        return ObjectElemKeyExpressionRule([expr], meta)
 
     @v_args(meta=True)
     def arguments(self, meta: Meta, args) -> ArgumentsRule:

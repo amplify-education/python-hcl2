@@ -18,9 +18,6 @@ from hcl2.rules.tokens import (
     RBRACE,
     LSQB,
     RSQB,
-    LPAR,
-    RPAR,
-    DOT,
 )
 from hcl2.rules.whitespace import (
     NewLineOrCommentRule,
@@ -114,63 +111,35 @@ class ObjectElemKeyRule(LarkRule):
 
 
 class ObjectElemKeyExpressionRule(LarkRule):
-    """Rule for parenthesized expression keys in objects."""
+    """Rule for expression keys in objects (bare or parenthesized).
 
-    _children_layout: Tuple[
-        LPAR,
-        ExpressionRule,
-        RPAR,
-    ]
+    Holds a single ExpressionRule child.  Parenthesized keys like
+    ``(var.account)`` arrive as an ExprTermRule whose own ``serialize()``
+    already emits the surrounding ``(…)``, so this class does not need
+    separate handling for bare vs parenthesized forms.
+    """
+
+    _children_layout: Tuple[ExpressionRule]
 
     @staticmethod
     def lark_name() -> str:
         """Return the grammar rule name."""
-        return "object_elem_key_expression"
+        return "object_elem_key"
 
     @property
     def expression(self) -> ExpressionRule:
-        """Return the parenthesized key expression."""
-        return self._children[1]
+        """Return the key expression."""
+        return self._children[0]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-        """Serialize to '(expression)' string."""
+        """Serialize to '${expression}' string."""
         with context.modify(inside_dollar_string=True):
-            result = f"({self.expression.serialize(options, context)})"
+            result = str(self.expression.serialize(options, context))
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
         return result
-
-
-class ObjectElemKeyDotAccessor(LarkRule):
-    """Rule for dot-accessor keys in objects (e.g. a.b.c)."""
-
-    _children_layout: Tuple[
-        IdentifierRule,
-        Tuple[
-            IdentifierRule,
-            DOT,
-        ],
-    ]
-
-    @staticmethod
-    def lark_name() -> str:
-        """Return the grammar rule name."""
-        return "object_elem_key_dot_accessor"
-
-    @property
-    def identifiers(self) -> List[IdentifierRule]:
-        """Return the chain of identifiers."""
-        return [child for child in self._children if isinstance(child, IdentifierRule)]
-
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
-        """Serialize to 'a.b.c' string."""
-        return ".".join(
-            identifier.serialize(options, context) for identifier in self.identifiers
-        )
 
 
 class ObjectElemRule(LarkRule):

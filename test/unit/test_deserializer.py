@@ -8,7 +8,6 @@ from hcl2.rules.containers import (
     TupleRule,
     ObjectRule,
     ObjectElemRule,
-    ObjectElemKeyDotAccessor,
     ObjectElemKeyExpressionRule,
 )
 from hcl2.rules.expressions import ExprTermRule
@@ -364,15 +363,19 @@ class TestDeserializeContainers(TestCase):
         result = d._deserialize_object_elem("a.b", 1)
         self.assertIsInstance(result, ObjectElemRule)
         key_rule = result.key
-        self.assertIsInstance(key_rule.value, ObjectElemKeyDotAccessor)
-        identifiers = key_rule.value.identifiers
-        self.assertEqual(len(identifiers), 2)
-        self.assertEqual(identifiers[0].token.value, "a")
-        self.assertEqual(identifiers[1].token.value, "b")
+        self.assertIsInstance(key_rule.value, IdentifierRule)
+        self.assertEqual(key_rule.value.token.value, "a.b")
 
     def test_expression_key_object_element(self):
         d = _deser()
-        result = d._deserialize_object_elem("${var.key}", 1)
+        result = d._deserialize_object_elem("${(var.key)}", 1)
+        self.assertIsInstance(result, ObjectElemRule)
+        key_rule = result.key
+        self.assertIsInstance(key_rule.value, ObjectElemKeyExpressionRule)
+
+    def test_bare_expression_key_object_element(self):
+        d = _deser()
+        result = d._deserialize_object_elem("${1 + 1}", 1)
         self.assertIsInstance(result, ObjectElemRule)
         key_rule = result.key
         self.assertIsInstance(key_rule.value, ObjectElemKeyExpressionRule)

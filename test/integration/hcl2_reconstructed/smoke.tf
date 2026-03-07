@@ -7,12 +7,12 @@ block label1 label2 {
   f = "${"this is a string"}"
   g = 1 == 2
   h = {
-    k1           = 5,
-    k2           = 10,
-    "k3"         = {
+    k1              = 5,
+    k2              = 10,
+    "k3"            = {
       k4 = "a",
     },
-    (5 + 5)   = "d",
+    (5 + 5)      = "d",
     k5.attr.attr = "e",
   }
   i = [
