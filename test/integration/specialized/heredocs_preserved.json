@@ -1,0 +1,14 @@
+{
+  "locals": [
+    {
+      "simple": "\"<<EOF\nhello world\nEOF\"",
+      "multiline": "\"<<EOF\nline1\nline2\nline3\nEOF\"",
+      "with_quotes": "\"<<EOF\nsay \"hello\"\nEOF\"",
+      "with_backslashes": "\"<<EOF\npath\\to\\file\nEOF\"",
+      "trimmed": "\"<<-EOF\n    indented1\n    indented2\n  EOF\"",
+      "trimmed_mixed": "\"<<-EOF\n    line1\n      line2\n    line3\n  EOF\"",
+      "json_content": "\"<<EOF\n{\"key\": \"value\"}\nEOF\"",
+      "__is_block__": true
+    }
+  ]
+}

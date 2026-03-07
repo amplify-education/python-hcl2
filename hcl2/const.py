@@ -1,4 +1,5 @@
 """Module for various constants used across the library"""
 
-START_LINE_KEY = "__start_line__"
-END_LINE_KEY = "__end_line__"
+IS_BLOCK = "__is_block__"
+COMMENTS_KEY = "__comments__"
+INLINE_COMMENTS_KEY = "__inline_comments__"

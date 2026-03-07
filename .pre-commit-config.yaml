@@ -6,6 +6,7 @@ repos:
     rev: v4.3.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^test/integration/(hcl2_reconstructed|specialized)/
       - id: end-of-file-fixer
       - id: check-added-large-files
       - id: no-commit-to-branch  # Prevent commits directly to master
