@@ -1,4 +1,5 @@
-from functools import lru_cache
+"""Rule classes for HCL2 function calls and arguments."""
+
 from typing import Any, Optional, Tuple, Union, List
 
 from hcl2.rules.expressions import ExpressionRule
@@ -16,8 +17,9 @@ from hcl2.utils import (
 
 
 class ArgumentsRule(InlineCommentMixIn):
+    """Rule for a comma-separated list of function arguments."""
 
-    _children: Tuple[
+    _children_layout: Tuple[
         ExpressionRule,
         Tuple[
             Optional[NewLineOrCommentRule],
@@ -32,11 +34,12 @@ class ArgumentsRule(InlineCommentMixIn):
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "arguments"
 
     @property
-    @lru_cache(maxsize=None)
     def has_ellipsis(self) -> bool:
+        """Return whether the argument list ends with an ellipsis (...)."""
         for child in self._children[-2:]:
             if isinstance(child, StringToken) and child.lark_name() == "ELLIPSIS":
                 return True
@@ -44,13 +47,15 @@ class ArgumentsRule(InlineCommentMixIn):
 
     @property
     def arguments(self) -> List[ExpressionRule]:
+        """Return the list of expression arguments."""
         return [child for child in self._children if isinstance(child, ExpressionRule)]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
+        """Serialize to a comma-separated argument string."""
         result = ", ".join(
-            [str(argument.serialize(options, context)) for argument in self.arguments]
+            str(argument.serialize(options, context)) for argument in self.arguments
         )
         if self.has_ellipsis:
             result += " ..."
@@ -58,8 +63,9 @@ class ArgumentsRule(InlineCommentMixIn):
 
 
 class FunctionCallRule(InlineCommentMixIn):
+    """Rule for function call expressions (e.g. func(args))."""
 
-    _children: Tuple[
+    _children_layout: Tuple[
         IdentifierRule,
         Optional[IdentifierRule],
         Optional[IdentifierRule],
@@ -72,26 +78,34 @@ class FunctionCallRule(InlineCommentMixIn):
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "function_call"
 
     @property
-    @lru_cache(maxsize=None)
     def identifiers(self) -> List[IdentifierRule]:
+        """Return the function name identifier(s)."""
         return [child for child in self._children if isinstance(child, IdentifierRule)]
 
     @property
-    @lru_cache(maxsize=None)
     def arguments(self) -> Optional[ArgumentsRule]:
+        """Return the arguments rule, or None if no arguments."""
         for child in self._children:
             if isinstance(child, ArgumentsRule):
                 return child
+        return None
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
+        """Serialize to 'func(args)' string."""
         with context.modify(inside_dollar_string=True):
-            result = f"{'::'.join(identifier.serialize(options, context) for identifier in self.identifiers)}"
-            result += f"({self.arguments.serialize(options, context) if self.arguments else ''})"
+            name = "::".join(
+                identifier.serialize(options, context)
+                for identifier in self.identifiers
+            )
+            args = self.arguments
+            args_str = args.serialize(options, context) if args else ""
+            result = f"{name}({args_str})"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
@@ -100,7 +114,9 @@ class FunctionCallRule(InlineCommentMixIn):
 
 
 class ProviderFunctionCallRule(FunctionCallRule):
-    _children: Tuple[
+    """Rule for provider-namespaced function calls."""
+
+    _children_layout: Tuple[
         IdentifierRule,
         IdentifierRule,
         IdentifierRule,
@@ -113,4 +129,5 @@ class ProviderFunctionCallRule(FunctionCallRule):
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "provider_function_call"

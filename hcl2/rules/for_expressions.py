@@ -1,8 +1,9 @@
+"""Rule classes for HCL2 for-tuple and for-object expressions."""
+
 from typing import Any, Tuple, Optional, List
 
 from lark.tree import Meta
 
-from hcl2.rules.abstract import LarkRule, LarkElement
 from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.tokens import (
@@ -17,6 +18,7 @@ from hcl2.rules.tokens import (
     COLON,
     ELLIPSIS,
     FOR_OBJECT_ARROW,
+    StaticStringToken,
 )
 from hcl2.rules.whitespace import (
     NewLineOrCommentRule,
@@ -32,7 +34,7 @@ from hcl2.utils import (
 class ForIntroRule(InlineCommentMixIn):
     """Rule for the intro part of for expressions: 'for key, value in collection :'"""
 
-    _children: Tuple[
+    _children_layout: Tuple[
         FOR,
         Optional[NewLineOrCommentRule],
         IdentifierRule,
@@ -49,6 +51,7 @@ class ForIntroRule(InlineCommentMixIn):
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "for_intro"
 
     def __init__(self, children, meta: Optional[Meta] = None):
@@ -56,7 +59,10 @@ class ForIntroRule(InlineCommentMixIn):
         self._insert_optionals(children)
         super().__init__(children, meta)
 
-    def _insert_optionals(self, children: List, indexes: List[int] = None):
+    def _insert_optionals(  # type: ignore[override]
+        self, children: List, indexes: Optional[List[int]] = None
+    ):
+        """Insert None placeholders, handling optional comma and second identifier."""
         identifiers = [child for child in children if isinstance(child, IdentifierRule)]
         second_identifier = identifiers[1] if len(identifiers) == 2 else None
 
@@ -67,27 +73,28 @@ class ForIntroRule(InlineCommentMixIn):
         super()._insert_optionals(children, sorted(indexes))
 
         if second_identifier is not None:
-            children[3] = COMMA()
+            children[3] = COMMA()  # type: ignore[abstract]  # pylint: disable=abstract-class-instantiated
             children[4] = second_identifier
 
     @property
     def first_iterator(self) -> IdentifierRule:
-        """Returns the first iterator"""
+        """Return the first iterator identifier."""
         return self._children[2]
 
     @property
     def second_iterator(self) -> Optional[IdentifierRule]:
-        """Returns the second iterator or None if not present"""
+        """Return the second iterator identifier, or None if not present."""
         return self._children[4]
 
     @property
     def iterable(self) -> ExpressionRule:
-        """Returns the collection expression being iterated over"""
+        """Return the collection expression being iterated over."""
         return self._children[8]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> str:
+        """Serialize to 'for key, value in collection : ' string."""
         result = "for "
 
         result += f"{self.first_iterator.serialize(options, context)}"
@@ -101,7 +108,7 @@ class ForIntroRule(InlineCommentMixIn):
 class ForCondRule(InlineCommentMixIn):
     """Rule for the optional condition in for expressions: 'if condition'"""
 
-    _children: Tuple[
+    _children_layout: Tuple[
         IF,
         Optional[NewLineOrCommentRule],
         ExpressionRule,  # condition expression
@@ -109,6 +116,7 @@ class ForCondRule(InlineCommentMixIn):
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "for_cond"
 
     def __init__(self, children, meta: Optional[Meta] = None):
@@ -117,19 +125,20 @@ class ForCondRule(InlineCommentMixIn):
 
     @property
     def condition_expr(self) -> ExpressionRule:
-        """Returns the condition expression"""
+        """Return the condition expression."""
         return self._children[2]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> str:
+        """Serialize to 'if condition' string."""
         return f"if {self.condition_expr.serialize(options, context)}"
 
 
 class ForTupleExprRule(ExpressionRule):
     """Rule for tuple/array for expressions: [for item in items : expression]"""
 
-    _children: Tuple[
+    _children_layout: Tuple[
         LSQB,
         Optional[NewLineOrCommentRule],
         ForIntroRule,
@@ -143,13 +152,17 @@ class ForTupleExprRule(ExpressionRule):
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "for_tuple_expr"
 
     def __init__(self, children, meta: Optional[Meta] = None):
         self._insert_optionals(children)
         super().__init__(children, meta)
 
-    def _insert_optionals(self, children: List, indexes: List[int] = None):
+    def _insert_optionals(  # type: ignore[override]
+        self, children: List, indexes: Optional[List[int]] = None
+    ):
+        """Insert None placeholders, handling optional condition."""
         condition = None
 
         for child in children:
@@ -168,23 +181,23 @@ class ForTupleExprRule(ExpressionRule):
 
     @property
     def for_intro(self) -> ForIntroRule:
-        """Returns the for intro rule"""
+        """Return the for intro rule."""
         return self._children[2]
 
     @property
     def value_expr(self) -> ExpressionRule:
-        """Returns the value expression"""
+        """Return the value expression."""
         return self._children[4]
 
     @property
     def condition(self) -> Optional[ForCondRule]:
-        """Returns the optional condition rule"""
+        """Return the optional condition rule."""
         return self._children[6]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-
+        """Serialize to '[for ... : expr]' string."""
         result = "["
 
         with context.modify(inside_dollar_string=True):
@@ -203,7 +216,7 @@ class ForTupleExprRule(ExpressionRule):
 class ForObjectExprRule(ExpressionRule):
     """Rule for object for expressions: {for key, value in items : key => value}"""
 
-    _children: Tuple[
+    _children_layout: Tuple[
         LBRACE,
         Optional[NewLineOrCommentRule],
         ForIntroRule,
@@ -222,18 +235,26 @@ class ForObjectExprRule(ExpressionRule):
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "for_object_expr"
 
     def __init__(self, children, meta: Optional[Meta] = None):
         self._insert_optionals(children)
         super().__init__(children, meta)
 
-    def _insert_optionals(self, children: List, indexes: List[int] = None):
+    def _insert_optionals(  # type: ignore[override]
+        self, children: List, indexes: Optional[List[int]] = None
+    ):
+        """Insert None placeholders, handling optional ellipsis and condition."""
         ellipsis_ = None
         condition = None
 
         for child in children:
-            if ellipsis_ is None and isinstance(child, ELLIPSIS):
+            if (
+                ellipsis_ is None
+                and isinstance(child, StaticStringToken)
+                and child.lark_name() == "ELLIPSIS"
+            ):
                 ellipsis_ = child
             if condition is None and isinstance(child, ForCondRule):
                 condition = child
@@ -252,33 +273,33 @@ class ForObjectExprRule(ExpressionRule):
 
     @property
     def for_intro(self) -> ForIntroRule:
-        """Returns the for intro rule"""
+        """Return the for intro rule."""
         return self._children[2]
 
     @property
     def key_expr(self) -> ExpressionRule:
-        """Returns the key expression"""
+        """Return the key expression."""
         return self._children[4]
 
     @property
     def value_expr(self) -> ExpressionRule:
-        """Returns the value expression"""
+        """Return the value expression."""
         return self._children[7]
 
     @property
-    def ellipsis(self) -> Optional[ELLIPSIS]:
-        """Returns the optional ellipsis token"""
+    def ellipsis(self):
+        """Return the optional ellipsis token."""
         return self._children[9]
 
     @property
     def condition(self) -> Optional[ForCondRule]:
-        """Returns the optional condition rule"""
+        """Return the optional condition rule."""
         return self._children[11]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-
+        """Serialize to '{for ... : key => value}' string."""
         result = "{"
         with context.modify(inside_dollar_string=True):
             result += self.for_intro.serialize(options, context)
