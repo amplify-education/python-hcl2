@@ -1,4 +1,5 @@
-from typing import List, Union
+"""Reconstruct HCL2 text from a Lark Tree AST."""
+from typing import List, Optional, Union
 
 from lark import Tree, Token
 from hcl2.rules import tokens
@@ -33,10 +34,16 @@ class HCLReconstructor:
     }
 
     def __init__(self):
-        self._reset_state()
+        self._last_was_space = True
+        self._current_indent = 0
+        self._last_token_name: Optional[str] = None
+        self._last_rule_name: Optional[str] = None
+        self._in_parentheses = False
+        self._in_object = False
+        self._in_tuple = False
 
     def _reset_state(self):
-        """State tracking for formatting decisions"""
+        """Reset state tracking for formatting decisions."""
         self._last_was_space = True
         self._current_indent = 0
         self._last_token_name = None
@@ -45,8 +52,9 @@ class HCLReconstructor:
         self._in_object = False
         self._in_tuple = False
 
+    # pylint:disable=R0911,R0912
     def _should_add_space_before(
-        self, current_node: Union[Tree, Token], parent_rule_name: str = None
+        self, current_node: Union[Tree, Token], parent_rule_name: Optional[str] = None
     ) -> bool:
         """Determine if we should add a space before the current token/rule."""
 
@@ -151,7 +159,9 @@ class HCLReconstructor:
 
         return False
 
-    def _reconstruct_tree(self, tree: Tree, parent_rule_name: str = None) -> List[str]:
+    def _reconstruct_tree(
+        self, tree: Tree, parent_rule_name: Optional[str] = None
+    ) -> List[str]:
         """Recursively reconstruct a Tree node into HCL text fragments."""
         result = []
         rule_name = tree.data
@@ -197,7 +207,9 @@ class HCLReconstructor:
 
         return result
 
-    def _reconstruct_token(self, token: Token, parent_rule_name: str = None) -> str:
+    def _reconstruct_token(
+        self, token: Token, parent_rule_name: Optional[str] = None
+    ) -> str:
         """Reconstruct a Token node into HCL text fragments."""
         result = str(token.value)
         if self._should_add_space_before(token, parent_rule_name):
@@ -210,18 +222,17 @@ class HCLReconstructor:
         return result
 
     def _reconstruct_node(
-        self, node: Union[Tree, Token], parent_rule_name: str = None
+        self, node: Union[Tree, Token], parent_rule_name: Optional[str] = None
     ) -> List[str]:
         """Reconstruct any node (Tree or Token) into HCL text fragments."""
         if isinstance(node, Tree):
             return self._reconstruct_tree(node, parent_rule_name)
-        elif isinstance(node, Token):
+        if isinstance(node, Token):
             return [self._reconstruct_token(node, parent_rule_name)]
-        else:
-            # Fallback: convert to string
-            return [str(node)]
+        # Fallback: convert to string
+        return [str(node)]
 
-    def reconstruct(self, tree: Tree, postproc=None, insert_spaces=False) -> str:
+    def reconstruct(self, tree: Tree, postproc=None) -> str:
         """Convert a Lark.Tree AST back into a string representation of HCL."""
         # Reset state
         self._reset_state()

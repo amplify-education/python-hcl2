@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from hcl2.rules.expressions import ExpressionRule
@@ -201,7 +202,7 @@ class TestHeredocTemplateRule(TestCase):
         self.assertEqual(result, '"say \\"hello\\""')
 
     def test_serialize_no_preserve_escapes_backslashes(self):
-        token = HEREDOC_TEMPLATE('<<EOF\npath\\to\\file\nEOF')
+        token = HEREDOC_TEMPLATE("<<EOF\npath\\to\\file\nEOF")
         rule = HeredocTemplateRule([token])
         opts = SerializationOptions(preserve_heredocs=False)
         result = rule.serialize(opts)
@@ -220,7 +221,7 @@ class TestHeredocTemplateRule(TestCase):
         rule = HeredocTemplateRule([token])
         opts = SerializationOptions(preserve_heredocs=False)
         result = rule.serialize(opts)
-        self.assertEqual(result, '"{\\\"key\\\": \\\"value\\\"}"')
+        self.assertEqual(result, '"{\\"key\\": \\"value\\"}"')
 
     def test_serialize_no_preserve_escapes_newlines(self):
         token = HEREDOC_TEMPLATE("<<EOF\nfirst\nsecond\nthird\nEOF")
@@ -283,7 +284,7 @@ class TestHeredocTrimTemplateRule(TestCase):
         self.assertEqual(result, '"say \\"hello\\""')
 
     def test_serialize_no_preserve_escapes_backslashes(self):
-        token = HEREDOC_TRIM_TEMPLATE('<<-EOF\n    path\\to\\file\nEOF')
+        token = HEREDOC_TRIM_TEMPLATE("<<-EOF\n    path\\to\\file\nEOF")
         rule = HeredocTrimTemplateRule([token])
         opts = SerializationOptions(preserve_heredocs=False)
         result = rule.serialize(opts)
@@ -294,7 +295,7 @@ class TestHeredocTrimTemplateRule(TestCase):
         rule = HeredocTrimTemplateRule([token])
         opts = SerializationOptions(preserve_heredocs=False)
         result = rule.serialize(opts)
-        self.assertEqual(result, '"{\\\"key\\\": \\\"value\\\"}"')
+        self.assertEqual(result, '"{\\"key\\": \\"value\\"}"')
 
     def test_serialize_no_preserve_escapes_newlines(self):
         token = HEREDOC_TRIM_TEMPLATE("<<-EOF\n    first\n    second\n    third\nEOF")

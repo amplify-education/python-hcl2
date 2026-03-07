@@ -3,7 +3,7 @@ branch = true
 omit =
     hcl2/lark_parser.py
     hcl2/version.py
-    hcl2/__main__.py  
+    hcl2/__main__.py
     hcl2/__init__.py
     hcl2/rules/__init__.py
     cli/__init__.py

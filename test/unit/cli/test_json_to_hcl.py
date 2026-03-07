@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 import json
 import os
 import tempfile
@@ -11,19 +12,7 @@ from cli.json_to_hcl import main
 SIMPLE_JSON_DICT = {"x": 1}
 SIMPLE_JSON = json.dumps(SIMPLE_JSON_DICT)
 
-BLOCK_JSON_DICT = {
-    "resource": [
-        {
-            "aws_instance": [
-                {
-                    "example": [
-                        {"ami": "abc-123"}
-                    ]
-                }
-            ]
-        }
-    ]
-}
+BLOCK_JSON_DICT = {"resource": [{"aws_instance": [{"example": [{"ami": "abc-123"}]}]}]}
 BLOCK_JSON = json.dumps(BLOCK_JSON_DICT)
 
 
@@ -38,7 +27,6 @@ def _read_file(path):
 
 
 class TestJsonToHcl(TestCase):
-
     def test_single_file_to_stdout(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             json_path = os.path.join(tmpdir, "test.json")

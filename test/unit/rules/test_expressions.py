@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from hcl2.rules.abstract import LarkRule
@@ -9,14 +10,13 @@ from hcl2.rules.expressions import (
     BinaryOpRule,
     UnaryOpRule,
 )
-from hcl2.rules.literal_rules import BinaryOperatorRule, IdentifierRule
+from hcl2.rules.literal_rules import BinaryOperatorRule
 from hcl2.rules.tokens import (
     LPAR,
     RPAR,
     QMARK,
     COLON,
     BINARY_OP,
-    NAME,
     StringToken,
 )
 from hcl2.utils import SerializationOptions, SerializationContext
@@ -67,8 +67,8 @@ def _make_binary_term(op_str, rhs_value):
     return BinaryTermRule([_make_binary_operator(op_str), _make_expr_term(rhs_value)])
 
 
-MINUS_TOKEN = StringToken["MINUS"]
-NOT_TOKEN = StringToken["NOT"]
+MINUS_TOKEN = StringToken["MINUS"]  # type: ignore[type-arg,name-defined]
+NOT_TOKEN = StringToken["NOT"]  # type: ignore[type-arg,name-defined]
 
 
 # --- ExprTermRule tests ---

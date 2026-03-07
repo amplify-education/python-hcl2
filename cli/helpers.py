@@ -2,7 +2,7 @@
 import json
 import os
 import sys
-from typing import Callable, IO, Set, Tuple
+from typing import Callable, IO, Set, Tuple, Type
 
 from lark import UnexpectedCharacters, UnexpectedToken
 
@@ -16,7 +16,7 @@ def _convert_single_file(
     out_path: str,
     convert_fn: Callable[[IO, IO], None],
     skip: bool,
-    skippable: Tuple[type, ...],
+    skippable: Tuple[Type[BaseException], ...],
 ) -> None:
     with open(in_path, "r", encoding="utf-8") as in_file:
         print(in_path, file=sys.stderr, flush=True)
@@ -43,7 +43,7 @@ def _convert_directory(
     out_path: str,
     convert_fn: Callable[[IO, IO], None],
     skip: bool,
-    skippable: Tuple[type, ...],
+    skippable: Tuple[Type[BaseException], ...],
     in_extensions: Set[str],
     out_extension: str,
 ) -> None:

@@ -1,9 +1,10 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from lark import Token, Tree
 from lark.tree import Meta
 
-from hcl2.rules.abstract import LarkElement, LarkToken, LarkRule
+from hcl2.rules.abstract import LarkToken, LarkRule
 from hcl2.utils import SerializationOptions, SerializationContext
 
 

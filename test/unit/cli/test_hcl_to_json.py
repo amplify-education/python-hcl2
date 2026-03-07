@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 import json
 import os
 import tempfile
@@ -8,7 +9,7 @@ from unittest.mock import patch
 from cli.hcl_to_json import main
 
 
-SIMPLE_HCL = 'x = 1\n'
+SIMPLE_HCL = "x = 1\n"
 SIMPLE_JSON_DICT = {"x": 1}
 
 
@@ -23,7 +24,6 @@ def _read_file(path):
 
 
 class TestHclToJson(TestCase):
-
     def test_single_file_to_stdout(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             hcl_path = os.path.join(tmpdir, "test.tf")
@@ -94,7 +94,7 @@ class TestHclToJson(TestCase):
             self.assertIn("resource", result)
 
     def test_no_comments_flag(self):
-        hcl_with_comment = '# a comment\nx = 1\n'
+        hcl_with_comment = "# a comment\nx = 1\n"
         with tempfile.TemporaryDirectory() as tmpdir:
             hcl_path = os.path.join(tmpdir, "test.tf")
             _write_file(hcl_path, hcl_with_comment)
@@ -108,7 +108,7 @@ class TestHclToJson(TestCase):
             self.assertIn("comment", output)
 
     def test_wrap_objects_flag(self):
-        hcl_input = 'x = {\n  a = 1\n}\n'
+        hcl_input = "x = {\n  a = 1\n}\n"
         with tempfile.TemporaryDirectory() as tmpdir:
             hcl_path = os.path.join(tmpdir, "test.tf")
             _write_file(hcl_path, hcl_input)
@@ -127,7 +127,7 @@ class TestHclToJson(TestCase):
             self.assertNotEqual(default["x"], wrapped["x"])
 
     def test_wrap_tuples_flag(self):
-        hcl_input = 'x = [1, 2]\n'
+        hcl_input = "x = [1, 2]\n"
         with tempfile.TemporaryDirectory() as tmpdir:
             hcl_path = os.path.join(tmpdir, "test.tf")
             _write_file(hcl_path, hcl_input)
@@ -176,7 +176,6 @@ class TestHclToJson(TestCase):
 
 
 class TestSingleFileErrorHandling(TestCase):
-
     def test_skip_error_with_output_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             in_path = os.path.join(tmpdir, "test.tf")
@@ -224,7 +223,6 @@ class TestSingleFileErrorHandling(TestCase):
 
 
 class TestDirectoryEdgeCases(TestCase):
-
     def test_subdirectory_creation(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             in_dir = os.path.join(tmpdir, "input")
@@ -237,9 +235,7 @@ class TestDirectoryEdgeCases(TestCase):
             with patch("sys.argv", ["hcl2tojson", in_dir, out_dir]):
                 main()
 
-            self.assertTrue(
-                os.path.exists(os.path.join(out_dir, "sub", "nested.json"))
-            )
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "sub", "nested.json")))
 
     def test_directory_raise_error_without_skip(self):
         with tempfile.TemporaryDirectory() as tmpdir:

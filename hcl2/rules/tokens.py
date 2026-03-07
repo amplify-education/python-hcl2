@@ -1,7 +1,7 @@
 """Token classes for terminal elements in the LarkElement tree."""
 
 from functools import lru_cache
-from typing import Callable, Any, Dict, Type, Optional, Tuple, Union
+from typing import Callable, Any, Dict, Type, Optional, Tuple
 
 from hcl2.rules.abstract import LarkToken
 
@@ -11,6 +11,13 @@ class StringToken(LarkToken):
     Single run-time base class; every `StringToken["..."]` call returns a
     cached subclass whose static `lark_name()` yields the given string.
     """
+
+    @staticmethod
+    def lark_name() -> str:
+        """Overridden by dynamic subclasses created via ``__class_getitem__``."""
+        raise NotImplementedError(
+            "Use StringToken['NAME'] to create a concrete subclass"
+        )
 
     @classmethod
     @lru_cache(maxsize=None)
@@ -30,9 +37,6 @@ class StringToken(LarkToken):
         if not isinstance(name, str):
             raise TypeError("StringToken[...] expects a single str argument")
         return cls.__build_subclass(name)
-
-    def __init__(self, value: Optional[Union[str, int, float]] = None):
-        super().__init__(value)  # type: ignore[arg-type]
 
     @property
     def serialize_conversion(self) -> Callable[[Any], str]:

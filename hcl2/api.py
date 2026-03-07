@@ -64,7 +64,13 @@ def dump(
     :param deserializer_options: Options controlling deserialization behavior.
     :param formatter_options: Options controlling formatting behavior.
     """
-    file.write(dumps(data, deserializer_options=deserializer_options, formatter_options=formatter_options))
+    file.write(
+        dumps(
+            data,
+            deserializer_options=deserializer_options,
+            formatter_options=formatter_options,
+        )
+    )
 
 
 def dumps(
@@ -79,7 +85,11 @@ def dumps(
     :param deserializer_options: Options controlling deserialization behavior.
     :param formatter_options: Options controlling formatting behavior.
     """
-    tree = from_dict(data, deserializer_options=deserializer_options, formatter_options=formatter_options)
+    tree = from_dict(
+        data,
+        deserializer_options=deserializer_options,
+        formatter_options=formatter_options,
+    )
     return reconstruct(tree)
 
 
@@ -135,18 +145,18 @@ def from_dict(
     *,
     deserializer_options: Optional[DeserializerOptions] = None,
     formatter_options: Optional[FormatterOptions] = None,
-    format: bool = True,
+    apply_format: bool = True,
 ) -> StartRule:
     """Convert a Python dict into a LarkElement tree.
 
     :param data: Python dict (as produced by :func:`load`).
     :param deserializer_options: Options controlling deserialization behavior.
     :param formatter_options: Options controlling formatting behavior.
-    :param format: If True (default), apply formatting to the tree.
+    :param apply_format: If True (default), apply formatting to the tree.
     """
     deserializer = BaseDeserializer(deserializer_options)
     tree = deserializer.load_python(data)
-    if format:
+    if apply_format:
         formatter = BaseFormatter(formatter_options)
         formatter.format_tree(tree)
     return tree
@@ -157,17 +167,22 @@ def from_json(
     *,
     deserializer_options: Optional[DeserializerOptions] = None,
     formatter_options: Optional[FormatterOptions] = None,
-    format: bool = True,
+    apply_format: bool = True,
 ) -> StartRule:
     """Convert a JSON string into a LarkElement tree.
 
     :param text: JSON string.
     :param deserializer_options: Options controlling deserialization behavior.
     :param formatter_options: Options controlling formatting behavior.
-    :param format: If True (default), apply formatting to the tree.
+    :param apply_format: If True (default), apply formatting to the tree.
     """
     data = _json.loads(text)
-    return from_dict(data, deserializer_options=deserializer_options, formatter_options=formatter_options, format=format)
+    return from_dict(
+        data,
+        deserializer_options=deserializer_options,
+        formatter_options=formatter_options,
+        apply_format=apply_format,
+    )
 
 
 def reconstruct(tree) -> str:
@@ -187,7 +202,9 @@ def transform(lark_tree: Tree, *, discard_comments: bool = False) -> StartRule:
     :param lark_tree: Raw Lark tree from :func:`parse_to_tree` or :func:`parse_string_to_tree`.
     :param discard_comments: If True, discard comments during transformation.
     """
-    return RuleTransformer(discard_new_line_or_comments=discard_comments).transform(lark_tree)
+    return RuleTransformer(discard_new_line_or_comments=discard_comments).transform(
+        lark_tree
+    )
 
 
 def serialize(

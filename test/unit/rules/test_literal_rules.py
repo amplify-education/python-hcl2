@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from hcl2.rules.literal_rules import (

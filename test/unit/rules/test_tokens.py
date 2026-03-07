@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from hcl2.rules.tokens import (
@@ -50,7 +51,7 @@ class TestStringToken(TestCase):
 
     def test_type_error_on_non_str_subscript(self):
         with self.assertRaises(TypeError):
-            StringToken[42]
+            StringToken[42]  # pylint: disable=pointless-statement
 
 
 class TestStaticStringToken(TestCase):

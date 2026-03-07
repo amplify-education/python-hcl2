@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from hcl2.const import IS_BLOCK, COMMENTS_KEY
@@ -9,7 +10,6 @@ from hcl2.rules.containers import (
     ObjectElemRule,
     ObjectElemKeyDotAccessor,
     ObjectElemKeyExpressionRule,
-    ObjectElemKeyRule,
 )
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule, IntLitRule, FloatLitRule
@@ -24,10 +24,6 @@ from hcl2.rules.tokens import (
     STRING_CHARS,
     ESCAPED_INTERPOLATION,
     COMMA,
-    LSQB,
-    RSQB,
-    LBRACE,
-    RBRACE,
     EQ,
     COLON,
 )
@@ -328,7 +324,7 @@ class TestDeserializeContainers(TestCase):
         d = _deser()
         result = d._deserialize_list([1, 2])
         # Structure: LSQB, ExprTermRule, COMMA, ExprTermRule, COMMA, RSQB
-        comma_count = sum(1 for c in result.children if isinstance(c, COMMA))
+        comma_count = sum(1 for c in result.children if isinstance(c, COMMA))  # type: ignore[misc]
         self.assertEqual(comma_count, 2)
 
     def test_dict_without_block_marker_to_object(self):
@@ -340,14 +336,14 @@ class TestDeserializeContainers(TestCase):
     def test_object_elements_trailing_comma_default(self):
         d = _deser()
         result = d._deserialize_object({"a": 1})
-        comma_count = sum(1 for c in result.children if isinstance(c, COMMA))
+        comma_count = sum(1 for c in result.children if isinstance(c, COMMA))  # type: ignore[misc]
         self.assertEqual(comma_count, 1)
 
     def test_object_elements_trailing_comma_false(self):
         opts = DeserializerOptions(object_elements_trailing_comma=False)
         d = _deser(opts)
         result = d._deserialize_object({"a": 1})
-        comma_count = sum(1 for c in result.children if isinstance(c, COMMA))
+        comma_count = sum(1 for c in result.children if isinstance(c, COMMA))  # type: ignore[misc]
         self.assertEqual(comma_count, 0)
 
     def test_object_elements_colon_separator(self):
@@ -454,9 +450,7 @@ class TestBlockDetection(TestCase):
 
     def test_contains_block_marker_deeply_nested(self):
         d = _deser()
-        self.assertTrue(
-            d._contains_block_marker({"a": {"b": {IS_BLOCK: True}}})
-        )
+        self.assertTrue(d._contains_block_marker({"a": {"b": {IS_BLOCK: True}}}))
 
     def test_contains_block_marker_false(self):
         d = _deser()

@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 import os
 import tempfile
 from io import StringIO
@@ -13,7 +14,6 @@ def _write_file(path, content):
 
 
 class TestConvertSingleFile(TestCase):
-
     def test_does_not_close_stdout(self):
         """Regression test: stdout must not be closed after writing."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -83,7 +83,6 @@ class TestConvertSingleFile(TestCase):
 
 
 class TestConvertDirectory(TestCase):
-
     def test_filters_by_extension(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             in_dir = os.path.join(tmpdir, "input")
@@ -100,8 +99,13 @@ class TestConvertDirectory(TestCase):
                 converted_files.append(True)
 
             _convert_directory(
-                in_dir, out_dir, convert, False, (Exception,),
-                in_extensions={".tf"}, out_extension=".json",
+                in_dir,
+                out_dir,
+                convert,
+                False,
+                (Exception,),
+                in_extensions={".tf"},
+                out_extension=".json",
             )
 
             self.assertEqual(len(converted_files), 1)
@@ -112,8 +116,13 @@ class TestConvertDirectory(TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             with self.assertRaises(RuntimeError):
                 _convert_directory(
-                    tmpdir, None, lambda i, o: None, False, (Exception,),
-                    in_extensions={".tf"}, out_extension=".json",
+                    tmpdir,
+                    None,
+                    lambda i, o: None,
+                    False,
+                    (Exception,),
+                    in_extensions={".tf"},
+                    out_extension=".json",
                 )
 
     def test_subdirectory_creation(self):
@@ -129,13 +138,16 @@ class TestConvertDirectory(TestCase):
                 out_f.write(in_f.read())
 
             _convert_directory(
-                in_dir, out_dir, convert, False, (Exception,),
-                in_extensions={".tf"}, out_extension=".json",
+                in_dir,
+                out_dir,
+                convert,
+                False,
+                (Exception,),
+                in_extensions={".tf"},
+                out_extension=".json",
             )
 
-            self.assertTrue(
-                os.path.exists(os.path.join(out_dir, "sub", "nested.json"))
-            )
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "sub", "nested.json")))
 
     def test_raise_error_without_skip(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -150,13 +162,17 @@ class TestConvertDirectory(TestCase):
 
             with self.assertRaises(ValueError):
                 _convert_directory(
-                    in_dir, out_dir, convert, False, (ValueError,),
-                    in_extensions={".tf"}, out_extension=".json",
+                    in_dir,
+                    out_dir,
+                    convert,
+                    False,
+                    (ValueError,),
+                    in_extensions={".tf"},
+                    out_extension=".json",
                 )
 
 
 class TestConvertStdin(TestCase):
-
     def test_stdin_forward(self):
         stdout = StringIO()
         captured = []
@@ -166,8 +182,7 @@ class TestConvertStdin(TestCase):
             captured.append(data)
             out_f.write("output")
 
-        with patch("sys.stdin", StringIO("input")), \
-             patch("sys.stdout", stdout):
+        with patch("sys.stdin", StringIO("input")), patch("sys.stdout", stdout):
             _convert_stdin(convert)
 
         self.assertEqual(captured[0], "input")

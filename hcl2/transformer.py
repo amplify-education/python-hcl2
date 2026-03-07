@@ -1,3 +1,4 @@
+"""Transform Lark parse trees into typed LarkElement rule trees."""
 # pylint: disable=missing-function-docstring,unused-argument
 from lark import Token, Tree, v_args, Transformer, Discard
 from lark.tree import Meta
@@ -81,16 +82,19 @@ class RuleTransformer(Transformer):
 
     def __default_token__(self, token: Token) -> StringToken:
         # TODO make this return StaticStringToken where applicable
-        if token.value in StaticStringToken.classes_by_value.keys():
+        if token.value in StaticStringToken.classes_by_value:
             return StaticStringToken.classes_by_value[token.value]()
-        return StringToken[token.type](token.value)
+        return StringToken[token.type](token.value)  # type: ignore[misc]
 
+    # pylint: disable=C0103
     def FLOAT_LITERAL(self, token: Token) -> FloatLiteral:
         return FloatLiteral(token.value)
 
+    # pylint: disable=C0103
     def NAME(self, token: Token) -> NAME:
         return NAME(token.value)
 
+    # pylint: disable=C0103
     def INT_LITERAL(self, token: Token) -> IntLiteral:
         return IntLiteral(token.value)
 
@@ -114,7 +118,9 @@ class RuleTransformer(Transformer):
         return AttributeRule(args, meta)
 
     @v_args(meta=True)
-    def new_line_or_comment(self, meta: Meta, args) -> NewLineOrCommentRule:
+    def new_line_or_comment(
+        self, meta: Meta, args
+    ):  # -> NewLineOrCommentRule | Discard
         if self.discard_new_line_or_comments:
             return Discard
         return NewLineOrCommentRule(args, meta)

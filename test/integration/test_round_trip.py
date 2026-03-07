@@ -9,6 +9,7 @@ outputs at each stage:
 3. JSON → HCL reconstruction (serialize + deserialize + format + reconstruct)
 4. Full round-trip (HCL → JSON → HCL → JSON produces identical JSON)
 """
+# pylint: disable=C0103,C0114,C0115,C0116
 
 import json
 from enum import Enum
@@ -120,7 +121,10 @@ class TestRoundTripSerialization(TestCase):
 
 
 class TestRoundTripReserialization(TestCase):
-    """Test JSON → JSON reserialization: parse HCL, serialize, deserialize, reserialize, compare with expected."""
+    """Test JSON → JSON reserialization.
+
+    Parse HCL, serialize, deserialize, reserialize, compare with expected.
+    """
 
     maxDiff = None
 
@@ -128,7 +132,9 @@ class TestRoundTripReserialization(TestCase):
         for suite in _get_suites():
             with self.subTest(suite=suite):
                 hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
-                json_reserialized_path = _get_suite_file(suite, SuiteStep.JSON_RESERIALIZED)
+                json_reserialized_path = _get_suite_file(
+                    suite, SuiteStep.JSON_RESERIALIZED
+                )
 
                 serialized = _parse_and_serialize(hcl_path.read_text())
                 actual = _deserialize_and_reserialize(serialized)
@@ -142,7 +148,10 @@ class TestRoundTripReserialization(TestCase):
 
 
 class TestRoundTripReconstruction(TestCase):
-    """Test JSON → HCL reconstruction: parse HCL, serialize, deserialize, format, reconstruct, compare with expected HCL."""
+    """Test JSON → HCL reconstruction.
+
+    Parse HCL, serialize, deserialize, format, reconstruct, compare with expected HCL.
+    """
 
     maxDiff = None
 

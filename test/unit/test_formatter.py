@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from hcl2.formatter import BaseFormatter, FormatterOptions
@@ -13,7 +14,7 @@ from hcl2.rules.containers import (
     ObjectElemKeyRule,
     TupleRule,
 )
-from hcl2.rules.expressions import ExpressionRule, ExprTermRule
+from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.for_expressions import (
     ForIntroRule,
     ForCondRule,
@@ -21,7 +22,6 @@ from hcl2.rules.for_expressions import (
     ForObjectExprRule,
 )
 from hcl2.rules.literal_rules import IdentifierRule
-from hcl2.rules.strings import StringRule, StringPartRule
 from hcl2.rules.tokens import (
     NAME,
     EQ,
@@ -31,9 +31,6 @@ from hcl2.rules.tokens import (
     RSQB,
     COMMA,
     COLON,
-    DBLQUOTE,
-    STRING_CHARS,
-    NL_OR_COMMENT,
     FOR,
     IN,
     IF,
@@ -41,7 +38,6 @@ from hcl2.rules.tokens import (
     FOR_OBJECT_ARROW,
 )
 from hcl2.rules.whitespace import NewLineOrCommentRule
-from hcl2.utils import SerializationOptions, SerializationContext
 
 
 # --- helpers ---
@@ -62,11 +58,13 @@ def _make_expr_term(child):
 
 def _make_attribute(name, value_str="val"):
     """Build a simple attribute: name = value_str (identifier)."""
-    return AttributeRule([
-        _make_identifier(name),
-        EQ(),
-        _make_expr_term(_make_identifier(value_str)),
-    ])
+    return AttributeRule(
+        [
+            _make_identifier(name),
+            EQ(),
+            _make_expr_term(_make_identifier(value_str)),
+        ]
+    )
 
 
 def _make_block(labels, body_children=None):
@@ -213,7 +211,9 @@ class TestFormatBodyRule(TestCase):
 
         f.format_body_rule(body, 1)
         # Should have: newline, attr, (final newline removed by pop)
-        nlc_children = [c for c in body._children if isinstance(c, NewLineOrCommentRule)]
+        nlc_children = [
+            c for c in body._children if isinstance(c, NewLineOrCommentRule)
+        ]
         self.assertGreaterEqual(len(nlc_children), 1)
         # The attribute should still be in children
         attr_children = [c for c in body._children if isinstance(c, AttributeRule)]
@@ -223,7 +223,7 @@ class TestFormatBodyRule(TestCase):
         f = _fmt()
         attr = _make_attribute("name")
         body = BodyRule([attr])
-        start = StartRule([body])
+        _start = StartRule([body])
         f.format_body_rule(body, 0)
         # First child should be the attribute, not a newline (since in_start=True)
         self.assertIsInstance(body._children[0], AttributeRule)
@@ -233,7 +233,7 @@ class TestFormatBodyRule(TestCase):
         attr = _make_attribute("version")
         inner_block = _make_block([_make_identifier("provider")])
         body = BodyRule([attr, inner_block])
-        start = StartRule([body])
+        _start = StartRule([body])
 
         f.format_body_rule(body, 0)
         # Should contain attr, block, and various newlines
@@ -253,7 +253,7 @@ class TestFormatBlockRule(TestCase):
             [_make_identifier("resource")],
             [_make_attribute("name")],
         )
-        start = StartRule([BodyRule([block])])
+        _start = StartRule([BodyRule([block])])
         f.format_block_rule(block, indent_level=1)
         # Last child should be RBRACE; second-to-last should be a newline
         self.assertIsInstance(block.children[-1], RBRACE)
@@ -263,7 +263,7 @@ class TestFormatBlockRule(TestCase):
         opts = FormatterOptions(open_empty_blocks=True)
         f = _fmt(opts)
         block = _make_block([_make_identifier("resource")])
-        start = StartRule([BodyRule([block])])
+        _start = StartRule([BodyRule([block])])
 
         f.format_block_rule(block, indent_level=1)
         # Should insert a double-newline before RBRACE
@@ -276,18 +276,15 @@ class TestFormatBlockRule(TestCase):
         opts = FormatterOptions(open_empty_blocks=False)
         f = _fmt(opts)
         block = _make_block([_make_identifier("resource")])
-        start = StartRule([BodyRule([block])])
+        _start = StartRule([BodyRule([block])])
 
         f.format_block_rule(block, indent_level=1)
         # Should NOT insert newline before RBRACE
         nlc_children = [
-            c for c in block.children
-            if isinstance(c, NewLineOrCommentRule)
+            c for c in block.children if isinstance(c, NewLineOrCommentRule)
         ]
         # Only the body formatting newlines, but no double-newline insertion
-        has_double_nl = any(
-            _nlc_value(c).startswith("\n\n") for c in nlc_children
-        )
+        has_double_nl = any(_nlc_value(c).startswith("\n\n") for c in nlc_children)
         self.assertFalse(has_double_nl)
 
 
@@ -389,7 +386,9 @@ class TestFormatObjectRule(TestCase):
         f.format_object_rule(obj, indent_level=1)
         # Should have newlines between the elements
         nlc_count = sum(1 for c in obj._children if isinstance(c, NewLineOrCommentRule))
-        self.assertGreaterEqual(nlc_count, 3)  # after LBRACE, between elems, before RBRACE
+        self.assertGreaterEqual(
+            nlc_count, 3
+        )  # after LBRACE, between elems, before RBRACE
 
 
 # --- format_expression dispatch ---
@@ -517,7 +516,9 @@ class TestIndentLength(TestCase):
         body._parent = block
 
         f.format_body_rule(body, 1)
-        nlc_children = [c for c in body._children if isinstance(c, NewLineOrCommentRule)]
+        nlc_children = [
+            c for c in body._children if isinstance(c, NewLineOrCommentRule)
+        ]
         # At least one newline should have 4 spaces of indent
         has_4_space = any("    " in _nlc_value(c) for c in nlc_children)
         self.assertTrue(has_4_space)
@@ -565,21 +566,25 @@ class TestFormatTree(TestCase):
 
 def _make_for_intro(iterable_name="items", iterator_name="item"):
     """Build a simple for_intro: for iterator_name in iterable_name :"""
-    return ForIntroRule([
-        FOR(),
-        _make_identifier(iterator_name),
-        IN(),
-        _make_expr_term(_make_identifier(iterable_name)),
-        COLON(),
-    ])
+    return ForIntroRule(
+        [
+            FOR(),
+            _make_identifier(iterator_name),
+            IN(),
+            _make_expr_term(_make_identifier(iterable_name)),
+            COLON(),
+        ]
+    )
 
 
 def _make_for_cond(condition_name="cond"):
     """Build a for_cond: if condition_name"""
-    return ForCondRule([
-        IF(),
-        _make_expr_term(_make_identifier(condition_name)),
-    ])
+    return ForCondRule(
+        [
+            IF(),
+            _make_expr_term(_make_identifier(condition_name)),
+        ]
+    )
 
 
 def _make_for_tuple_expr(value_name="val", condition=None):
@@ -677,13 +682,15 @@ class TestFormatForTupleExpr(TestCase):
         """ForIntroRule's iterable expression should be formatted recursively."""
         f = _fmt()
         obj = _make_object([_make_object_elem("k", "v")])
-        intro = ForIntroRule([
-            FOR(),
-            _make_identifier("item"),
-            IN(),
-            _make_expr_term(obj),
-            COLON(),
-        ])
+        intro = ForIntroRule(
+            [
+                FOR(),
+                _make_identifier("item"),
+                IN(),
+                _make_expr_term(obj),
+                COLON(),
+            ]
+        )
         children = [LSQB(), intro, _make_expr_term(_make_identifier("val")), RSQB()]
         expr = ForTupleExprRule(children)
 
@@ -767,7 +774,9 @@ class TestFormatForObjectExpr(TestCase):
 
         f.format_forobjectexpr(expr, indent_level=1)
 
-        nlc_count = sum(1 for c in inner_tup._children if isinstance(c, NewLineOrCommentRule))
+        nlc_count = sum(
+            1 for c in inner_tup._children if isinstance(c, NewLineOrCommentRule)
+        )
         self.assertGreater(nlc_count, 0)
 
     def test_for_cond_expression_formatting(self):

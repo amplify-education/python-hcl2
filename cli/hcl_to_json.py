@@ -2,16 +2,24 @@
 import argparse
 import json
 import os
-from typing import IO
+from typing import IO, Optional, TextIO
 
 from hcl2 import load
 from hcl2.utils import SerializationOptions
 from hcl2.version import __version__
-from .helpers import HCL_SKIPPABLE, _convert_single_file, _convert_directory, _convert_stdin
+from .helpers import (
+    HCL_SKIPPABLE,
+    _convert_single_file,
+    _convert_directory,
+    _convert_stdin,
+)
 
 
 def _hcl_to_json(
-    in_file: IO, out_file: IO, options: SerializationOptions, json_indent: int = None,
+    in_file: TextIO,
+    out_file: IO,
+    options: SerializationOptions,
+    json_indent: Optional[int] = None,
 ) -> None:
     data = load(in_file, serialization_options=options)
     json.dump(data, out_file, indent=json_indent)
@@ -108,11 +116,18 @@ def main():
     if args.PATH == "-":
         _convert_stdin(convert)
     elif os.path.isfile(args.PATH):
-        _convert_single_file(args.PATH, args.OUT_PATH, convert, args.skip, HCL_SKIPPABLE)
+        _convert_single_file(
+            args.PATH, args.OUT_PATH, convert, args.skip, HCL_SKIPPABLE
+        )
     elif os.path.isdir(args.PATH):
         _convert_directory(
-            args.PATH, args.OUT_PATH, convert, args.skip, HCL_SKIPPABLE,
-            in_extensions={".tf", ".hcl"}, out_extension=".json",
+            args.PATH,
+            args.OUT_PATH,
+            convert,
+            args.skip,
+            HCL_SKIPPABLE,
+            in_extensions={".tf", ".hcl"},
+            out_extension=".json",
         )
     else:
         raise RuntimeError("Invalid Path", args.PATH)

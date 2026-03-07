@@ -46,7 +46,7 @@ class LarkElement(ABC):
 class LarkToken(LarkElement, ABC):
     """Base class for terminal token elements (leaves of the tree)."""
 
-    def __init__(self, value: Union[str, int, float]):
+    def __init__(self, value: Optional[Union[str, int, float]] = None):
         self._value = value
         super().__init__()
 
@@ -100,7 +100,7 @@ class LarkRule(LarkElement, ABC):
         raise NotImplementedError()
 
     @property
-    def children(self) -> List[LarkElement]:
+    def children(self) -> List[Any]:
         """Return the list of child elements."""
         return self._children
 
@@ -125,9 +125,9 @@ class LarkRule(LarkElement, ABC):
 
         return Tree(self.lark_name(), result_children, meta=self._meta)
 
-    def __init__(self, children: List[LarkElement], meta: Optional[Meta] = None):
+    def __init__(self, children: List[Any], meta: Optional[Meta] = None):
         super().__init__()
-        self._children = children
+        self._children: List[Any] = children
         self._meta = meta or Meta()
 
         for index, child in enumerate(children):

@@ -4,21 +4,23 @@ Unlike the suite-based round-trip tests, these target individual features
 (operator precedence, Builder round-trip) with dedicated golden files
 in test/integration/special/.
 """
+# pylint: disable=C0103,C0114,C0115,C0116
 
 import json
 from pathlib import Path
+from typing import Optional
 from unittest import TestCase
-
-from hcl2.deserializer import BaseDeserializer, DeserializerOptions
-from hcl2.formatter import BaseFormatter
-from hcl2.reconstructor import HCLReconstructor
-from hcl2.utils import SerializationOptions
 
 from test.integration.test_round_trip import (
     _parse_and_serialize,
     _deserialize_and_reserialize,
     _deserialize_and_reconstruct,
 )
+
+from hcl2.deserializer import BaseDeserializer, DeserializerOptions
+from hcl2.formatter import BaseFormatter
+from hcl2.reconstructor import HCLReconstructor
+from hcl2.utils import SerializationOptions
 
 SPECIAL_DIR = Path(__file__).absolute().parent / "specialized"
 
@@ -82,7 +84,7 @@ class TestBuilderRoundTrip(TestCase):
 
 def _deserialize_and_reconstruct_with_options(
     serialized: dict,
-    deserializer_options: DeserializerOptions = None,
+    deserializer_options: Optional[DeserializerOptions] = None,
 ) -> str:
     """Deserialize a Python dict and reconstruct HCL text with custom options."""
     deserializer = BaseDeserializer(deserializer_options)

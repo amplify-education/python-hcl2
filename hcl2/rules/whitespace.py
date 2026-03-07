@@ -61,7 +61,9 @@ class InlineCommentMixIn(LarkRule, ABC):
 
     def _insert_optionals(self, children: List, indexes: Optional[List[int]] = None):
         """Insert None placeholders at expected optional-child positions."""
-        for index in indexes:  # type: ignore[union-attr]
+        if indexes is None:
+            return
+        for index in indexes:
             try:
                 child = children[index]
             except IndexError:
