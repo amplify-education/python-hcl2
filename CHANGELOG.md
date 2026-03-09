@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Nothing yet.
 
+## \[8.0.0\] - rc1
+
+### Added
+
+- Full architecture overhaul: bidirectional HCL2 ↔ JSON pipeline with typed rule classes. ([#203](https://github.com/amplify-education/python-hcl2/pull/203))
+- CLAUDE.md ([#260](https://github.com/amplify-education/python-hcl2/pull/260))
+
+### Fixed
+
+- Ternary with strings parse error ([#55](https://github.com/amplify-education/python-hcl2/issues/55))
+- reverse_transform not working with object-type variables ([#231](https://github.com/amplify-education/python-hcl2/issues/231))
+- reverse_transform not handling nested functions ([#235](https://github.com/amplify-education/python-hcl2/issues/235))
+- `writes` omits quotes around map keys with `/` ([#236](https://github.com/amplify-education/python-hcl2/issues/236))
+- Operator precedence bug ([#248](https://github.com/amplify-education/python-hcl2/issues/248))
+- Empty string dictionary keys can't be parsed twice ([#249](https://github.com/amplify-education/python-hcl2/issues/249))
+- jsonencode not deserialized correctly ([#250](https://github.com/amplify-education/python-hcl2/issues/250))
+- Literal string "string" incorrectly quoted ([#251](https://github.com/amplify-education/python-hcl2/issues/251))
+- Interpolation literals added to locals/variables in maps ([#252](https://github.com/amplify-education/python-hcl2/issues/252))
+- Object literal expression can't be serialized ([#253](https://github.com/amplify-education/python-hcl2/issues/253))
+- Heredocs should interpret backslash literally ([#262](https://github.com/amplify-education/python-hcl2/issues/262))
+
+### Changed
+
+- Updated package metadata: development status, dropped Python 3.7 support. ([#263](https://github.com/amplify-education/python-hcl2/pull/263))
+
 ## \[7.3.1\] - 2025-07-24
 
 ### Fixed
