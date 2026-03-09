@@ -1,0 +1,21 @@
+{
+  "locals": [
+    {
+      "basic_unicode": "\"Hello, \u4e16\u754c! \u3053\u3093\u306b\u3061\u306f \u041f\u0440\u0438\u0432\u0435\u0442 \u0928\u092e\u0938\u094d\u0924\u0947\"",
+      "unicode_escapes": "\"\u00a9 \u2665 \u266a \u2620 \u263a\"",
+      "emoji_string": "\"\ud83d\ude80 \ud83c\udf0d \ud83d\udd25 \ud83c\udf89\"",
+      "rtl_text": "\"English and \u0627\u0644\u0639\u0631\u0628\u064a\u0629 text mixed\"",
+      "complex_unicode": "\"Python (\ud30c\uc774\uc36c) es \u5f88\u68d2\u7684! \u2665 \u03b1\u03b2\u03b3\u03b4\"",
+      "ascii": "\"ASCII: abc123\"",
+      "emoji": "\"Emoji: \ud83d\ude80\ud83c\udf0d\ud83d\udd25\ud83c\udf89\"",
+      "math": "\"Math: \u2211\u222b\u221a\u221e\u2260\u2264\u2265\"",
+      "currency": "\"Currency: \u00a3\u20ac\u00a5\u20b9\u20bd\u20a9\"",
+      "arrows": "\"Arrows: \u2190\u2191\u2192\u2193\u2194\u2195\"",
+      "cjk": "\"CJK: \u4f60\u597d\u4e16\u754c\uc548\ub155\ud558\uc138\uc694\u3053\u3093\u306b\u3061\u306f\"",
+      "cyrillic": "\"Cyrillic: \u041f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440\"",
+      "special": "\"Special: \u00a9\u00ae\u2122\u00a7\u00b6\u2020\u2021\"",
+      "mixed_content": "\"<<-EOT\n    Line with interpolation: ${var.name}\n    Line with emoji: \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66\n    Line with quotes: \"quoted text\"\n    Line with backslash: \\escaped\n  EOT\"",
+      "__is_block__": true
+    }
+  ]
+}

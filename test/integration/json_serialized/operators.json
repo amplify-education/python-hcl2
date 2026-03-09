@@ -1,0 +1,20 @@
+{
+ "locals": [
+  {
+   "addition_1": "${((a + b) + c)}",
+   "addition_2": "${a + b}",
+   "addition_3": "${(a + b)}",
+   "eq_before_and": "${var.env == \"prod\" && var.debug}",
+   "and_before_ternary": "${true && true ? 1 : 0}",
+   "mixed_arith_cmp": "${var.a + var.b * var.c > 10}",
+   "full_chain": "${a + b == c && d || e}",
+   "left_assoc_sub": "${a - b - c}",
+   "left_assoc_mul_div": "${(a * b) / c}",
+   "nested_ternary": "${(a ? b : c) ? d : e}",
+   "unary_precedence": "${!a && b}",
+   "neg_precedence": "${(-a) + b}",
+   "neg_parentheses": "${-(a + b)}",
+   "__is_block__": true
+  }
+ ]
+}

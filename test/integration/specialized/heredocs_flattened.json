@@ -1,0 +1,14 @@
+{
+  "locals": [
+    {
+      "simple": "\"hello world\"",
+      "multiline": "\"line1\\nline2\\nline3\"",
+      "with_quotes": "\"say \\\"hello\\\"\"",
+      "with_backslashes": "\"path\\\\to\\\\file\"",
+      "trimmed": "\"indented1\\nindented2\"",
+      "trimmed_mixed": "\"line1\\n  line2\\nline3\"",
+      "json_content": "\"{\\\"key\\\": \\\"value\\\"}\"",
+      "__is_block__": true
+    }
+  ]
+}
