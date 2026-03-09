@@ -1,0 +1,22 @@
+{
+  "variable": [
+    {
+      "\"object\"": {
+        "type": "${object({key = string, value = string})}",
+        "__is_block__": true
+      }
+    },
+    {
+      "\"nested\"": {
+        "type": "${map(object({name = string, enabled = bool}))}",
+        "__is_block__": true
+      }
+    },
+    {
+      "\"multi_arg\"": {
+        "default": "${merge({a = 1, b = 2}, {c = 3})}",
+        "__is_block__": true
+      }
+    }
+  ]
+}
