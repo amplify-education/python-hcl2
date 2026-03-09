@@ -1,226 +1,121 @@
-# HCL2 Parser Development Guidelines
+# HCL2 Parser — CLAUDE.md
 
-When working with this HCL2 parser codebase, follow these architectural principles and patterns.
-
-## Core Architecture Rules
-
-**ALWAYS** understand the bidirectional pipeline:
+## Pipeline
 
 ```
 Forward:  HCL2 Text → Lark Parse Tree → LarkElement Tree → Python Dict/JSON
 Reverse:  Python Dict/JSON → LarkElement Tree → Lark Tree → HCL2 Text
 ```
 
-**NEVER** bypass the LarkElement intermediate representation. It provides type safety and enables bidirectional transformations.
+## Module Map
 
-**REMEMBER** that separation of concerns is key:
+| Module | Role |
+|---|---|
+| `hcl2/hcl2.lark` | Lark grammar definition |
+| `hcl2/api.py` | Public API (`load/loads/dump/dumps` + intermediate stages) |
+| `hcl2/parser.py` | Lark parser factory with caching |
+| `hcl2/transformer.py` | Lark parse tree → LarkElement tree |
+| `hcl2/deserializer.py` | Python dict → LarkElement tree |
+| `hcl2/formatter.py` | Whitespace alignment and spacing on LarkElement trees |
+| `hcl2/reconstructor.py` | LarkElement tree → HCL2 text via Lark |
+| `hcl2/builder.py` | Programmatic HCL document construction |
+| `hcl2/utils.py` | `SerializationOptions`, `SerializationContext`, string helpers |
+| `hcl2/const.py` | Constants: `IS_BLOCK`, `COMMENTS_KEY`, `INLINE_COMMENTS_KEY` |
+| `cli/helpers.py` | File/directory/stdin conversion helpers |
+| `cli/hcl_to_json.py` | `hcl2tojson` entry point |
+| `cli/json_to_hcl.py` | `jsontohcl2` entry point |
 
-- Grammar definition (`hcl2.lark`) — syntax rules
-- Transformer (`transformer.py`) — Lark parse tree → LarkElement tree
-- Serialization (`rules/*.serialize()`) — LarkElement tree → Python dict
-- Deserializer (`deserializer.py`) — Python dict → LarkElement tree
-- Formatter (`formatter.py`) — whitespace alignment and spacing on LarkElement trees
-- Reconstructor (`reconstructor.py`) — LarkElement tree → HCL2 text via Lark
+`hcl2/__main__.py` is a thin wrapper that imports `cli.hcl_to_json:main`.
 
-### Public API Design
+### Rules (one class per grammar rule)
 
-**FOLLOW** the `json` module convention in `api.py`:
+| File | Domain |
+|---|---|
+| `rules/abstract.py` | `LarkElement`, `LarkRule`, `LarkToken` base classes |
+| `rules/tokens.py` | `StringToken` (cached factory), `StaticStringToken`, punctuation constants |
+| `rules/base.py` | `StartRule`, `BodyRule`, `BlockRule`, `AttributeRule` |
+| `rules/containers.py` | `TupleRule`, `ObjectRule`, `ObjectElemRule`, `ObjectElemKeyRule` |
+| `rules/expressions.py` | `ExprTermRule`, `BinaryOpRule`, `UnaryOpRule`, `ConditionalRule` |
+| `rules/literal_rules.py` | `IntLitRule`, `FloatLitRule`, `IdentifierRule`, `KeywordRule` |
+| `rules/strings.py` | `StringRule`, `InterpolationRule`, `HeredocTemplateRule` |
+| `rules/functions.py` | `FunctionCallRule`, `ArgumentsRule` |
+| `rules/indexing.py` | `GetAttrRule`, `SqbIndexRule`, splat rules |
+| `rules/for_expressions.py` | `ForTupleExprRule`, `ForObjectExprRule`, `ForIntroRule`, `ForCondRule` |
+| `rules/whitespace.py` | `NewLineOrCommentRule`, `InlineCommentMixIn` |
+
+## Public API (`api.py`)
+
+Follows the `json` module convention. All option parameters are keyword-only.
 
 - `load/loads` — HCL2 text → Python dict
 - `dump/dumps` — Python dict → HCL2 text
-- Intermediate stages for advanced usage: `parse/parses`, `parse_to_tree/parses_to_tree`, `transform`, `serialize`, `from_dict`, `from_json`, `reconstruct`
-- All option parameters are keyword-only
+- Intermediate stages: `parse/parses`, `parse_to_tree/parses_to_tree`, `transform`, `serialize`, `from_dict`, `from_json`, `reconstruct`
 
-## Design Pattern Guidelines
+### Option Dataclasses
 
-### Rule-Based Transformation Pattern
+**`SerializationOptions`** (LarkElement → dict):
+`with_comments`, `with_meta`, `wrap_objects`, `wrap_tuples`, `explicit_blocks`, `preserve_heredocs`, `force_operation_parentheses`, `preserve_scientific_notation`
 
-**FOLLOW** the one-to-one mapping: each Lark grammar rule corresponds to exactly one `LarkRule` class.
+**`DeserializerOptions`** (dict → LarkElement):
+`heredocs_to_strings`, `strings_to_heredocs`, `object_elements_colon`, `object_elements_trailing_comma`
 
-**ENSURE** every rule class:
+**`FormatterOptions`** (whitespace/alignment):
+`indent_length`, `open_empty_blocks`, `open_empty_objects`, `open_empty_tuples`, `vertically_align_attributes`, `vertically_align_object_elements`
 
-- Mirrors lark grammar definition
-- Inherits from appropriate base class (`LarkRule` or `LarkToken`)
-- Implements `lark_name()` returning the grammar rule name
-- Provides typed property accessors for child elements
-- Handles its own serialization logic via `serialize()`
-- Defines `_children` static field with appropriate type hinting
+## CLI
 
-**LOCATE** transformation logic in `hcl2/transformer.py`
+Console scripts defined in `pyproject.toml`. Each uses argparse flags that map directly to the option dataclass fields above.
 
-### Type Safety Requirements
+```
+hcl2tojson --json-indent 2 --with-meta file.tf
+jsontohcl2 --indent 4 --no-align file.json
+```
 
-**USE** abstract base classes from `hcl2/rules/abstract.py` to define contracts.
+Add new options as `parser.add_argument()` calls in the relevant entry point module.
 
-**PROVIDE** comprehensive type hints for all rule children structures.
+## Hard Rules
 
-**LEVERAGE** the generic token system in `hcl2/rules/tokens.py` for dynamic token creation with caching.
+These are project-specific constraints that must not be violated:
 
-### Modular Organization Rules
+1. **Always use the LarkElement IR.** Never transform directly from Lark parse tree to Python dict or vice versa.
+1. **Block vs object distinction.** Use `__is_block__` markers (`const.IS_BLOCK`) to preserve semantic intent during round-trips. The deserializer must distinguish blocks from regular objects.
+1. **Bidirectional completeness.** Every serialization path must have a corresponding deserialization path. Test round-trip integrity: Parse → Serialize → Deserialize → Serialize produces identical results.
+1. **One grammar rule = one `LarkRule` class.** Each class implements `lark_name()`, typed property accessors, `serialize()`, and declares `_children_layout: Tuple[...]` (annotation only, no assignment) to document child structure.
+1. **Token caching.** Use the `StringToken` factory in `rules/tokens.py` — never create token instances directly.
+1. **Interpolation context.** `${...}` generation depends on nesting depth — always pass and respect `SerializationContext`.
+1. **Update both directions.** When adding language features, update transformer.py, deserializer.py, formatter.py and reconstructor.py.
 
-**ORGANIZE** rules by domain responsibility:
-
-- **Structural rules** → `rules/base.py`
-- **Container rules** → `rules/containers.py`
-- **Expression rules** → `rules/expressions.py`
-- **Literal rules** → `rules/literal_rules.py`
-- **String rules** → `rules/strings.py`
-- **Function rules** → `rules/functions.py`
-- **Indexing rules** → `rules/indexing.py`
-- **For-expression rules** → `rules/for_expressions.py`
-- **Metadata rules** → `rules/whitespace.py`
-
-**NEVER** mix concerns across these domains.
-
-### Serialization Strategy Guidelines
-
-**IMPLEMENT** context-aware serialization using:
-
-- `SerializationOptions` for configuration
-- `SerializationContext` for state tracking
-- Context managers for temporary state changes
-
-**REFERENCE** implementation patterns in `hcl2/utils.py`
-
-**ENSURE** each rule type follows its serialization strategy:
-
-- Structural rules create nested dictionaries
-- Container rules handle collections with optional wrapping
-- Expression rules generate `${...}` interpolation when needed
-- Literal rules convert to appropriate Python types
-
-## Critical Implementation Rules
-
-### Block vs Object Distinction
-
-**ALWAYS** preserve the semantic difference between HCL2 blocks and data objects.
-
-**USE** `__is_block__` markers to maintain semantic intent during round-trips.
-
-**IMPLEMENT** block recognition logic in deserializer that can distinguish blocks from regular objects.
-
-**HANDLE** multi-label blocks by implementing recursive label extraction algorithms.
-
-### Bidirectional Requirements
-
-**ENSURE** every serialization operation has a corresponding deserialization counterpart.
-
-**TEST** round-trip integrity: Parse → Serialize → Deserialize → Serialize should produce identical results.
-
-**REFERENCE** deserialization patterns in `hcl2/deserializer.py`
-
-### String Interpolation Handling
-
-**SUPPORT** nested expression evaluation within `${expression}` syntax.
-
-**HANDLE** escape sequences and literal text segments properly.
-
-**MAINTAIN** context awareness when generating interpolation strings.
-
-## Extension Guidelines
-
-### Adding New Language Constructs
-
-**FOLLOW** this exact sequence:
+## Adding a New Language Construct
 
 1. Add grammar rules to `hcl2.lark`
-1. Create rule classes following existing patterns
-1. Add transformer methods to map grammar to rules
-1. Implement serialization logic in rule classes
-1. Update deserializer for round-trip support
+1. Create rule class(es) in the appropriate `rules/` file
+1. Add transformer method(s) in `transformer.py`
+1. Implement `serialize()` in the rule class
+1. Update `deserializer.py`, `formatter.py` and `reconstructor.py` for round-trip support
 
-### Rule Implementation Conventions
+## Testing
 
-**ALWAYS** implement these methods/properties:
+Framework: `unittest.TestCase` (not pytest).
 
-- `lark_name()` static method
-- Property accessors for child elements
-- `serialize()` method with context support
-- Type hints for `_children` structure
+```
+python -m unittest discover -s test -p "test_*.py" -v
+```
 
-**FOLLOW** naming conventions consistent with existing rules.
+**Unit tests** (`test/unit/`): instantiate rule objects directly (no parsing).
 
-### Testing Requirements
+- `test/unit/rules/` — one file per rules module
+- `test/unit/cli/` — one file per CLI module
+- `test/unit/test_api.py`, `test_builder.py`, `test_deserializer.py`, `test_formatter.py`, `test_reconstructor.py`, `test_utils.py`
 
-**USE** `unittest.TestCase` as the test framework (not pytest).
+Use concrete stubs when testing ABCs (e.g., `StubExpression(ExpressionRule)`).
 
-**ORGANIZE** tests into two directories:
+**Integration tests** (`test/integration/`): full-pipeline tests with golden files.
 
-- `test/unit/` — granular tests that instantiate rule objects directly (no parsing)
-  - `test/unit/rules/` — one file per rules module (e.g., `test_expressions.py` covers `hcl2/rules/expressions.py`)
-  - `test/unit/test_api.py`, `test/unit/test_builder.py`, etc. — other module tests
-- `test/integration/` — full-pipeline tests using golden files
-  - `test_round_trip.py` — suite-based step tests (HCL→JSON, JSON→JSON, JSON→HCL, full round-trip) that iterate over all suites in `hcl2_original/`
-  - `test_specialized.py` — feature-specific integration tests (operator precedence, Builder round-trip) with golden files in `specialized/`
+- `test_round_trip.py` — iterates over all suites in `hcl2_original/`, tests HCL→JSON, JSON→JSON, JSON→HCL, and full round-trip
+- `test_specialized.py` — feature-specific tests with golden files in `specialized/`
 
-**USE** concrete stubs when testing ABCs (e.g., `StubExpression(ExpressionRule)` for testing `_wrap_into_parentheses` logic without the parser).
+Always run round-trip full test suite after any modification.
 
-**RUN** tests with: `python -m unittest discover -s test -p "test_*.py" -v`
+## Keeping Docs Current
 
-## Code Quality Rules
-
-### Type Safety Requirements
-
-**PROVIDE** full type hints to enable static analysis.
-
-**USE** proper inheritance hierarchies to catch errors at runtime.
-
-**IMPLEMENT** property-based access to prevent structural errors.
-
-### Performance Considerations
-
-**LEVERAGE** cached token creation to prevent duplicate instantiation.
-
-**IMPLEMENT** lazy evaluation for context-sensitive processing.
-
-**OPTIMIZE** tree traversal using parent-child references.
-
-### Maintainability Standards
-
-**ENSURE** each rule has single responsibility for one grammar construct.
-
-**FOLLOW** open/closed principle: extend via new rules, don't modify existing ones.
-
-**MAINTAIN** clear import dependencies and type relationships.
-
-## File Organization Standards
-
-**KEEP** core abstractions in `rules/abstract.py`
-
-**GROUP** domain-specific rules by functionality in separate files
-
-**SEPARATE** utility functions into dedicated modules
-
-**MAINTAIN** grammar definition independence from implementation
-
-**STRUCTURE** test infrastructure to support incremental validation
-
-## Common Pitfalls to Avoid
-
-**DO NOT** create direct transformations from parse tree to Python dict - always use LarkElement intermediate representation.
-
-**DO NOT** mix serialization concerns across rule types - each rule handles its own format.
-
-**DO NOT** ignore context when generating expressions - interpolation behavior depends on nesting.
-
-**DO NOT** forget to update both serialization and deserialization when adding new constructs.
-
-**DO NOT** bypass the factory pattern for token creation - use the cached `StringToken` system.
-
-## When Making Changes
-
-**ALWAYS** run round-trip tests after any modifications.
-
-**VERIFY** that new rules follow existing patterns and conventions.
-
-**UPDATE** both transformer and deserializer when adding language features.
-
-**MAINTAIN** type safety and proper inheritance relationships.
-
-**DOCUMENT** any new patterns or conventions introduced.
-
-This architecture enables robust HCL2 parsing with full round-trip fidelity while maintaining code quality and extensibility.
-
-## Keeping This File Current
-
-**PROACTIVELY** update this file when your work changes the architecture, file organization, module responsibilities, public API surface, or testing conventions described above. If you add, rename, move, or delete modules, rules files, test directories, or pipeline stages — reflect those changes here before finishing the task. Stale documentation is worse than no documentation.
+Update this file when architecture, modules, API surface, or testing conventions change. Also update `README.md` and `docs/usage.md` when changes affect the public API, CLI flags, or option fields.
