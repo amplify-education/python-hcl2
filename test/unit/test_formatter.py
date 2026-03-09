@@ -113,7 +113,7 @@ class TestFormatterOptions(TestCase):
         opts = FormatterOptions()
         self.assertEqual(opts.indent_length, 2)
         self.assertTrue(opts.open_empty_blocks)
-        self.assertTrue(opts.open_empty_objects)
+        self.assertFalse(opts.open_empty_objects)
         self.assertFalse(opts.open_empty_tuples)
         self.assertTrue(opts.vertically_align_attributes)
         self.assertTrue(opts.vertically_align_object_elements)
