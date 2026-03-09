@@ -1,3 +1,0 @@
-block "block_with_newlines" {
-  a = "line1\nline2"
-}

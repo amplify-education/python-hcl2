@@ -1,6 +1,7 @@
+"""Rule classes for HCL2 expressions, conditionals, and binary/unary operations."""
+
 from abc import ABC
-from copy import deepcopy
-from typing import Any, Tuple, Optional
+from typing import Any, Optional, Tuple
 
 from lark.tree import Meta
 
@@ -22,9 +23,12 @@ from hcl2.utils import (
 
 
 class ExpressionRule(InlineCommentMixIn, ABC):
+    """Base class for all HCL2 expression rules."""
+
     @staticmethod
     def lark_name() -> str:
-        return "expression"
+        """?expression is transparent in Lark — subclasses must override."""
+        raise NotImplementedError("ExpressionRule.lark_name() must be overridden")
 
     def __init__(
         self, children, meta: Optional[Meta] = None, parentheses: bool = False
@@ -33,8 +37,12 @@ class ExpressionRule(InlineCommentMixIn, ABC):
         self._parentheses = parentheses
 
     def _wrap_into_parentheses(
-        self, value: str, options=SerializationOptions(), context=SerializationContext()
+        self,
+        value: str,
+        _options=SerializationOptions(),
+        context=SerializationContext(),
     ) -> str:
+        """Wrap value in parentheses if inside a nested expression."""
         # do not wrap into parentheses if
         #   1. already wrapped or
         #   2. is top-level expression (unless explicitly wrapped)
@@ -53,8 +61,9 @@ class ExpressionRule(InlineCommentMixIn, ABC):
 
 
 class ExprTermRule(ExpressionRule):
+    """Rule for expression terms, optionally wrapped in parentheses."""
 
-    type_ = Tuple[
+    _children_layout: Tuple[
         Optional[LPAR],
         Optional[NewLineOrCommentRule],
         ExpressionRule,
@@ -62,10 +71,9 @@ class ExprTermRule(ExpressionRule):
         Optional[RPAR],
     ]
 
-    _children: type_
-
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "expr_term"
 
     def __init__(self, children, meta: Optional[Meta] = None):
@@ -84,15 +92,18 @@ class ExprTermRule(ExpressionRule):
 
     @property
     def parentheses(self) -> bool:
+        """Return whether this term is wrapped in parentheses."""
         return self._parentheses
 
     @property
     def expression(self) -> ExpressionRule:
+        """Return the inner expression."""
         return self._children[2]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
+        """Serialize, handling parenthesized expression wrapping."""
         with context.modify(
             inside_parentheses=self.parentheses or context.inside_parentheses
         ):
@@ -107,8 +118,9 @@ class ExprTermRule(ExpressionRule):
 
 
 class ConditionalRule(ExpressionRule):
+    """Rule for ternary conditional expressions (condition ? true : false)."""
 
-    _children: Tuple[
+    _children_layout: Tuple[
         ExpressionRule,
         QMARK,
         Optional[NewLineOrCommentRule],
@@ -121,6 +133,7 @@ class ConditionalRule(ExpressionRule):
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "conditional"
 
     def __init__(self, children, meta: Optional[Meta] = None):
@@ -129,19 +142,23 @@ class ConditionalRule(ExpressionRule):
 
     @property
     def condition(self) -> ExpressionRule:
+        """Return the condition expression."""
         return self._children[0]
 
     @property
     def if_true(self) -> ExpressionRule:
+        """Return the true-branch expression."""
         return self._children[3]
 
     @property
     def if_false(self) -> ExpressionRule:
+        """Return the false-branch expression."""
         return self._children[7]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
+        """Serialize to ternary expression string."""
         with context.modify(inside_dollar_string=True):
             result = (
                 f"{self.condition.serialize(options, context)} "
@@ -159,8 +176,9 @@ class ConditionalRule(ExpressionRule):
 
 
 class BinaryTermRule(ExpressionRule):
+    """Rule for the operator+operand portion of a binary operation."""
 
-    _children: Tuple[
+    _children_layout: Tuple[
         BinaryOperatorRule,
         Optional[NewLineOrCommentRule],
         ExprTermRule,
@@ -168,6 +186,7 @@ class BinaryTermRule(ExpressionRule):
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "binary_term"
 
     def __init__(self, children, meta: Optional[Meta] = None):
@@ -176,41 +195,55 @@ class BinaryTermRule(ExpressionRule):
 
     @property
     def binary_operator(self) -> BinaryOperatorRule:
+        """Return the binary operator."""
         return self._children[0]
 
     @property
     def expr_term(self) -> ExprTermRule:
+        """Return the right-hand operand."""
         return self._children[2]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-        return f"{self.binary_operator.serialize(options, context)} {self.expr_term.serialize(options, context)}"
+        """Serialize to 'operator operand' string."""
+        op_str = self.binary_operator.serialize(options, context)
+        term_str = self.expr_term.serialize(options, context)
+        return f"{op_str} {term_str}"
 
 
 class BinaryOpRule(ExpressionRule):
-    _children: Tuple[
+    """Rule for complete binary operations (lhs operator rhs)."""
+
+    _children_layout: Tuple[
         ExprTermRule,
         BinaryTermRule,
         Optional[NewLineOrCommentRule],
     ]
 
+    def __init__(self, children, meta: Optional[Meta] = None):
+        self._insert_optionals(children, [2])
+        super().__init__(children, meta)
+
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "binary_op"
 
     @property
     def expr_term(self) -> ExprTermRule:
+        """Return the left-hand operand."""
         return self._children[0]
 
     @property
     def binary_term(self) -> BinaryTermRule:
+        """Return the binary term (operator + right-hand operand)."""
         return self._children[1]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-
+        """Serialize to 'lhs operator rhs' string."""
         with context.modify(inside_dollar_string=True):
             lhs = self.expr_term.serialize(options, context)
             operator = self.binary_term.binary_operator.serialize(options, context)
@@ -227,25 +260,29 @@ class BinaryOpRule(ExpressionRule):
 
 
 class UnaryOpRule(ExpressionRule):
+    """Rule for unary operations (e.g. negation, logical not)."""
 
-    _children: Tuple[LarkToken, ExprTermRule]
+    _children_layout: Tuple[LarkToken, ExprTermRule]
 
     @staticmethod
     def lark_name() -> str:
+        """Return the grammar rule name."""
         return "unary_op"
 
     @property
     def operator(self) -> str:
+        """Return the unary operator string."""
         return str(self._children[0])
 
     @property
     def expr_term(self):
+        """Return the operand."""
         return self._children[1]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
-
+        """Serialize to 'operator operand' string."""
         with context.modify(inside_dollar_string=True):
             result = f"{self.operator}{self.expr_term.serialize(options, context)}"
 

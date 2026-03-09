@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from hcl2.builder import Builder
@@ -5,7 +6,6 @@ from hcl2.const import IS_BLOCK
 
 
 class TestBuilderAttributes(TestCase):
-
     def test_empty_builder(self):
         b = Builder()
         result = b.build()
@@ -25,7 +25,6 @@ class TestBuilderAttributes(TestCase):
 
 
 class TestBuilderBlock(TestCase):
-
     def test_simple_block(self):
         b = Builder()
         b.block("resource")
@@ -85,7 +84,6 @@ class TestBuilderBlock(TestCase):
 
 
 class TestBuilderNestedBlocks(TestCase):
-
     def test_nested_builder(self):
         b = Builder()
         inner = Builder()
@@ -107,7 +105,6 @@ class TestBuilderNestedBlocks(TestCase):
 
 
 class TestBuilderBlockMarker(TestCase):
-
     def test_block_marker_is_is_block(self):
         """Verify IS_BLOCK marker is used (not __start_line__/__end_line__)."""
         b = Builder({"x": 1})
@@ -132,7 +129,6 @@ class TestBuilderBlockMarker(TestCase):
 
 
 class TestBuilderIntegration(TestCase):
-
     def test_full_document(self):
         doc = Builder()
         doc.block(

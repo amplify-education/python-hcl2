@@ -40,10 +40,11 @@ content-type = "text/markdown"
 Homepage = "https://github.com/amplify-education/python-hcl2"
 
 [project.scripts]
-hcl2tojson = "hcl2.__main__:main"
+hcl2tojson = "cli.hcl_to_json:main"
+jsontohcl2 = "cli.json_to_hcl:main"
 
 [tool.setuptools]
-packages = ["hcl2"]
+packages = ["hcl2", "hcl2.rules", "cli"]
 zip-safe = false
 include-package-data = true
 

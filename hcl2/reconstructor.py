@@ -1,9 +1,10 @@
-from typing import List, Union
+"""Reconstruct HCL2 text from a Lark Tree AST."""
+from typing import List, Optional, Union
 
 from lark import Tree, Token
 from hcl2.rules import tokens
 from hcl2.rules.base import BlockRule
-from hcl2.rules.for_expressions import ForIntroRule
+from hcl2.rules.for_expressions import ForIntroRule, ForTupleExprRule, ForObjectExprRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.strings import StringRule
 from hcl2.rules.expressions import (
@@ -33,20 +34,21 @@ class HCLReconstructor:
     }
 
     def __init__(self):
-        self._reset_state()
+        self._last_was_space = True
+        self._current_indent = 0
+        self._last_token_name: Optional[str] = None
+        self._last_rule_name: Optional[str] = None
 
     def _reset_state(self):
-        """State tracking for formatting decisions"""
+        """Reset state tracking for formatting decisions."""
         self._last_was_space = True
         self._current_indent = 0
         self._last_token_name = None
         self._last_rule_name = None
-        self._in_parentheses = False
-        self._in_object = False
-        self._in_tuple = False
 
+    # pylint:disable=R0911,R0912
     def _should_add_space_before(
-        self, current_node: Union[Tree, Token], parent_rule_name: str = None
+        self, current_node: Union[Tree, Token], parent_rule_name: Optional[str] = None
     ) -> bool:
         """Determine if we should add a space before the current token/rule."""
 
@@ -69,9 +71,8 @@ class HCLReconstructor:
                 return True
 
             # Space around Conditional Expression operators
-            if (
-                parent_rule_name == ConditionalRule.lark_name()
-                and token_type in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
+            if parent_rule_name == ConditionalRule.lark_name() and (
+                token_type in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
                 or self._last_token_name
                 in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
             ):
@@ -149,12 +150,39 @@ class HCLReconstructor:
                 ]:
                     return True
 
+            # Space after QMARK/COLON in conditional expressions
+            if (
+                parent_rule_name == ConditionalRule.lark_name()
+                and self._last_token_name
+                in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
+            ):
+                return True
+
+            # Space after colon in for expressions (before value expression,
+            # but not before newline/comment which provides its own whitespace)
+            if (
+                self._last_token_name == tokens.COLON.lark_name()
+                and parent_rule_name
+                in [
+                    ForTupleExprRule.lark_name(),
+                    ForObjectExprRule.lark_name(),
+                ]
+                and rule_name != "new_line_or_comment"
+            ):
+                return True
+
         return False
 
-    def _reconstruct_tree(self, tree: Tree, parent_rule_name: str = None) -> List[str]:
+    def _reconstruct_tree(
+        self, tree: Tree, parent_rule_name: Optional[str] = None
+    ) -> List[str]:
         """Recursively reconstruct a Tree node into HCL text fragments."""
         result = []
         rule_name = tree.data
+
+        # Check spacing BEFORE processing children, while _last_rule_name
+        # still reflects the previous sibling (not a child of this tree).
+        needs_space = self._should_add_space_before(tree, parent_rule_name)
 
         if rule_name == UnaryOpRule.lark_name():
             for i, child in enumerate(tree.children):
@@ -164,26 +192,14 @@ class HCLReconstructor:
                     self._last_was_space = True
 
         elif rule_name == ExprTermRule.lark_name():
-            # Check if parenthesized
-            if (
-                len(tree.children) >= 3
-                and isinstance(tree.children[0], Token)
-                and tree.children[0].type == tokens.LPAR.lark_name()
-                and isinstance(tree.children[-1], Token)
-                and tree.children[-1].type == tokens.RPAR.lark_name()
-            ):
-                self._in_parentheses = True
-
             for child in tree.children:
                 result.extend(self._reconstruct_node(child, rule_name))
-
-            self._in_parentheses = False
 
         else:
             for child in tree.children:
                 result.extend(self._reconstruct_node(child, rule_name))
 
-        if self._should_add_space_before(tree, parent_rule_name):
+        if needs_space:
             result.insert(0, " ")
 
         # Update state tracking
@@ -193,7 +209,9 @@ class HCLReconstructor:
 
         return result
 
-    def _reconstruct_token(self, token: Token, parent_rule_name: str = None) -> str:
+    def _reconstruct_token(
+        self, token: Token, parent_rule_name: Optional[str] = None
+    ) -> str:
         """Reconstruct a Token node into HCL text fragments."""
         result = str(token.value)
         if self._should_add_space_before(token, parent_rule_name):
@@ -206,18 +224,17 @@ class HCLReconstructor:
         return result
 
     def _reconstruct_node(
-        self, node: Union[Tree, Token], parent_rule_name: str = None
+        self, node: Union[Tree, Token], parent_rule_name: Optional[str] = None
     ) -> List[str]:
         """Reconstruct any node (Tree or Token) into HCL text fragments."""
         if isinstance(node, Tree):
             return self._reconstruct_tree(node, parent_rule_name)
-        elif isinstance(node, Token):
+        if isinstance(node, Token):
             return [self._reconstruct_token(node, parent_rule_name)]
-        else:
-            # Fallback: convert to string
-            return [str(node)]
+        # Fallback: convert to string
+        return [str(node)]
 
-    def reconstruct(self, tree: Tree, postproc=None, insert_spaces=False) -> str:
+    def reconstruct(self, tree: Tree, postproc=None) -> str:
         """Convert a Lark.Tree AST back into a string representation of HCL."""
         # Reset state
         self._reset_state()

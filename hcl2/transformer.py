@@ -1,3 +1,4 @@
+"""Transform Lark parse trees into typed LarkElement rule trees."""
 # pylint: disable=missing-function-docstring,unused-argument
 from lark import Token, Tree, v_args, Transformer, Discard
 from lark.tree import Meta
@@ -14,7 +15,6 @@ from hcl2.rules.containers import (
     ObjectElemKeyRule,
     TupleRule,
     ObjectElemKeyExpressionRule,
-    ObjectElemKeyDotAccessor,
 )
 from hcl2.rules.expressions import (
     BinaryTermRule,
@@ -81,16 +81,19 @@ class RuleTransformer(Transformer):
 
     def __default_token__(self, token: Token) -> StringToken:
         # TODO make this return StaticStringToken where applicable
-        if token.value in StaticStringToken.classes_by_value.keys():
+        if token.value in StaticStringToken.classes_by_value:
             return StaticStringToken.classes_by_value[token.value]()
-        return StringToken[token.type](token.value)
+        return StringToken[token.type](token.value)  # type: ignore[misc]
 
+    # pylint: disable=C0103
     def FLOAT_LITERAL(self, token: Token) -> FloatLiteral:
         return FloatLiteral(token.value)
 
+    # pylint: disable=C0103
     def NAME(self, token: Token) -> NAME:
         return NAME(token.value)
 
+    # pylint: disable=C0103
     def INT_LITERAL(self, token: Token) -> IntLiteral:
         return IntLiteral(token.value)
 
@@ -108,10 +111,15 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def attribute(self, meta: Meta, args) -> AttributeRule:
+        # _attribute_name is flattened, so args[0] may be KeywordRule or IdentifierRule
+        if isinstance(args[0], KeywordRule):
+            args[0] = IdentifierRule([NAME(args[0].token.value)], meta)
         return AttributeRule(args, meta)
 
     @v_args(meta=True)
-    def new_line_or_comment(self, meta: Meta, args) -> NewLineOrCommentRule:
+    def new_line_or_comment(
+        self, meta: Meta, args
+    ):  # -> NewLineOrCommentRule | Discard
         if self.discard_new_line_or_comments:
             return Discard
         return NewLineOrCommentRule(args, meta)
@@ -189,20 +197,17 @@ class RuleTransformer(Transformer):
         return ObjectElemRule(args, meta)
 
     @v_args(meta=True)
-    def object_elem_key(self, meta: Meta, args) -> ObjectElemKeyRule:
-        return ObjectElemKeyRule(args, meta)
-
-    @v_args(meta=True)
-    def object_elem_key_expression(
-        self, meta: Meta, args
-    ) -> ObjectElemKeyExpressionRule:
-        return ObjectElemKeyExpressionRule(args, meta)
-
-    @v_args(meta=True)
-    def object_elem_key_dot_accessor(
-        self, meta: Meta, args
-    ) -> ObjectElemKeyDotAccessor:
-        return ObjectElemKeyDotAccessor(args, meta)
+    def object_elem_key(self, meta: Meta, args):
+        expr = args[0]
+        # Simple literals (identifier, string, int, float) wrapped in ExprTermRule
+        if isinstance(expr, ExprTermRule) and len(expr.children) == 5:
+            inner = expr.children[2]  # position 2 in [None, None, inner, None, None]
+            if isinstance(
+                inner, (IdentifierRule, StringRule, IntLitRule, FloatLitRule)
+            ):
+                return ObjectElemKeyRule([inner], meta)
+        # Any other expression (parenthesized or bare)
+        return ObjectElemKeyExpressionRule([expr], meta)
 
     @v_args(meta=True)
     def arguments(self, meta: Meta, args) -> ArgumentsRule:
@@ -211,10 +216,6 @@ class RuleTransformer(Transformer):
     @v_args(meta=True)
     def function_call(self, meta: Meta, args) -> FunctionCallRule:
         return FunctionCallRule(args, meta)
-
-    # @v_args(meta=True)
-    # def provider_function_call(self, meta: Meta, args) -> ProviderFunctionCallRule:
-    #     return ProviderFunctionCallRule(args, meta)
 
     @v_args(meta=True)
     def index_expr_term(self, meta: Meta, args) -> IndexExprTermRule:

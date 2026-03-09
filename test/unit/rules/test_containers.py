@@ -1,10 +1,10 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from hcl2.rules.containers import (
     TupleRule,
     ObjectElemKeyRule,
     ObjectElemKeyExpressionRule,
-    ObjectElemKeyDotAccessor,
     ObjectElemRule,
     ObjectRule,
 )
@@ -16,9 +16,6 @@ from hcl2.rules.tokens import (
     RSQB,
     LBRACE,
     RBRACE,
-    LPAR,
-    RPAR,
-    DOT,
     EQ,
     COLON,
     COMMA,
@@ -171,11 +168,11 @@ class TestObjectElemKeyRule(TestCase):
 
     def test_serialize_int_lit(self):
         rule = ObjectElemKeyRule([IntLitRule([IntLiteral("5")])])
-        self.assertEqual(rule.serialize(), 5)
+        self.assertEqual(rule.serialize(), "5")
 
     def test_serialize_float_lit(self):
         rule = ObjectElemKeyRule([FloatLitRule([FloatLiteral("3.14")])])
-        self.assertAlmostEqual(rule.serialize(), 3.14)
+        self.assertEqual(rule.serialize(), "3.14")
 
     def test_serialize_string(self):
         rule = ObjectElemKeyRule([_make_string_rule("k3")])
@@ -188,69 +185,29 @@ class TestObjectElemKeyRule(TestCase):
 class TestObjectElemKeyExpressionRule(TestCase):
     def test_lark_name(self):
         self.assertEqual(
-            ObjectElemKeyExpressionRule.lark_name(), "object_elem_key_expression"
+            ObjectElemKeyExpressionRule.lark_name(), "object_elem_key_expr"
         )
 
     def test_expression_property(self):
-        expr = StubExpression("5 + 5")
-        rule = ObjectElemKeyExpressionRule([LPAR(), expr, RPAR()])
+        expr = StubExpression("1 + 1")
+        rule = ObjectElemKeyExpressionRule([expr])
         self.assertIs(rule.expression, expr)
 
-    def test_serialize(self):
-        rule = ObjectElemKeyExpressionRule([LPAR(), StubExpression("5 + 5"), RPAR()])
+    def test_serialize_bare(self):
+        rule = ObjectElemKeyExpressionRule([StubExpression("1 + 1")])
         result = rule.serialize()
-        self.assertEqual(result, "${(5 + 5)}")
+        self.assertEqual(result, "${1 + 1}")
 
     def test_serialize_inside_dollar_string(self):
-        rule = ObjectElemKeyExpressionRule([LPAR(), StubExpression("5 + 5"), RPAR()])
+        rule = ObjectElemKeyExpressionRule([StubExpression("1 + 1")])
         ctx = SerializationContext(inside_dollar_string=True)
         result = rule.serialize(context=ctx)
-        self.assertEqual(result, "(5 + 5)")
+        self.assertEqual(result, "1 + 1")
 
-
-# --- ObjectElemKeyDotAccessor tests ---
-
-
-class TestObjectElemKeyDotAccessor(TestCase):
-    def test_lark_name(self):
-        self.assertEqual(
-            ObjectElemKeyDotAccessor.lark_name(), "object_elem_key_dot_accessor"
-        )
-
-    def test_identifiers_property(self):
-        i1 = _make_identifier("k5")
-        i2 = _make_identifier("attr")
-        i3 = _make_identifier("sub")
-        rule = ObjectElemKeyDotAccessor([i1, DOT(), i2, DOT(), i3])
-        idents = rule.identifiers
-        self.assertEqual(len(idents), 3)
-        self.assertIs(idents[0], i1)
-        self.assertIs(idents[1], i2)
-        self.assertIs(idents[2], i3)
-
-    def test_identifiers_two_segments(self):
-        i1 = _make_identifier("a")
-        i2 = _make_identifier("b")
-        rule = ObjectElemKeyDotAccessor([i1, DOT(), i2])
-        self.assertEqual(len(rule.identifiers), 2)
-
-    def test_serialize(self):
-        rule = ObjectElemKeyDotAccessor(
-            [
-                _make_identifier("k5"),
-                DOT(),
-                _make_identifier("attr"),
-                DOT(),
-                _make_identifier("sub"),
-            ]
-        )
-        self.assertEqual(rule.serialize(), "k5.attr.sub")
-
-    def test_serialize_two_segments(self):
-        rule = ObjectElemKeyDotAccessor(
-            [_make_identifier("a"), DOT(), _make_identifier("b")]
-        )
-        self.assertEqual(rule.serialize(), "a.b")
+    def test_serialize_function_call(self):
+        rule = ObjectElemKeyExpressionRule([StubExpression('format("k", v)')])
+        result = rule.serialize()
+        self.assertEqual(result, '${format("k", v)}')
 
 
 # --- ObjectElemRule tests ---

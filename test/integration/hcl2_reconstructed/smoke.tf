@@ -12,7 +12,7 @@ block label1 label2 {
     "k3"         = {
       k4 = "a",
     },
-    (5 + 5)   = "d",
+    (5 + 5)      = "d",
     k5.attr.attr = "e",
   }
   i = [
@@ -26,9 +26,9 @@ block label1 label2 {
       3,
     ],
     f(a),
-    provider::func::aa(),
+    provider::func::aa(5),
   ]
-  j = func(a, b, c, d)
+  j = func(a, b, c, d ... )
   k = a.b.5
   l = a.*.b
   m = a[*][c].a.*.1
@@ -39,26 +39,15 @@ block label1 label2 {
 }
 
 
-block label1 label3 {
-  simple_interpolation        = "prefix:${var}-suffix"
-  embedded_interpolation      = "(long substring without interpolation); ${"aaa-${local}-${local}"}/us-west-2/key_foo"
-  deeply_nested_interpolation = "prefix1-${"prefix2-${"prefix3-$${foo:bar}"}"}"
-  escaped_interpolation       = "prefix:$${aws:username}-suffix"
-  simple_and_escaped          = "${"bar"}$${baz:bat}"
-  simple_and_escaped_reversed = "$${baz:bat}${"bar"}"
-  nested_escaped              = "bar-${"$${baz:bat}"}"
-}
-
-
 block {
   route53_forwarding_rule_shares = {
-    for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) : 
+    for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) :
     "${forwarding_rule_key}" => {
-      aws_account_ids  = [
-        for account_name in var.route53_resolver_forwarding_rule_shares[forwarding_rule_key].aws_account_names : 
+      aws_account_ids = [
+        for account_name in var.route53_resolver_forwarding_rule_shares[forwarding_rule_key].aws_account_names :
         module.remote_state_subaccounts.map[account_name].outputs["aws_account_id"]
-        
       ]
-    } ... if substr(bucket_name, 0, 1) == "l"
+    } ... 
+    if substr(bucket_name, 0, 1) == "l"
   }
 }

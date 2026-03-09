@@ -1,13 +1,15 @@
+"""Deserialize Python dicts (or JSON) into LarkElement trees."""
 import json
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, TextIO, List, Union
+from typing import Any, TextIO, List, Optional, Union
 
 from regex import regex
 
 from hcl2.parser import parser as _get_parser
-from hcl2.const import IS_BLOCK
+from hcl2.const import IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY
 from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
     BlockRule,
@@ -20,7 +22,6 @@ from hcl2.rules.containers import (
     ObjectRule,
     ObjectElemRule,
     ObjectElemKeyExpressionRule,
-    ObjectElemKeyDotAccessor,
     ObjectElemKeyRule,
 )
 from hcl2.rules.expressions import ExprTermRule
@@ -49,7 +50,6 @@ from hcl2.rules.tokens import (
     RSQB,
     LSQB,
     COMMA,
-    DOT,
     LBRACE,
     HEREDOC_TRIM_TEMPLATE,
     HEREDOC_TEMPLATE,
@@ -61,44 +61,57 @@ from hcl2.utils import HEREDOC_TRIM_PATTERN, HEREDOC_PATTERN
 
 @dataclass
 class DeserializerOptions:
+    """Options controlling how Python dicts are deserialized into LarkElement trees."""
+
     heredocs_to_strings: bool = False
-    indent_length: int = 2
+    strings_to_heredocs: bool = False
     object_elements_colon: bool = False
     object_elements_trailing_comma: bool = True
+    # with_comments: bool = False # TODO
 
 
 class LarkElementTreeDeserializer(ABC):
-    def __init__(self, options: DeserializerOptions = None):
+    """Abstract base for deserializers that produce LarkElement trees."""
+
+    def __init__(self, options: Optional[DeserializerOptions] = None):
         self.options = options or DeserializerOptions()
 
     @abstractmethod
     def loads(self, value: str) -> LarkElement:
+        """Deserialize a JSON string into a LarkElement tree."""
         raise NotImplementedError()
 
     def load(self, file: TextIO) -> LarkElement:
+        """Deserialize a JSON file into a LarkElement tree."""
         return self.loads(file.read())
 
 
 class BaseDeserializer(LarkElementTreeDeserializer):
-    def __init__(self, options=None):
-        super().__init__(options)
+    """Default deserializer: Python dict/JSON → LarkElement tree."""
 
     @cached_property
     def _transformer(self) -> RuleTransformer:
         return RuleTransformer()
 
-    def load_python(self, value: Any) -> LarkElement:
-        result = StartRule([self._deserialize(value)])
+    def load_python(self, value: Any) -> StartRule:
+        """Deserialize a Python object into a StartRule tree."""
+        if isinstance(value, dict):
+            # Top-level dict is always a body (attributes + blocks), not an object
+            children = self._deserialize_block_elements(value)
+            result = StartRule([BodyRule(children)])
+        else:
+            result = StartRule([self._deserialize(value)])
         return result
 
     def loads(self, value: str) -> LarkElement:
+        """Deserialize a JSON string into a LarkElement tree."""
         return self.load_python(json.loads(value))
 
     def _deserialize(self, value: Any) -> LarkElement:
         if isinstance(value, dict):
             if self._contains_block_marker(value):
 
-                children = []
+                children: List[Any] = []
 
                 block_elements = self._deserialize_block_elements(value)
                 for element in block_elements:
@@ -113,8 +126,8 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         return self._deserialize_text(value)
 
-    def _deserialize_block_elements(self, value: dict) -> List[LarkRule]:
-        children = []
+    def _deserialize_block_elements(self, value: dict) -> List[LarkElement]:
+        children: List[LarkElement] = []
         for key, val in value.items():
             if self._is_block(val):
                 # this value is a list of blocks, iterate over each block and deserialize them
@@ -123,11 +136,12 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
             else:
                 # otherwise it's just an attribute
-                if key != IS_BLOCK:
+                if not self._is_reserved_key(key):
                     children.append(self._deserialize_attribute(key, val))
 
         return children
 
+    # pylint: disable=R0911
     def _deserialize_text(self, value: Any) -> LarkRule:
         # bool must be checked before int since bool is a subclass of int
         if isinstance(value, bool):
@@ -150,6 +164,11 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                     match = HEREDOC_PATTERN.match(value[1:-1])
                     if match:
                         return self._deserialize_heredoc(value[1:-1], False)
+
+                if self.options.strings_to_heredocs:
+                    inner = value[1:-1]
+                    if "\\n" in inner:
+                        return self._deserialize_string_as_heredoc(inner)
 
                 return self._deserialize_string(value)
 
@@ -180,8 +199,8 @@ class BaseDeserializer(LarkElementTreeDeserializer):
             if part.endswith('"'):
                 part = part[:-1]
 
-            e = self._deserialize_string_part(part)
-            result.append(e)
+            string_part = self._deserialize_string_part(part)
+            result.append(string_part)
 
         return StringRule([DBLQUOTE(), *result, DBLQUOTE()])
 
@@ -206,6 +225,17 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         if trim:
             return HeredocTrimTemplateRule([HEREDOC_TRIM_TEMPLATE(value)])
         return HeredocTemplateRule([HEREDOC_TEMPLATE(value)])
+
+    def _deserialize_string_as_heredoc(self, inner: str) -> HeredocTemplateRule:
+        """Convert a quoted string with escaped newlines back into a heredoc."""
+        # Single-pass unescape: \\n → \n, \\" → ", \\\\ → \
+        content = re.sub(
+            r'\\(n|"|\\)',
+            lambda m: "\n" if m.group(1) == "n" else m.group(1),
+            inner,
+        )
+        heredoc = f"<<EOF\n{content}\nEOF"
+        return HeredocTemplateRule([HEREDOC_TEMPLATE(heredoc)])
 
     def _deserialize_expression(self, value: str) -> ExprTermRule:
         """Deserialize an expression string into an ExprTermRule."""
@@ -232,7 +262,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         # Keep peeling off single-key layers until we hit the body (dict with IS_BLOCK)
         while isinstance(body, dict) and not body.get(IS_BLOCK):
-            non_block_keys = [k for k in body.keys() if k != IS_BLOCK]
+            non_block_keys = [k for k in body.keys() if not self._is_reserved_key(k)]
             if len(non_block_keys) == 1:
                 # This is another label level
                 label = non_block_keys[0]
@@ -265,7 +295,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         return AttributeRule(children)
 
     def _deserialize_list(self, value: List) -> TupleRule:
-        children = []
+        children: List[Any] = []
         for element in value:
             deserialized = self._deserialize(element)
             if not isinstance(deserialized, ExprTermRule):
@@ -277,7 +307,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         return TupleRule([LSQB(), *children, RSQB()])
 
     def _deserialize_object(self, value: dict) -> ObjectRule:
-        children = []
+        children: List[Any] = []
         for key, val in value.items():
             children.append(self._deserialize_object_elem(key, val))
 
@@ -286,35 +316,30 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         return ObjectRule([LBRACE(), *children, RBRACE()])
 
-    def _deserialize_object_elem(self, key: str, value: Any) -> ObjectElemRule:
+    def _deserialize_object_elem(self, key: Any, value: Any) -> ObjectElemRule:
+        key_rule: Union[ObjectElemKeyExpressionRule, ObjectElemKeyRule]
+
         if self._is_expression(key):
-            key = ObjectElemKeyExpressionRule(
-                [
-                    child
-                    for child in self._deserialize_expression(key).children
-                    if child is not None
-                ]
-            )
-        elif "." in key:
-            parts = key.split(".")
-            children = []
-            for part in parts:
-                children.append(self._deserialize_identifier(part))
-                children.append(DOT())
-            key = ObjectElemKeyDotAccessor(children[:-1])  # without the last comma
+            expr = self._deserialize_expression(key)
+            key_rule = ObjectElemKeyExpressionRule([expr])
         else:
             key = self._deserialize_text(key)
+            key_rule = ObjectElemKeyRule([key])
 
         result = [
-            ObjectElemKeyRule([key]),
+            key_rule,
             COLON() if self.options.object_elements_colon else EQ(),
             ExprTermRule([self._deserialize(value)]),
         ]
 
         return ObjectElemRule(result)
 
-    def _is_expression(self, value: str) -> bool:
-        return value.startswith("${") and value.endswith("}")
+    def _is_reserved_key(self, key: str) -> bool:
+        """Check if a key is a reserved metadata key that should be skipped during deserialization."""
+        return key in (IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY)
+
+    def _is_expression(self, value: Any) -> bool:
+        return isinstance(value, str) and value.startswith("${") and value.endswith("}")
 
     def _is_block(self, value: Any) -> bool:
         """Simple check: if it's a list containing dicts with IS_BLOCK markers"""
@@ -337,6 +362,8 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                 return True
             if isinstance(value, list):
                 for element in value:
-                    if isinstance(element, dict) and self._contains_block_marker(element):
+                    if isinstance(element, dict) and self._contains_block_marker(
+                        element
+                    ):
                         return True
         return False

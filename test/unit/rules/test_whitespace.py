@@ -1,7 +1,7 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
-from hcl2.rules.abstract import LarkRule
-from hcl2.rules.tokens import NL_OR_COMMENT
+from hcl2.rules.tokens import NAME, NL_OR_COMMENT
 from hcl2.rules.whitespace import NewLineOrCommentRule, InlineCommentMixIn
 from hcl2.utils import SerializationOptions, SerializationContext
 
@@ -61,6 +61,18 @@ class TestNewLineOrCommentRule(TestCase):
         result = rule.to_list()
         self.assertEqual(result, ["block comment"])
 
+    def test_to_list_line_comment_ending_in_block_close(self):
+        """A // comment ending in */ should preserve the */ suffix."""
+        rule = _make_nlc("// comment ending in */\n")
+        result = rule.to_list()
+        self.assertEqual(result, ["comment ending in */"])
+
+    def test_to_list_hash_comment_ending_in_block_close(self):
+        """A # comment ending in */ should preserve the */ suffix."""
+        rule = _make_nlc("# comment ending in */\n")
+        result = rule.to_list()
+        self.assertEqual(result, ["comment ending in */"])
+
     def test_to_list_multiple_comments(self):
         rule = _make_nlc("// first\n// second\n")
         result = rule.to_list()
@@ -75,7 +87,6 @@ class TestNewLineOrCommentRule(TestCase):
 
 class TestInlineCommentMixIn(TestCase):
     def test_insert_optionals_inserts_none_where_no_comment(self):
-        from hcl2.rules.tokens import NAME
 
         token = NAME("x")
         children = [token, NAME("y")]
@@ -87,7 +98,6 @@ class TestInlineCommentMixIn(TestCase):
 
     def test_insert_optionals_leaves_comment_in_place(self):
         comment = _make_nlc("// comment\n")
-        from hcl2.rules.tokens import NAME
 
         children = [NAME("x"), comment]
         mixin = ConcreteInlineComment.__new__(ConcreteInlineComment)
@@ -106,7 +116,6 @@ class TestInlineCommentMixIn(TestCase):
 
     def test_inline_comments_collects_from_children(self):
         comment = _make_nlc("// hello\n")
-        from hcl2.rules.tokens import NAME
 
         rule = ConcreteInlineComment([NAME("x"), comment])
         result = rule.inline_comments()
@@ -114,7 +123,6 @@ class TestInlineCommentMixIn(TestCase):
 
     def test_inline_comments_skips_bare_newlines(self):
         newline = _make_nlc("\n")
-        from hcl2.rules.tokens import NAME
 
         rule = ConcreteInlineComment([NAME("x"), newline])
         result = rule.inline_comments()
@@ -128,7 +136,6 @@ class TestInlineCommentMixIn(TestCase):
         self.assertEqual(result, ["inner"])
 
     def test_inline_comments_empty(self):
-        from hcl2.rules.tokens import NAME
 
         rule = ConcreteInlineComment([NAME("x")])
         result = rule.inline_comments()

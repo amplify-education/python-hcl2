@@ -1,19 +1,27 @@
+"""Format LarkElement trees with indentation, alignment, and spacing."""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
-from hcl2.rules.abstract import LarkElement
+from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
     StartRule,
     BlockRule,
     AttributeRule,
     BodyRule,
 )
-from hcl2.rules.containers import ObjectRule, ObjectElemRule, TupleRule
-from hcl2.rules.expressions import ExprTermRule, ExpressionRule
+from hcl2.rules.containers import (
+    ObjectRule,
+    ObjectElemRule,
+    ObjectElemKeyExpressionRule,
+    TupleRule,
+)
+from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.for_expressions import (
     ForTupleExprRule,
     ForObjectExprRule,
+    ForIntroRule,
+    ForCondRule,
 )
 from hcl2.rules.tokens import NL_OR_COMMENT, LBRACE, COLON, LSQB, COMMA
 from hcl2.rules.whitespace import NewLineOrCommentRule
@@ -21,6 +29,8 @@ from hcl2.rules.whitespace import NewLineOrCommentRule
 
 @dataclass
 class FormatterOptions:
+    """Options controlling whitespace formatting of LarkElement trees."""
+
     indent_length: int = 2
     open_empty_blocks: bool = True
     open_empty_objects: bool = True
@@ -31,27 +41,35 @@ class FormatterOptions:
 
 
 class LarkElementTreeFormatter(ABC):
-    def __init__(self, options: FormatterOptions = None):
+    """Abstract base for formatters that operate on LarkElement trees."""
+
+    def __init__(self, options: Optional[FormatterOptions] = None):
         self.options = options or FormatterOptions()
 
     @abstractmethod
     def format_tree(self, tree: LarkElement):
+        """Apply formatting to the given LarkElement tree in place."""
         raise NotImplementedError()
 
 
 class BaseFormatter(LarkElementTreeFormatter):
-    def __init__(self, options: FormatterOptions = None):
+    """Default formatter: adds indentation, newlines, and vertical alignment."""
+
+    def __init__(self, options: Optional[FormatterOptions] = None):
         super().__init__(options)
-        self._last_new_line: NewLineOrCommentRule = None
+        self._last_new_line: Optional[NewLineOrCommentRule] = None
 
     def format_tree(self, tree: LarkElement):
+        """Apply formatting to the given LarkElement tree in place."""
         if isinstance(tree, StartRule):
             self.format_start_rule(tree)
 
     def format_start_rule(self, rule: StartRule):
+        """Format the top-level start rule."""
         self.format_body_rule(rule.body, 0)
 
     def format_block_rule(self, rule: BlockRule, indent_level: int = 0):
+        """Format a block rule with its body and closing brace."""
         if self.options.vertically_align_attributes:
             self._vertically_align_attributes_in_body(rule.body)
 
@@ -62,7 +80,7 @@ class BaseFormatter(LarkElementTreeFormatter):
             rule.children.insert(-1, self._build_newline(indent_level - 1, 2))
 
     def format_body_rule(self, rule: BodyRule, indent_level: int = 0):
-
+        """Format a body rule, adding newlines between attributes and blocks."""
         in_start = isinstance(rule.parent, StartRule)
 
         new_children = []
@@ -85,12 +103,14 @@ class BaseFormatter(LarkElementTreeFormatter):
 
         if new_children:
             new_children.pop(-1)
-        rule._children = new_children
+        self._set_children(rule, new_children)
 
     def format_attribute_rule(self, rule: AttributeRule, indent_level: int = 0):
+        """Format an attribute rule by formatting its value expression."""
         self.format_expression(rule.expression, indent_level + 1)
 
     def format_tuple_rule(self, rule: TupleRule, indent_level: int = 0):
+        """Format a tuple rule with one element per line."""
         if len(rule.elements) == 0:
             if self.options.open_empty_tuples:
                 rule.children.insert(1, self._build_newline(indent_level - 1, 2))
@@ -102,31 +122,31 @@ class BaseFormatter(LarkElementTreeFormatter):
             if isinstance(child, ExprTermRule):
                 self.format_expression(child, indent_level + 1)
 
-            if isinstance(child, (COMMA, LSQB)):
+            if isinstance(child, (COMMA, LSQB)):  # type: ignore[misc]
                 new_children.append(self._build_newline(indent_level))
 
         self._deindent_last_line()
-        rule._children = new_children
+        self._set_children(rule, new_children)
 
     def format_object_rule(self, rule: ObjectRule, indent_level: int = 0):
+        """Format an object rule with one element per line and optional alignment."""
         if len(rule.elements) == 0:
             if self.options.open_empty_objects:
                 rule.children.insert(1, self._build_newline(indent_level - 1, 2))
             return
 
         new_children = []
-        for i in range(len(rule.children)):
-            child = rule.children[i]
+        for i, child in enumerate(rule.children):
             next_child = rule.children[i + 1] if i + 1 < len(rule.children) else None
             new_children.append(child)
 
-            if isinstance(child, LBRACE):
+            if isinstance(child, LBRACE):  # type: ignore[misc]
                 new_children.append(self._build_newline(indent_level))
 
             if (
                 next_child
                 and isinstance(next_child, ObjectElemRule)
-                and isinstance(child, (ObjectElemRule, COMMA))
+                and isinstance(child, (ObjectElemRule, COMMA))  # type: ignore[misc]
             ):
                 new_children.append(self._build_newline(indent_level))
 
@@ -136,12 +156,13 @@ class BaseFormatter(LarkElementTreeFormatter):
         new_children.insert(-1, self._build_newline(indent_level))
         self._deindent_last_line()
 
-        rule._children = new_children
+        self._set_children(rule, new_children)
 
         if self.options.vertically_align_object_elements:
             self._vertically_align_object_elems(rule)
 
     def format_expression(self, rule: ExprTermRule, indent_level: int = 0):
+        """Dispatch formatting for the inner expression of an ExprTermRule."""
         if isinstance(rule.expression, ObjectRule):
             self.format_object_rule(rule.expression, indent_level)
 
@@ -158,27 +179,62 @@ class BaseFormatter(LarkElementTreeFormatter):
             self.format_expression(rule.expression, indent_level)
 
     def format_fortupleexpr(self, expression: ForTupleExprRule, indent_level: int = 0):
+        """Format a for-tuple expression with newlines around clauses."""
         for child in expression.children:
             if isinstance(child, ExprTermRule):
                 self.format_expression(child, indent_level + 1)
+            elif isinstance(child, (ForIntroRule, ForCondRule)):
+                for sub_child in child.children:
+                    if isinstance(sub_child, ExprTermRule):
+                        self.format_expression(sub_child, indent_level + 1)
 
-        indexes = [1, 3, 5, 7]
-        for index in indexes:
+        for index in [1, 3]:
             expression.children[index] = self._build_newline(indent_level)
+
+        if expression.condition is not None:
+            expression.children[5] = self._build_newline(indent_level)
+        else:
+            expression.children[5] = None
+
+        expression.children[7] = self._build_newline(indent_level)
         self._deindent_last_line()
 
     def format_forobjectexpr(
         self, expression: ForObjectExprRule, indent_level: int = 0
     ):
+        """Format a for-object expression with newlines around clauses."""
         for child in expression.children:
             if isinstance(child, ExprTermRule):
                 self.format_expression(child, indent_level + 1)
+            elif isinstance(child, (ForIntroRule, ForCondRule)):
+                for sub_child in child.children:
+                    if isinstance(sub_child, ExprTermRule):
+                        self.format_expression(sub_child, indent_level + 1)
 
-        indexes = [1, 3, 12]
-        for index in indexes:
+        for index in [1, 3]:
             expression.children[index] = self._build_newline(indent_level)
 
+        for index in [6, 8]:
+            child = expression.children[index]
+            if not isinstance(child, NewLineOrCommentRule) or child.to_list() is None:
+                expression.children[index] = None
+
+        if expression.condition is not None:
+            expression.children[10] = self._build_newline(indent_level)
+        else:
+            expression.children[10] = None
+
+        expression.children[12] = self._build_newline(indent_level)
         self._deindent_last_line()
+
+    @staticmethod
+    def _set_children(rule: LarkRule, new_children):
+        """Replace a rule's children and re-establish parent/index links."""
+        rule._children = new_children
+        for i, child in enumerate(new_children):
+            if child is not None:
+                child.set_index(i)
+                child.set_parent(rule)
 
     def _vertically_align_attributes_in_body(self, body: BodyRule):
         attributes_sequence: List[AttributeRule] = []
@@ -196,28 +252,36 @@ class BaseFormatter(LarkElementTreeFormatter):
 
     def _align_attributes_sequence(self, attributes_sequence: List[AttributeRule]):
         max_length = max(
-            len(attribute.identifier.token.value)
-            for attribute in attributes_sequence
+            len(attribute.identifier.token.value) for attribute in attributes_sequence
         )
         for attribute in attributes_sequence:
             name_length = len(attribute.identifier.token.value)
             spaces_to_add = max_length - name_length
-            attribute.children[1].set_value(
-                " " * spaces_to_add + attribute.children[1].value
-            )
+            base = attribute.children[1].value.lstrip(" ")
+            attribute.children[1].set_value(" " * spaces_to_add + base)
 
     def _vertically_align_object_elems(self, rule: ObjectRule):
-        max_length = max(len(elem.key.serialize()) for elem in rule.elements)
+        max_length = max(self._key_text_width(elem.key) for elem in rule.elements)
         for elem in rule.elements:
-            key_length = len(elem.key.serialize())
+            key_length = self._key_text_width(elem.key)
 
             spaces_to_add = max_length - key_length
 
             separator = elem.children[1]
-            if isinstance(separator, COLON):
+            if isinstance(separator, COLON):  # type: ignore[misc]
                 spaces_to_add += 1
 
-            elem.children[1].set_value(" " * spaces_to_add + separator.value)
+            base = separator.value.lstrip(" ")
+            elem.children[1].set_value(" " * spaces_to_add + base)
+
+    @staticmethod
+    def _key_text_width(key: LarkElement) -> int:
+        """Compute the HCL text width of an object element key."""
+        width = len(str(key.serialize()))
+        # Expression keys serialize with ${...} wrapping (+3 chars vs HCL text).
+        if isinstance(key, ObjectElemKeyExpressionRule):
+            width -= 3
+        return width
 
     def _build_newline(
         self, next_line_indent: int = 0, count: int = 1
@@ -233,7 +297,9 @@ class BaseFormatter(LarkElementTreeFormatter):
         return result
 
     def _deindent_last_line(self, times: int = 1):
+        if self._last_new_line is None:
+            return
         token = self._last_new_line.token
-        for i in range(times):
+        for _ in range(times):
             if token.value.endswith(" " * self.options.indent_length):
                 token.set_value(token.value[: -self.options.indent_length])

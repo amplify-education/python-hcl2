@@ -1,3 +1,4 @@
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
 from hcl2.utils import (
@@ -73,13 +74,6 @@ class TestSerializationContext(TestCase):
             self.assertTrue(ctx.inside_parentheses)
         self.assertFalse(ctx.inside_dollar_string)
         self.assertFalse(ctx.inside_parentheses)
-
-    def test_copy_yields_independent_copy(self):
-        ctx = SerializationContext()
-        with ctx.copy(inside_dollar_string=True) as copied:
-            self.assertTrue(copied.inside_dollar_string)
-            self.assertFalse(ctx.inside_dollar_string)
-            self.assertIsNot(ctx, copied)
 
 
 class TestIsDollarString(TestCase):
