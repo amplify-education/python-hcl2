@@ -1,110 +1,153 @@
-# pylint:disable=C0116
-
-"""Test building an HCL file from scratch"""
-
-from pathlib import Path
+# pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
-import hcl2
-import hcl2.builder
+from hcl2.builder import Builder
+from hcl2.const import IS_BLOCK
 
 
-HELPERS_DIR = Path(__file__).absolute().parent.parent / "helpers"
-HCL2_DIR = HELPERS_DIR / "terraform-config"
-JSON_DIR = HELPERS_DIR / "terraform-config-json"
-HCL2_FILES = [str(file.relative_to(HCL2_DIR)) for file in HCL2_DIR.iterdir()]
+class TestBuilderAttributes(TestCase):
+    def test_empty_builder(self):
+        b = Builder()
+        result = b.build()
+        self.assertIn(IS_BLOCK, result)
+        self.assertTrue(result[IS_BLOCK])
+
+    def test_with_attributes(self):
+        b = Builder({"key": "value", "count": 3})
+        result = b.build()
+        self.assertEqual(result["key"], "value")
+        self.assertEqual(result["count"], 3)
+
+    def test_is_block_marker_present(self):
+        b = Builder({"x": 1})
+        result = b.build()
+        self.assertTrue(result[IS_BLOCK])
 
 
-class TestBuilder(TestCase):
-    """Test building a variety of hcl files"""
+class TestBuilderBlock(TestCase):
+    def test_simple_block(self):
+        b = Builder()
+        b.block("resource")
+        result = b.build()
+        self.assertIn("resource", result)
+        self.assertEqual(len(result["resource"]), 1)
 
-    # print any differences fully to the console
-    maxDiff = None
+    def test_block_with_labels(self):
+        b = Builder()
+        b.block("resource", labels=["aws_instance", "example"])
+        result = b.build()
+        block_entry = result["resource"][0]
+        self.assertIn("aws_instance", block_entry)
+        inner = block_entry["aws_instance"]
+        self.assertIn("example", inner)
 
-    def test_build_blocks_tf(self):
-        nested_builder = hcl2.Builder()
-        nested_builder.block("nested_block_1", ["a"], foo="bar")
-        nested_builder.block("nested_block_1", ["a", "b"], bar="foo")
-        nested_builder.block("nested_block_1", foobar="barfoo")
-        nested_builder.block("nested_block_2", barfoo="foobar")
+    def test_block_with_attributes(self):
+        b = Builder()
+        b.block("resource", labels=["type"], ami="abc-123")
+        result = b.build()
+        block = result["resource"][0]["type"]
+        self.assertEqual(block["ami"], "abc-123")
 
-        builder = hcl2.Builder()
-        builder.block("block", a=1)
-        builder.block("block", ["label"], __nested_builder__=nested_builder, b=2)
+    def test_multiple_blocks_same_type(self):
+        b = Builder()
+        b.block("resource", labels=["type_a"])
+        b.block("resource", labels=["type_b"])
+        result = b.build()
+        self.assertEqual(len(result["resource"]), 2)
 
-        self.compare_filenames(builder, "blocks.tf")
+    def test_multiple_block_types(self):
+        b = Builder()
+        b.block("resource")
+        b.block("data")
+        result = b.build()
+        self.assertIn("resource", result)
+        self.assertIn("data", result)
 
-    def test_build_escapes_tf(self):
-        builder = hcl2.Builder()
+    def test_block_returns_builder(self):
+        b = Builder()
+        child = b.block("resource")
+        self.assertIsInstance(child, Builder)
 
-        builder.block("block", ["block_with_newlines"], a="line1\nline2")
+    def test_block_child_attributes(self):
+        b = Builder()
+        child = b.block("resource", labels=["type"])
+        child.attributes["nested_key"] = "nested_val"
+        # Rebuild to pick up the changes
+        result = b.build()
+        block = result["resource"][0]["type"]
+        self.assertEqual(block["nested_key"], "nested_val")
 
-        self.compare_filenames(builder, "escapes.tf")
+    def test_self_reference_raises(self):
+        b = Builder()
+        with self.assertRaises(ValueError):
+            b.block("resource", __nested_builder__=b)
 
-    def test_locals_embdedded_condition_tf(self):
-        builder = hcl2.Builder()
 
-        builder.block(
-            "locals",
-            terraform={
-                "channels": "${(local.running_in_ci ? local.ci_channels : local.local_channels)}",
-                "authentication": [],
-                "foo": None,
-            },
+class TestBuilderNestedBlocks(TestCase):
+    def test_nested_builder(self):
+        b = Builder()
+        inner = Builder()
+        inner.block("provisioner", labels=["local-exec"], command="echo hello")
+        b.block("resource", labels=["type"], __nested_builder__=inner)
+        result = b.build()
+        block = result["resource"][0]["type"]
+        self.assertIn("provisioner", block)
+
+    def test_nested_blocks_merged(self):
+        b = Builder()
+        inner = Builder()
+        inner.block("sub_block", x=1)
+        inner.block("sub_block", x=2)
+        b.block("resource", __nested_builder__=inner)
+        result = b.build()
+        block = result["resource"][0]
+        self.assertEqual(len(block["sub_block"]), 2)
+
+
+class TestBuilderBlockMarker(TestCase):
+    def test_block_marker_is_is_block(self):
+        """Verify IS_BLOCK marker is used (not __start_line__/__end_line__)."""
+        b = Builder({"x": 1})
+        result = b.build()
+        self.assertIn(IS_BLOCK, result)
+        self.assertTrue(result[IS_BLOCK])
+        self.assertNotIn("__start_line__", result)
+        self.assertNotIn("__end_line__", result)
+
+    def test_nested_blocks_skip_is_block_key(self):
+        """_add_nested_blocks should skip IS_BLOCK when merging."""
+        b = Builder()
+        inner = Builder()
+        inner.block("sub", val=1)
+        b.block("parent", __nested_builder__=inner)
+        result = b.build()
+        parent_block = result["parent"][0]
+        # sub blocks should be present, but IS_BLOCK from inner should not leak as a list
+        self.assertIn("sub", parent_block)
+        # IS_BLOCK should be a bool marker, not a list
+        self.assertTrue(parent_block[IS_BLOCK])
+
+
+class TestBuilderIntegration(TestCase):
+    def test_full_document(self):
+        doc = Builder()
+        doc.block(
+            "resource",
+            labels=["aws_instance", "web"],
+            ami="ami-12345",
+            instance_type="t2.micro",
         )
-
-        self.compare_filenames(builder, "locals_embedded_condition.tf")
-
-    def test_locals_embedded_function_tf(self):
-        builder = hcl2.Builder()
-
-        function_test = (
-            "${var.basename}-${var.forwarder_function_name}_"
-            '${md5("${var.vpc_id}${data.aws_region.current.name}")}'
+        doc.block(
+            "resource",
+            labels=["aws_s3_bucket", "data"],
+            bucket="my-bucket",
         )
-        builder.block("locals", function_test=function_test)
+        result = doc.build()
+        self.assertEqual(len(result["resource"]), 2)
 
-        self.compare_filenames(builder, "locals_embedded_function.tf")
+        web = result["resource"][0]["aws_instance"]["web"]
+        self.assertEqual(web["ami"], "ami-12345")
+        self.assertEqual(web["instance_type"], "t2.micro")
 
-    def test_locals_embedded_interpolation_tf(self):
-        builder = hcl2.Builder()
-
-        attributes = {
-            "simple_interpolation": "prefix:${var.foo}-suffix",
-            "embedded_interpolation": "(long substring without interpolation); "
-            '${module.special_constants.aws_accounts["aaa-${local.foo}-${local.bar}"]}/us-west-2/key_foo',
-            "deeply_nested_interpolation": 'prefix1-${"prefix2-${"prefix3-$${foo:bar}"}"}',
-            "escaped_interpolation": "prefix:$${aws:username}-suffix",
-            "simple_and_escaped": '${"bar"}$${baz:bat}',
-            "simple_and_escaped_reversed": '$${baz:bat}${"bar"}',
-            "nested_escaped": 'bar-${"$${baz:bat}"}',
-        }
-
-        builder.block("locals", **attributes)
-
-        self.compare_filenames(builder, "string_interpolations.tf")
-
-    def test_provider_function_tf(self):
-        builder = hcl2.Builder()
-
-        builder.block(
-            "locals",
-            name2='${provider::test2::test("a")}',
-            name3='${test("a")}',
-        )
-
-        self.compare_filenames(builder, "provider_function.tf")
-
-    def compare_filenames(self, builder: hcl2.Builder, filename: str):
-        hcl_dict = builder.build()
-        hcl_ast = hcl2.reverse_transform(hcl_dict)
-        hcl_content_built = hcl2.writes(hcl_ast)
-
-        hcl_path = (HCL2_DIR / filename).absolute()
-        with hcl_path.open("r") as hcl_file:
-            hcl_file_content = hcl_file.read()
-            self.assertMultiLineEqual(
-                hcl_content_built,
-                hcl_file_content,
-                f"file {filename} does not match its programmatically built version.",
-            )
+        data = result["resource"][1]["aws_s3_bucket"]["data"]
+        self.assertEqual(data["bucket"], "my-bucket")
