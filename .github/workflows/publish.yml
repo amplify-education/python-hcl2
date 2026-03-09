@@ -7,7 +7,7 @@ on:
 jobs:
   build-publish:
     name: Build and publish Python distributions
-    runs-on: ubuntu-22.04
+    runs-on: github-hosted-static-ip
     steps:
       - uses: actions/checkout@master
       - name: Set up Python
