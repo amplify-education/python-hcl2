@@ -17,6 +17,7 @@ from hcl2.rules.containers import (
     TupleRule,
 )
 from hcl2.rules.expressions import ExprTermRule
+from hcl2.rules.functions import FunctionCallRule
 from hcl2.rules.for_expressions import (
     ForTupleExprRule,
     ForObjectExprRule,
@@ -33,7 +34,7 @@ class FormatterOptions:
 
     indent_length: int = 2
     open_empty_blocks: bool = True
-    open_empty_objects: bool = True
+    open_empty_objects: bool = False
     open_empty_tuples: bool = False
 
     vertically_align_attributes: bool = True
@@ -125,6 +126,10 @@ class BaseFormatter(LarkElementTreeFormatter):
             if isinstance(child, (COMMA, LSQB)):  # type: ignore[misc]
                 new_children.append(self._build_newline(indent_level))
 
+        # If no trailing comma, add newline before closing bracket
+        if not isinstance(new_children[-2], NewLineOrCommentRule):
+            new_children.insert(-1, self._build_newline(indent_level))
+
         self._deindent_last_line()
         self._set_children(rule, new_children)
 
@@ -175,8 +180,18 @@ class BaseFormatter(LarkElementTreeFormatter):
         elif isinstance(rule.expression, ForObjectExprRule):
             self.format_forobjectexpr(rule.expression, indent_level)
 
+        elif isinstance(rule.expression, FunctionCallRule):
+            self.format_function_call(rule.expression, indent_level)
+
         elif isinstance(rule.expression, ExprTermRule):
             self.format_expression(rule.expression, indent_level)
+
+    def format_function_call(self, rule: FunctionCallRule, indent_level: int = 0):
+        """Format a function call by recursively formatting its arguments."""
+        if rule.arguments is not None:
+            for arg in rule.arguments.arguments:
+                if isinstance(arg, ExprTermRule):
+                    self.format_expression(arg, indent_level)
 
     def format_fortupleexpr(self, expression: ForTupleExprRule, indent_level: int = 0):
         """Format a for-tuple expression with newlines around clauses."""
