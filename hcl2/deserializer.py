@@ -63,9 +63,15 @@ from hcl2.utils import HEREDOC_TRIM_PATTERN, HEREDOC_PATTERN
 class DeserializerOptions:
     """Options controlling how Python dicts are deserialized into LarkElement trees."""
 
+    # Convert heredoc values (<<EOF...EOF) to regular escaped strings during
+    # deserialization. When False, heredoc syntax is preserved as-is.
     heredocs_to_strings: bool = False
+    # Convert multi-line escaped strings (containing \n) back into heredoc
+    # syntax (<<EOF...EOF) during deserialization.
     strings_to_heredocs: bool = False
+    # Use colon (:) instead of equals (=) as the separator in object elements.
     object_elements_colon: bool = False
+    # Append a trailing comma after each object element.
     object_elements_trailing_comma: bool = True
     # with_comments: bool = False # TODO
 
