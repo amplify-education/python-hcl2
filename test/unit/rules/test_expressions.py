@@ -194,8 +194,8 @@ class TestConditionalRule(TestCase):
 
     def test_construction_inserts_optional_slots(self):
         rule = self._make_conditional()
-        # Should have 8 children after _insert_optionals at [2, 4, 6]
-        self.assertEqual(len(rule.children), 8)
+        # Should have 9 children after _insert_optionals at [1, 3, 5, 7]
+        self.assertEqual(len(rule.children), 9)
 
     def test_condition_property(self):
         cond = StubExpression("cond")
@@ -274,9 +274,10 @@ class TestBinaryTermRule(TestCase):
 
     def test_construction_inserts_optional(self):
         rule = _make_binary_term("+", "b")
-        # [BinaryOperatorRule, None, ExprTermRule]
-        self.assertEqual(len(rule.children), 3)
-        self.assertIsNone(rule.children[1])
+        # [None, BinaryOperatorRule, None, ExprTermRule]
+        self.assertEqual(len(rule.children), 4)
+        self.assertIsNone(rule.children[0])
+        self.assertIsNone(rule.children[2])
 
     def test_binary_operator_property(self):
         op = _make_binary_operator("+")

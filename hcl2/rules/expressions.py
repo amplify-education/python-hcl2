@@ -122,6 +122,7 @@ class ConditionalRule(ExpressionRule):
 
     _children_layout: Tuple[
         ExpressionRule,
+        Optional[NewLineOrCommentRule],
         QMARK,
         Optional[NewLineOrCommentRule],
         ExpressionRule,
@@ -137,7 +138,7 @@ class ConditionalRule(ExpressionRule):
         return "conditional"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        self._insert_optionals(children, [2, 4, 6])
+        self._insert_optionals(children, [1, 3, 5, 7])
         super().__init__(children, meta)
 
     @property
@@ -148,12 +149,12 @@ class ConditionalRule(ExpressionRule):
     @property
     def if_true(self) -> ExpressionRule:
         """Return the true-branch expression."""
-        return self._children[3]
+        return self._children[4]
 
     @property
     def if_false(self) -> ExpressionRule:
         """Return the false-branch expression."""
-        return self._children[7]
+        return self._children[8]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
@@ -179,6 +180,7 @@ class BinaryTermRule(ExpressionRule):
     """Rule for the operator+operand portion of a binary operation."""
 
     _children_layout: Tuple[
+        Optional[NewLineOrCommentRule],
         BinaryOperatorRule,
         Optional[NewLineOrCommentRule],
         ExprTermRule,
@@ -190,18 +192,18 @@ class BinaryTermRule(ExpressionRule):
         return "binary_term"
 
     def __init__(self, children, meta: Optional[Meta] = None):
-        self._insert_optionals(children, [1])
+        self._insert_optionals(children, [0, 2])
         super().__init__(children, meta)
 
     @property
     def binary_operator(self) -> BinaryOperatorRule:
         """Return the binary operator."""
-        return self._children[0]
+        return self._children[1]
 
     @property
     def expr_term(self) -> ExprTermRule:
         """Return the right-hand operand."""
-        return self._children[2]
+        return self._children[3]
 
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
