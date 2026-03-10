@@ -85,6 +85,11 @@ def main():
         action="store_true",
         help="Convert scientific notation to standard floats",
     )
+    parser.add_argument(
+        "--strip-string-quotes",
+        action="store_true",
+        help="Strip surrounding double-quotes from serialized string values",
+    )
 
     # JSON output formatting
     parser.add_argument(
@@ -106,6 +111,7 @@ def main():
         preserve_heredocs=not args.no_preserve_heredocs,
         force_operation_parentheses=args.force_parens,
         preserve_scientific_notation=not args.no_preserve_scientific,
+        strip_string_quotes=args.strip_string_quotes,
     )
     json_indent = args.json_indent
 

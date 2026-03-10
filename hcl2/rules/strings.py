@@ -92,11 +92,10 @@ class StringRule(LarkRule):
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
         """Serialize to a quoted string."""
-        return (
-            '"'
-            + "".join(part.serialize(options, context) for part in self.string_parts)
-            + '"'
-        )
+        inner = "".join(part.serialize(options, context) for part in self.string_parts)
+        if options.strip_string_quotes:
+            return inner
+        return '"' + inner + '"'
 
 
 class HeredocTemplateRule(LarkRule):
@@ -129,9 +128,13 @@ class HeredocTemplateRule(LarkRule):
             heredoc = (
                 heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             )
+            if options.strip_string_quotes:
+                return heredoc
             return f'"{heredoc}"'
 
         result = heredoc.rstrip(self._trim_chars)
+        if options.strip_string_quotes:
+            return result
         return f'"{result}"'
 
 
@@ -178,4 +181,7 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
             lines = [line.replace("\\", "\\\\").replace('"', '\\"') for line in lines]
 
         sep = "\\n" if not options.preserve_heredocs else "\n"
-        return '"' + sep.join(lines) + '"'
+        inner = sep.join(lines)
+        if options.strip_string_quotes:
+            return inner
+        return '"' + inner + '"'

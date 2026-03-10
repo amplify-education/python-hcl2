@@ -59,6 +59,26 @@ class TestLoads(TestCase):
         result = loads(BLOCK_HCL)
         self.assertIn("resource", result)
 
+    def test_strip_string_quotes(self):
+        result = loads(
+            BLOCK_HCL,
+            serialization_options=SerializationOptions(
+                strip_string_quotes=True, explicit_blocks=False
+            ),
+        )
+        resource_list = result["resource"]
+        self.assertEqual(len(resource_list), 1)
+        block = resource_list[0]
+        # Block label should have no surrounding quotes
+        self.assertIn("aws_instance", block)
+        inner = block["aws_instance"]
+        self.assertIn("example", inner)
+        body = inner["example"]
+        # Attribute value should have no surrounding quotes
+        self.assertEqual(body["ami"], "abc-123")
+        # No __is_block__ marker
+        self.assertNotIn("__is_block__", body)
+
 
 class TestLoad(TestCase):
     def test_from_file(self):
