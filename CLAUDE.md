@@ -3,9 +3,12 @@
 ## Pipeline
 
 ```
-Forward:  HCL2 Text → Lark Parse Tree → LarkElement Tree → Python Dict/JSON
+Forward:  HCL2 Text → [PostLexer] → Lark Parse Tree → LarkElement Tree → Python Dict/JSON
 Reverse:  Python Dict/JSON → LarkElement Tree → Lark Tree → HCL2 Text
+Direct:   HCL2 Text → [PostLexer] → Lark Parse Tree → LarkElement Tree → Lark Tree → HCL2 Text
 ```
+
+The **Direct** pipeline (`parse_to_tree` → `transform` → `to_lark` → `reconstruct`) skips serialization to dict, so all IR nodes (including `NewLineOrCommentRule` nodes for whitespace/comments) directly influence the reconstructed output. Any information discarded before the IR is lost in this pipeline.
 
 ## Module Map
 
@@ -13,6 +16,7 @@ Reverse:  Python Dict/JSON → LarkElement Tree → Lark Tree → HCL2 Text
 |---|---|
 | `hcl2/hcl2.lark` | Lark grammar definition |
 | `hcl2/api.py` | Public API (`load/loads/dump/dumps` + intermediate stages) |
+| `hcl2/postlexer.py` | Token stream transforms between lexer and parser |
 | `hcl2/parser.py` | Lark parser factory with caching |
 | `hcl2/transformer.py` | Lark parse tree → LarkElement tree |
 | `hcl2/deserializer.py` | Python dict → LarkElement tree |
@@ -73,6 +77,16 @@ jsontohcl2 --indent 4 --no-align file.json
 
 Add new options as `parser.add_argument()` calls in the relevant entry point module.
 
+## PostLexer (`postlexer.py`)
+
+Lark's `postlex` parameter accepts a single object with a `process(stream)` method that transforms the token stream between the lexer and LALR parser. The `PostLexer` class is designed for extensibility: each transformation is a private method that accepts and yields tokens, and `process()` chains them together.
+
+Current passes:
+
+- `_merge_newlines_into_operators`
+
+To add a new pass: create a private method with the same `(self, stream) -> generator` signature, and add a `yield from` call in `process()`.
+
 ## Hard Rules
 
 These are project-specific constraints that must not be violated:
@@ -88,6 +102,7 @@ These are project-specific constraints that must not be violated:
 ## Adding a New Language Construct
 
 1. Add grammar rules to `hcl2.lark`
+1. If the new construct creates LALR ambiguities with `NL_OR_COMMENT`, add a postlexer pass in `postlexer.py`
 1. Create rule class(es) in the appropriate `rules/` file
 1. Add transformer method(s) in `transformer.py`
 1. Implement `serialize()` in the rule class
@@ -103,9 +118,9 @@ python -m unittest discover -s test -p "test_*.py" -v
 
 **Unit tests** (`test/unit/`): instantiate rule objects directly (no parsing).
 
-- `test/unit/rules/` — one file per rules module
-- `test/unit/cli/` — one file per CLI module
-- `test/unit/test_api.py`, `test_builder.py`, `test_deserializer.py`, `test_formatter.py`, `test_reconstructor.py`, `test_utils.py`
+- `rules/` — one file per rules module
+- `cli/` — one file per CLI module
+- `test_*.py` — tests for corresponding files from `hcl2/` directory
 
 Use concrete stubs when testing ABCs (e.g., `StubExpression(ExpressionRule)`).
 
