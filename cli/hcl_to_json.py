@@ -68,7 +68,7 @@ def main():
     parser.add_argument(
         "--no-explicit-blocks",
         action="store_true",
-        help="Disable explicit block markers",
+        help="Disable explicit block markers. Note: round-trip through json_to_hcl is NOT supported with this option.",
     )
     parser.add_argument(
         "--no-preserve-heredocs",
@@ -88,7 +88,7 @@ def main():
     parser.add_argument(
         "--strip-string-quotes",
         action="store_true",
-        help="Strip surrounding double-quotes from serialized string values",
+        help="Strip surrounding double-quotes from serialized string values. Note: round-trip through json_to_hcl is NOT supported with this option.",
     )
 
     # JSON output formatting
