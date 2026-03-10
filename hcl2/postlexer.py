@@ -5,8 +5,8 @@ tokens.  The public ``process`` method chains them together, making it easy to
 add new passes without touching existing logic.
 """
 
-from collections.abc import Iterator
-from typing import FrozenSet, Optional, Tuple
+from typing import FrozenSet, Iterator, Optional, Tuple
+
 
 from lark import Token
 
