@@ -248,7 +248,9 @@ class BinaryOpRule(ExpressionRule):
         """Serialize to 'lhs operator rhs' string."""
         with context.modify(inside_dollar_string=True):
             lhs = self.expr_term.serialize(options, context)
-            operator = self.binary_term.binary_operator.serialize(options, context)
+            operator = str(
+                self.binary_term.binary_operator.serialize(options, context)
+            ).strip()
             rhs = self.binary_term.expr_term.serialize(options, context)
 
         result = f"{lhs} {operator} {rhs}"
@@ -286,7 +288,8 @@ class UnaryOpRule(ExpressionRule):
     ) -> Any:
         """Serialize to 'operator operand' string."""
         with context.modify(inside_dollar_string=True):
-            result = f"{self.operator}{self.expr_term.serialize(options, context)}"
+            operator = self.operator.rstrip()
+            result = f"{operator}{self.expr_term.serialize(options, context)}"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)

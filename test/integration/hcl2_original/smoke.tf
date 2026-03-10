@@ -3,7 +3,7 @@ block label1 label2 {
   a = 5
   b = 1256.5
   c = 15 + (10 * 12)
-  d = (- a)
+  d = (-a)
   e = (
     a == b
     ? true : false
