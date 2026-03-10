@@ -19,6 +19,10 @@ class SerializationOptions:
     preserve_heredocs: bool = True
     force_operation_parentheses: bool = False
     preserve_scientific_notation: bool = True
+    # Remove surrounding double-quotes from serialized string values,
+    # producing backwards-compatible output (e.g. "hello" instead of '"hello"').
+    # Note: round-trip through from_dict/dumps is NOT supported WITH this option.
+    strip_string_quotes: bool = False
 
 
 @dataclass
