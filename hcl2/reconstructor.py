@@ -266,6 +266,20 @@ class HCLReconstructor:
         # Fallback: convert to string
         return [str(node)]
 
+    def reconstruct_fragment(self, tree) -> str:
+        """Reconstruct a subtree without trailing-newline normalization.
+
+        Suitable for rendering individual nodes (blocks, attributes, etc.)
+        rather than full documents.
+        """
+        from hcl2.rules.abstract import LarkRule
+
+        self._reset_state()
+        if isinstance(tree, LarkRule):
+            tree = tree.to_lark()
+        fragments = self._reconstruct_node(tree)
+        return "".join(fragments)
+
     def reconstruct(self, tree: Tree, postproc=None) -> str:
         """Convert a Lark.Tree AST back into a string representation of HCL."""
         # Reset state

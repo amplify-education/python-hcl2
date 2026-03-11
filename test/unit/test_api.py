@@ -18,6 +18,7 @@ from hcl2.api import (
     reconstruct,
     transform,
     serialize,
+    query,
 )
 from hcl2.deserializer import DeserializerOptions
 from hcl2.formatter import FormatterOptions
@@ -279,3 +280,22 @@ class TestErrorPaths(TestCase):
     def test_from_json_raises_on_invalid_json(self):
         with self.assertRaises(Exception):
             from_json("{not valid json")
+
+
+class TestQuery(TestCase):
+    def test_query_string(self):
+        from hcl2.query.body import DocumentView
+
+        result = query(SIMPLE_HCL)
+        self.assertIsInstance(result, DocumentView)
+        attr = result.attribute("x")
+        self.assertIsNotNone(attr)
+
+    def test_query_file_object(self):
+        from hcl2.query.body import DocumentView
+
+        f = StringIO(SIMPLE_HCL)
+        result = query(f)
+        self.assertIsInstance(result, DocumentView)
+        attr = result.attribute("x")
+        self.assertIsNotNone(attr)

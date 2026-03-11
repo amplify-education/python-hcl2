@@ -30,27 +30,33 @@ class NewLineOrCommentRule(TokenRule):
 
     def to_list(
         self, options: SerializationOptions = SerializationOptions()
-    ) -> Optional[List[str]]:
-        """Extract comment text strings, or None if only a newline."""
-        comment = self.serialize(options)
-        if comment == "\n":
+    ) -> Optional[List[dict]]:
+        """Extract comment objects, or None if only a newline."""
+        raw = self.serialize(options)
+        if raw == "\n":
             return None
 
-        comments = comment.split("\n")
+        stripped = raw.strip()
 
+        # Block comments: keep as a single value
+        if stripped.startswith("/*") and stripped.endswith("*/"):
+            text = stripped[2:-2].strip()
+            if text:
+                return [{"value": text}]
+            return None
+
+        # Line comments: one value per line
         result = []
-        for comment in comments:
-            comment = comment.strip()
+        for line in raw.split("\n"):
+            line = line.strip()
 
-            for delimiter in ("//", "/*", "#"):
-                if comment.startswith(delimiter):
-                    comment = comment[len(delimiter) :]
-                    if delimiter == "/*" and comment.endswith("*/"):
-                        comment = comment[:-2]
+            for delimiter in ("//", "#"):
+                if line.startswith(delimiter):
+                    line = line[len(delimiter) :]
                     break
 
-            if comment != "":
-                result.append(comment.strip())
+            if line != "":
+                result.append({"value": line.strip()})
 
         return result
 

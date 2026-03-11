@@ -1,0 +1,899 @@
+"""``hq`` CLI entry point — query HCL2 files."""
+
+import argparse
+import glob as glob_mod
+import json
+import multiprocessing
+import os
+import sys
+from typing import Any, List, Optional, Tuple
+
+from hcl2.query._base import NodeView
+from hcl2.utils import SerializationOptions
+from hcl2.query.body import DocumentView
+from hcl2.query.introspect import build_schema, describe_results
+from hcl2.query.path import QuerySyntaxError
+from hcl2.query.pipeline import classify_stage, execute_pipeline, split_pipeline
+from hcl2.query.resolver import resolve_path
+from hcl2.query.safe_eval import UnsafeExpressionError, safe_eval
+from hcl2.version import __version__
+
+# Exit codes
+EXIT_SUCCESS = 0
+EXIT_NO_RESULTS = 1
+EXIT_PARSE_ERROR = 2
+EXIT_QUERY_ERROR = 3
+EXIT_IO_ERROR = 4
+
+EXAMPLES_TEXT = """\
+examples:
+  # Structural queries
+  hq 'resource.aws_instance.main.ami' main.tf
+  hq 'variable[*]' variables.tf --json
+  echo 'x = 1' | hq 'x' --value
+
+  # Multiple files and globs
+  hq 'resource[*]' file1.tf file2.tf --json
+  hq 'variable[*]' modules/ --ndjson
+  hq 'resource[*]' 'modules/**/*.tf' --json
+
+  # Pipes
+  hq 'resource.aws_instance[*] | .tags' main.tf
+  hq 'variable[*] | select(.default) | .default' vars.tf --json
+
+  # Builtins
+  hq 'x | keys' file.tf --json
+  hq 'x | length' file.tf --value
+
+  # Select (bracket syntax)
+  hq '*[select(.name == "x")]' file.tf --value
+
+  # String functions (jq-compatible)
+  hq 'module~[select(.source | contains("docker"))]' dir/
+  hq 'resource~[select(.ami | test("^ami-"))]' dir/
+  hq 'resource~[select(has("tags"))]' main.tf
+  hq 'resource~[select(.tags | not)]' main.tf
+
+  # Object construction (jq-style)
+  hq 'resource[*] | {type: .block_type, name: .name_labels}' main.tf --json
+
+  # Optional (exit 0 on empty results)
+  hq 'nonexistent?' file.tf --value
+
+  # Raw output (strip quotes, ideal for shell piping)
+  hq 'resource.aws_instance.main.ami' main.tf --raw
+
+  # NDJSON (one JSON object per line, ideal for streaming)
+  hq 'resource[*]' dir/ --ndjson
+
+  # Source location metadata
+  hq 'resource[*]' main.tf --json --with-location
+
+  # Comments in output
+  hq 'resource[*]' main.tf --json --with-comments
+
+  # Structural diff
+  hq file1.tf --diff file2.tf
+  hq file1.tf --diff file2.tf --json
+
+  # Hybrid (structural::eval)
+  hq 'resource.aws_instance[*]::name_labels' main.tf
+  hq 'variable[*]::block_type' variables.tf --value
+
+  # Pure eval (-e)
+  hq -e 'doc.blocks("variable")[0].attribute("default").value' variables.tf --json
+
+  # Introspection
+  hq --describe 'variable[*]' variables.tf
+  hq --schema
+
+docs: https://github.com/amplify-education/python-hcl2/tree/main/docs
+"""
+
+
+def _normalize_eval_expr(expr_part: str) -> str:
+    """Normalize the eval expression after '::' for ergonomics."""
+    stripped = expr_part.strip()
+    if not stripped:
+        return "_"
+    if stripped.startswith("_"):
+        return stripped
+    if stripped.startswith("."):
+        return "_" + stripped
+    # Check if it starts with a known function/variable name
+    for prefix in (
+        "len(",
+        "str(",
+        "int(",
+        "float(",
+        "bool(",
+        "list(",
+        "tuple(",
+        "sorted(",
+        "reversed(",
+        "enumerate(",
+        "zip(",
+        "range(",
+        "min(",
+        "max(",
+        "print(",
+        "any(",
+        "all(",
+        "filter(",
+        "map(",
+        "isinstance(",
+        "type(",
+        "doc",
+    ):
+        if stripped.startswith(prefix):
+            return stripped
+    return "_." + stripped
+
+
+def _dispatch_query(
+    query_str: str,
+    is_eval: bool,
+    doc_view: DocumentView,
+    file_path: str = "",
+) -> List[Any]:
+    """Dispatch a query and return results."""
+    if is_eval:
+        result = safe_eval(query_str, {"doc": doc_view})
+        if isinstance(result, list):
+            return result
+        return [result]
+
+    # Hybrid mode: checked before pipeline since "::" is unambiguous
+    if "::" in query_str:
+        from hcl2.query.path import parse_path
+
+        path_part, expr_part = query_str.split("::", 1)
+        segments = parse_path(path_part)
+        nodes = resolve_path(doc_view, segments)
+        expr = _normalize_eval_expr(expr_part)
+        return [safe_eval(expr, {"_": node, "doc": doc_view}) for node in nodes]
+
+    # Structural mode: route through pipeline (handles pipes, builtins, select)
+    stages = [classify_stage(s) for s in split_pipeline(query_str)]
+    return execute_pipeline(doc_view, stages, file_path=file_path)
+
+
+def _strip_dollar_wrap(text: str) -> str:
+    """Strip ``${...}`` wrapping from a serialized expression string."""
+    if text.startswith("${") and text.endswith("}"):
+        return text[2:-1]
+    return text
+
+
+def _strip_quotes(text: str) -> str:
+    """Strip surrounding quotes from a string value."""
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        return text[1:-1]
+    return text
+
+
+def _rawify(value: Any) -> Any:
+    """Recursively strip quotes and ${} wrapping from all string values."""
+    if isinstance(value, str):
+        return _strip_dollar_wrap(_strip_quotes(value))
+    if isinstance(value, dict):
+        return {k: _rawify(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_rawify(v) for v in value]
+    return value
+
+
+def _format_result(
+    result: Any,
+    output_json: bool,
+    output_value: bool,
+    json_indent: Optional[int],
+    output_raw: bool = False,
+    serialization_options: Optional[SerializationOptions] = None,
+) -> str:
+    """Format a single result for output."""
+    if output_json:
+        return json.dumps(
+            _convert_for_json(result, options=serialization_options),
+            indent=json_indent,
+            default=str,
+        )
+
+    if output_raw:
+        if isinstance(result, NodeView):
+            val = result.to_dict()
+            if isinstance(val, str):
+                return _strip_dollar_wrap(_strip_quotes(val))
+            # For dicts with a single key (e.g. attribute), extract the value
+            if isinstance(val, dict) and len(val) == 1:
+                inner = next(iter(val.values()))
+                if isinstance(inner, str):
+                    return _strip_dollar_wrap(_strip_quotes(inner))
+                return str(inner)
+            return json.dumps(_rawify(val), default=str)
+        if isinstance(result, dict):
+            return json.dumps(_rawify(result), default=str)
+        if isinstance(result, str):
+            return _strip_dollar_wrap(_strip_quotes(result))
+        return str(result)
+
+    if output_value:
+        if isinstance(result, NodeView):
+            val = result.to_dict()
+            # Auto-unwrap single-key dicts (e.g. AttributeView → inner value)
+            if isinstance(val, dict) and len(val) == 1:
+                inner = next(iter(val.values()))
+                return _strip_dollar_wrap(str(inner))
+            return _strip_dollar_wrap(str(val))
+        if isinstance(result, str):
+            return _strip_dollar_wrap(result)
+        return str(result)
+
+    # Default: HCL output
+    if isinstance(result, NodeView):
+        return result.to_hcl()
+    if isinstance(result, list):
+        return _format_list(
+            result,
+            output_json,
+            output_value,
+            json_indent,
+            output_raw,
+            serialization_options,
+        )
+    if isinstance(result, str):
+        return _strip_dollar_wrap(result)
+    return str(result)
+
+
+def _format_list(
+    items: list,
+    output_json: bool,
+    output_value: bool,
+    json_indent: Optional[int],
+    output_raw: bool = False,
+    serialization_options: Optional[SerializationOptions] = None,
+) -> str:
+    """Format a list result (e.g. from hybrid mode returning a list property)."""
+    if output_json:
+        converted = [
+            _convert_for_json(item, options=serialization_options) for item in items
+        ]
+        return json.dumps(converted, indent=json_indent, default=str)
+    parts = []
+    for item in items:
+        if isinstance(item, NodeView):
+            parts.append(item.to_hcl() if not output_value else str(item.to_dict()))
+        else:
+            parts.append(str(item))
+    return "[" + ", ".join(parts) + "]" if not output_value else "\n".join(parts)
+
+
+def _convert_for_json(
+    value: Any,
+    options: Optional[SerializationOptions] = None,
+) -> Any:
+    """Recursively convert NodeViews to dicts for JSON serialization."""
+    if isinstance(value, NodeView):
+        return value.to_dict(options=options)
+    if isinstance(value, list):
+        return [_convert_for_json(item, options=options) for item in value]
+    return value
+
+
+def _format_output(
+    results: List[Any],
+    output_json: bool,
+    output_value: bool,
+    json_indent: Optional[int],
+    output_raw: bool = False,
+    serialization_options: Optional[SerializationOptions] = None,
+) -> str:
+    """Format results for final output."""
+    if output_json and len(results) > 1:
+        items = [
+            _convert_for_json(item, options=serialization_options) for item in results
+        ]
+        return json.dumps(items, indent=json_indent, default=str)
+
+    parts = []
+    for result in results:
+        parts.append(
+            _format_result(
+                result,
+                output_json,
+                output_value,
+                json_indent,
+                output_raw,
+                serialization_options,
+            )
+        )
+    return "\n".join(parts)
+
+
+def _error(msg: str, use_json: bool, **extra) -> str:
+    """Format an error message."""
+    if use_json:
+        data = {"error": extra.get("error_type", "error"), "message": msg}
+        data.update(extra)
+        return json.dumps(data)
+    return f"Error: {msg}"
+
+
+def _run_diff(
+    file1: str, file2: str, use_json: bool, json_indent: Optional[int]
+) -> None:
+    """Run structural diff between two HCL files."""
+    import hcl2
+    from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
+
+    opts = SerializationOptions(
+        with_comments=False, with_meta=False, explicit_blocks=True
+    )
+    for path in (file1, file2):
+        if path == "-":
+            continue
+        if not os.path.isfile(path):
+            print(
+                _error(f"File not found: {path}", use_json, error_type="io_error"),
+                file=sys.stderr,
+            )
+            sys.exit(EXIT_IO_ERROR)
+
+    try:
+        if file1 == "-":
+            text1 = sys.stdin.read()
+        else:
+            with open(file1, encoding="utf-8") as f:
+                text1 = f.read()
+        if file2 == "-":
+            text2 = sys.stdin.read()
+        else:
+            with open(file2, encoding="utf-8") as f:
+                text2 = f.read()
+    except (OSError, IOError) as exc:
+        print(_error(str(exc), use_json, error_type="io_error"), file=sys.stderr)
+        sys.exit(EXIT_IO_ERROR)
+
+    try:
+        dict1 = hcl2.loads(text1, serialization_options=opts)
+        dict2 = hcl2.loads(text2, serialization_options=opts)
+    except Exception as exc:  # pylint: disable=broad-except
+        print(_error(str(exc), use_json, error_type="parse_error"), file=sys.stderr)
+        sys.exit(EXIT_PARSE_ERROR)
+
+    entries = diff_dicts(dict1, dict2)
+    if not entries:
+        sys.exit(EXIT_SUCCESS)
+
+    if use_json:
+        print(format_diff_json(entries))
+    else:
+        print(format_diff_text(entries))
+
+
+def _find_file_keys(query: str) -> List[str]:
+    """Find construct output keys that reference ``__file__``.
+
+    Handles both shorthand ``{__file__}`` (key="__file__") and
+    renamed ``{file: .__file__}`` (key="file").
+    """
+    import re
+
+    keys: List[str] = []
+    # Match renamed: "key: .__file__" or "key: __file__"
+    for m in re.finditer(r"(\w+)\s*:\s*\.?__file__", query):
+        keys.append(m.group(1))
+    # Match shorthand: bare "__file__" as a construct field (not after ":")
+    if re.search(r"(?<![:\w])\.?__file__(?!\s*:)", query):
+        keys.append("__file__")
+    return keys
+
+
+_HCL_EXTENSIONS = {".tf", ".hcl", ".tfvars"}
+
+
+def _collect_files(path: str) -> List[str]:
+    """Return a list of HCL file paths from a file path, directory, or stdin marker."""
+    if path == "-":
+        return ["-"]
+    if os.path.isdir(path):
+        files = []
+        for dirpath, _, filenames in os.walk(path):
+            for fname in sorted(filenames):
+                if os.path.splitext(fname)[1] in _HCL_EXTENSIONS:
+                    files.append(os.path.join(dirpath, fname))
+        files.sort()
+        return files
+    return [path]
+
+
+def _expand_file_args(file_args: List[str]) -> List[str]:
+    """Expand glob patterns in file arguments.
+
+    For each arg containing glob metacharacters (``*``, ``?``, ``[``),
+    expand via :func:`glob.glob` with ``recursive=True``.  Literal paths
+    and ``-`` (stdin) pass through unchanged.  If a glob matches nothing,
+    the literal pattern is kept so the caller produces an IO error.
+    """
+    expanded: List[str] = []
+    for arg in file_args:
+        if arg == "-":
+            expanded.append(arg)
+            continue
+        if any(c in arg for c in "*?["):
+            matches = sorted(glob_mod.glob(arg, recursive=True))
+            if matches:
+                expanded.extend(matches)
+            else:
+                expanded.append(arg)  # keep literal — will produce IO error
+        else:
+            expanded.append(arg)
+    return expanded
+
+
+def _run_query_on_file(
+    file_path: str,
+    query: str,
+    is_eval: bool,
+    use_json: bool,
+    raw_query: str,
+) -> Tuple[Optional[List[Any]], int]:
+    """Parse a file and run a query.
+
+    Returns ``(results, exit_code)``.  On error, results is ``None`` and
+    exit_code is one of the ``EXIT_*`` constants.
+    """
+    try:
+        if file_path == "-":
+            text = sys.stdin.read()
+        else:
+            with open(file_path, encoding="utf-8") as f:
+                text = f.read()
+    except (OSError, IOError) as exc:
+        print(_error(str(exc), use_json, error_type="io_error"), file=sys.stderr)
+        return None, EXIT_IO_ERROR
+
+    try:
+        doc = DocumentView.parse(text)
+    except Exception as exc:  # pylint: disable=broad-except
+        print(
+            _error(str(exc), use_json, error_type="parse_error", file=file_path),
+            file=sys.stderr,
+        )
+        return None, EXIT_PARSE_ERROR
+
+    try:
+        return _dispatch_query(query, is_eval, doc, file_path=file_path), EXIT_SUCCESS
+    except QuerySyntaxError as exc:
+        print(
+            _error(str(exc), use_json, error_type="query_syntax", query=raw_query),
+            file=sys.stderr,
+        )
+        return None, EXIT_QUERY_ERROR
+    except UnsafeExpressionError as exc:
+        print(
+            _error(
+                str(exc),
+                use_json,
+                error_type="unsafe_expression",
+                expression=raw_query,
+            ),
+            file=sys.stderr,
+        )
+        return None, EXIT_QUERY_ERROR
+    except Exception as exc:  # pylint: disable=broad-except
+        print(
+            _error(str(exc), use_json, error_type="eval_error", query=raw_query),
+            file=sys.stderr,
+        )
+        return None, EXIT_QUERY_ERROR
+
+
+def _inject_provenance(converted: Any, file_path: str) -> Any:
+    """Add ``__file__`` key to dict results for multi-file provenance."""
+    if isinstance(converted, dict):
+        return {"__file__": file_path, **converted}
+    return converted
+
+
+def _extract_location(result: Any, file_path: str) -> dict:
+    """Extract source location metadata from a result."""
+    loc: dict = {"__file__": file_path}
+    if isinstance(result, NodeView):
+        meta = getattr(result.raw, "_meta", None)
+        if meta is not None:
+            if hasattr(meta, "line"):
+                loc["__line__"] = meta.line
+            if hasattr(meta, "end_line"):
+                loc["__end_line__"] = meta.end_line
+            if hasattr(meta, "column"):
+                loc["__column__"] = meta.column
+            if hasattr(meta, "end_column"):
+                loc["__end_column__"] = meta.end_column
+    return loc
+
+
+def _merge_location(converted: Any, location: dict) -> Any:
+    """Merge location metadata into a converted JSON value."""
+    if isinstance(converted, dict):
+        return {**location, **converted}
+    return {"__value__": converted, **location}
+
+
+def _process_file(args_tuple):  # pylint: disable=too-many-locals
+    """Worker: parse, query, and convert results for one file.
+
+    Returns ``(file_path, exit_code, converted_results, error_msg)``.
+    All return values are picklable plain Python objects.
+    """
+    (
+        file_path,
+        query,
+        is_eval,
+        raw_query,
+        with_location,
+        with_comments,
+        no_filename,
+        multi,
+        output_json,
+        ndjson,
+    ) = args_tuple
+
+    ser_opts = SerializationOptions(with_comments=True) if with_comments else None
+
+    try:
+        with open(file_path, encoding="utf-8") as f:
+            text = f.read()
+    except (OSError, IOError) as exc:
+        return (file_path, EXIT_IO_ERROR, None, str(exc))
+
+    try:
+        doc = DocumentView.parse(text)
+    except Exception as exc:  # pylint: disable=broad-except
+        return (file_path, EXIT_PARSE_ERROR, None, str(exc))
+
+    try:
+        results = _dispatch_query(query, is_eval, doc, file_path=file_path)
+    except (QuerySyntaxError, UnsafeExpressionError) as exc:
+        return (file_path, EXIT_QUERY_ERROR, None, str(exc))
+    except Exception as exc:  # pylint: disable=broad-except
+        return (file_path, EXIT_QUERY_ERROR, None, str(exc))
+
+    if not results:
+        return (file_path, EXIT_SUCCESS, [], None)
+
+    converted = []
+    for result in results:
+        item = _convert_for_json(result, options=ser_opts)
+        if with_location:
+            loc = _extract_location(result, file_path)
+            item = _merge_location(item, loc)
+        elif multi and not no_filename:
+            item = _inject_provenance(item, file_path)
+        converted.append(item)
+
+    return (file_path, EXIT_SUCCESS, converted, None)
+
+
+def main():  # pylint: disable=too-many-branches,too-many-statements
+    """The ``hq`` console_scripts entry point."""
+    parser = argparse.ArgumentParser(
+        prog="hq",
+        description=(
+            "Query HCL2 files using jq-like structural paths. "
+            "Supports pipes, select(), string functions, object construction. "
+            "Prefer structural queries over -e (eval) mode."
+        ),
+        epilog=EXAMPLES_TEXT,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "QUERY",
+        nargs="?",
+        default=None,
+        help="Structural path, hybrid path::expr, or -e for eval",
+    )
+    parser.add_argument(
+        "FILE",
+        nargs="*",
+        default=["-"],
+        help="HCL2 files or directories (default: stdin)",
+    )
+    parser.add_argument(
+        "-e",
+        "--eval",
+        action="store_true",
+        help="Treat QUERY as a Python expression (doc bound to DocumentView)",
+    )
+
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument("--json", action="store_true", help="Output as JSON")
+    output_group.add_argument(
+        "--value", action="store_true", help="Output raw value only"
+    )
+    output_group.add_argument(
+        "--raw",
+        action="store_true",
+        help="Output raw string (strip surrounding quotes)",
+    )
+
+    parser.add_argument(
+        "--ndjson",
+        action="store_true",
+        help="Output one JSON object per line (newline-delimited JSON)",
+    )
+    parser.add_argument(
+        "--json-indent",
+        type=int,
+        default=None,
+        metavar="N",
+        help="JSON indentation width (default: 2 for TTY, compact otherwise)",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=__version__,
+    )
+    parser.add_argument(
+        "--describe",
+        action="store_true",
+        help="Show type and available properties/methods for query results",
+    )
+    parser.add_argument(
+        "--schema",
+        action="store_true",
+        help="Dump full view API schema as JSON (ignores QUERY/FILE)",
+    )
+    parser.add_argument(
+        "--no-filename",
+        action="store_true",
+        help="Suppress filename prefix when querying directories",
+    )
+    parser.add_argument(
+        "--diff",
+        metavar="FILE2",
+        help="Structural diff against FILE2",
+    )
+    parser.add_argument(
+        "--with-location",
+        action="store_true",
+        help="Include source file and line numbers in JSON output",
+    )
+    parser.add_argument(
+        "--with-comments",
+        action="store_true",
+        help="Include comments in JSON output",
+    )
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Parallel workers (default: auto for large file sets, 0 or 1 = serial)",
+    )
+
+    args = parser.parse_args()
+
+    # Validate --ndjson compatibility
+    if args.ndjson:
+        if args.value:
+            parser.error("--ndjson cannot be combined with --value")
+        if args.raw:
+            parser.error("--ndjson cannot be combined with --raw")
+
+    use_json = args.json or args.describe or args.schema or args.ndjson
+    output_raw = getattr(args, "raw", False)
+
+    # Resolve JSON indent: explicit flag > TTY default (2) > compact (None)
+    if args.json_indent is not None:
+        json_indent: Optional[int] = args.json_indent
+    elif sys.stdout.isatty():
+        json_indent = 2
+    else:
+        json_indent = None
+
+    # Validate --with-location
+    if args.with_location and not use_json:
+        parser.error("--with-location requires --json or --ndjson")
+
+    # Validate --with-comments
+    if args.with_comments and not use_json:
+        parser.error("--with-comments requires --json or --ndjson")
+
+    # Build serialization options
+    serialization_options = None
+    if args.with_comments:
+        serialization_options = SerializationOptions(with_comments=True)
+        print(
+            "Warning: --with-comments only includes comments for top-level body "
+            "queries (e.g. 'resource[*]' on a single file). Comments adjacent to "
+            "individual blocks are not yet captured by sub-block queries.",
+            file=sys.stderr,
+        )
+
+    # --schema: dump schema and exit
+    if args.schema:
+        print(json.dumps(build_schema(), indent=2))
+        sys.exit(EXIT_SUCCESS)
+
+    # --diff: structural diff mode
+    # Usage: hq FILE1 --diff FILE2  (FILE1 is the first positional arg)
+    if args.diff:
+        file1 = args.QUERY
+        if file1 is None:
+            parser.error("--diff requires two files: hq FILE1 --diff FILE2")
+        _run_diff(file1, args.diff, use_json, json_indent)
+        sys.exit(EXIT_SUCCESS)
+
+    # QUERY is required unless --schema or --diff
+    if args.QUERY is None:
+        parser.error("the following arguments are required: QUERY")
+
+    # Detect common mistake: user passed a file path but no query.
+    # When only one positional arg is given, argparse puts it in QUERY
+    # and FILE defaults to ["-"].  If stdin is a TTY (not piped) and
+    # QUERY looks like a file/directory path, give a helpful error
+    # instead of hanging on stdin.
+    if (
+        args.FILE == ["-"]
+        and sys.stdin.isatty()
+        and args.QUERY
+        and (os.path.exists(args.QUERY) or os.sep in args.QUERY)
+    ):
+        parser.error(f"missing QUERY argument (did you mean: hq QUERY {args.QUERY}?)")
+
+    # Handle trailing '?' (optional operator — exit 0 on empty results)
+    query = args.QUERY
+    optional = query.rstrip().endswith("?") and not args.eval
+    if optional:
+        query = query.rstrip()[:-1].rstrip()
+
+    # Expand globs and collect input files
+    expanded_args = _expand_file_args(args.FILE)
+    file_paths: List[str] = []
+    for file_arg in expanded_args:
+        file_paths.extend(_collect_files(file_arg))
+
+    any_results = False
+    worst_exit = EXIT_SUCCESS
+    # Collect JSON results across files for a single merged array
+    json_accumulator: List[Any] = []
+    multi = len(file_paths) > 1
+
+    # Decide whether to use parallel processing
+    use_parallel = (
+        multi
+        and len(file_paths) >= 20
+        and "-" not in file_paths
+        and not args.eval
+        and not args.describe
+        and (args.json or args.ndjson)
+        and (args.jobs is None or args.jobs > 1)
+    )
+    if args.jobs is not None and args.jobs <= 1:
+        use_parallel = False
+
+    if use_parallel:
+        n_workers = args.jobs or min(os.cpu_count() or 1, len(file_paths))
+        worker_args = [
+            (
+                fp,
+                query,
+                False,  # is_eval
+                args.QUERY,
+                args.with_location,
+                args.with_comments,
+                args.no_filename,
+                multi,
+                args.json,
+                args.ndjson,
+            )
+            for fp in file_paths
+        ]
+
+        with multiprocessing.Pool(n_workers) as pool:
+            for file_path, exit_code, converted, error_msg in pool.imap_unordered(
+                _process_file, worker_args
+            ):
+                if error_msg:
+                    print(_error(error_msg, use_json), file=sys.stderr)
+                    worst_exit = max(worst_exit, exit_code)
+                    continue
+                if not converted:
+                    continue
+                any_results = True
+
+                if args.ndjson:
+                    for item in converted:
+                        print(json.dumps(item, default=str), flush=True)
+                elif args.json and multi:
+                    json_accumulator.extend(converted)
+    else:
+        for file_path in file_paths:
+            results, exit_code = _run_query_on_file(
+                file_path, query, args.eval, use_json, args.QUERY
+            )
+            if results is None:
+                worst_exit = max(worst_exit, exit_code)
+                continue  # parse/query error already printed
+            if not results:
+                continue
+            any_results = True
+
+            if args.describe:
+                print(json.dumps(describe_results(results), indent=2))
+                continue
+
+            # NDJSON mode: one JSON object per line (streaming, no accumulation)
+            if args.ndjson:
+                for result in results:
+                    converted = _convert_for_json(result, options=serialization_options)
+                    if args.with_location:
+                        loc = _extract_location(result, file_path)
+                        converted = _merge_location(converted, loc)
+                    elif multi and not args.no_filename:
+                        converted = _inject_provenance(converted, file_path)
+                    line = json.dumps(converted, default=str)
+                    if multi and not args.no_filename and not args.with_location:
+                        # provenance already injected into dict; for non-dicts
+                        # prefix with filename
+                        if not isinstance(
+                            _convert_for_json(result, options=serialization_options),
+                            dict,
+                        ):
+                            line = f"{file_path}:{line}"
+                    print(line, flush=True)
+                continue
+
+            # JSON mode with multiple files: accumulate for merged output
+            if args.json and multi:
+                for result in results:
+                    converted = _convert_for_json(result, options=serialization_options)
+                    if args.with_location:
+                        loc = _extract_location(result, file_path)
+                        converted = _merge_location(converted, loc)
+                    elif not args.no_filename:
+                        converted = _inject_provenance(converted, file_path)
+                    json_accumulator.append(converted)
+                continue
+
+            # Single-file JSON with location
+            if args.with_location:
+                items = []
+                for result in results:
+                    converted = _convert_for_json(result, options=serialization_options)
+                    loc = _extract_location(result, file_path)
+                    items.append(_merge_location(converted, loc))
+                if len(items) == 1:
+                    output = json.dumps(items[0], indent=json_indent, default=str)
+                else:
+                    output = json.dumps(items, indent=json_indent, default=str)
+            else:
+                output = _format_output(
+                    results,
+                    args.json,
+                    args.value,
+                    json_indent,
+                    output_raw,
+                    serialization_options,
+                )
+
+            if multi and not args.no_filename and not args.with_location:
+                prefix = f"{file_path}:"
+                print("\n".join(prefix + line for line in output.splitlines()))
+            else:
+                print(output)
+
+    # Emit accumulated JSON results as a single merged array
+    if json_accumulator:
+        print(json.dumps(json_accumulator, indent=json_indent, default=str))
+
+    if any_results:
+        sys.exit(EXIT_SUCCESS)
+    sys.exit(EXIT_SUCCESS if optional else worst_exit or EXIT_NO_RESULTS)
+
+
+if __name__ == "__main__":
+    main()
