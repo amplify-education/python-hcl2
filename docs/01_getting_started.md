@@ -1,4 +1,14 @@
-# python-hcl2 Usage Guide
+# Getting Started
+
+python-hcl2 parses [HCL2](https://github.com/hashicorp/hcl/blob/hcl2/hclsyntax/spec.md) into Python dicts and converts them back. This guide covers installation, everyday usage, and the CLI tools.
+
+## Installation
+
+python-hcl2 requires Python 3.8 or higher.
+
+```sh
+pip install python-hcl2
+```
 
 ## Quick Reference
 
@@ -18,6 +28,9 @@
 | `hcl2.from_json(text)` | Convert a JSON string into a LarkElement tree |
 | `hcl2.reconstruct(tree)` | Convert a LarkElement tree (or Lark tree) to HCL2 text |
 | `hcl2.Builder()` | Build HCL documents programmatically |
+| `hcl2.query(source)` | Query HCL documents with typed view facades |
+
+For intermediate pipeline stages (`parse_to_tree`, `transform`, `serialize`, `from_dict`, `from_json`, `reconstruct`) and the `Builder` class, see [Advanced API Reference](03_advanced_api.md).
 
 ## HCL to Python dict
 
@@ -35,6 +48,8 @@ data = hcl2.loads('resource "aws_instance" "web" { ami = "abc-123" }')
 
 ### SerializationOptions
 
+The default serialization options are tuned for **content fidelity** — the output preserves enough detail (`__is_block__` markers, heredoc delimiters, quoted strings like `'"hello"'`, scientific notation, etc.) that it can be deserialized back into a LarkElement tree and reconstructed into valid HCL2 without information loss. This makes the defaults ideal for round-trip workflows (`load` → modify → `dump`), but it does add noise to the output compared to what you might expect from a plain JSON conversion. If you only need to *read* values and don't plan to reconstruct HCL2 from the dict, you can disable options like `explicit_blocks` and `preserve_heredocs`, or enable `strip_string_quotes` for cleaner output.
+
 Pass `serialization_options` to control how the dict is produced:
 
 ```python
@@ -46,16 +61,37 @@ data = loads(text, serialization_options=SerializationOptions(
 ))
 ```
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `with_comments` | `bool` | `True` | Include comments in the output |
-| `with_meta` | `bool` | `False` | Add `__start_line__` / `__end_line__` metadata |
-| `wrap_objects` | `bool` | `False` | Wrap object values as inline HCL2 strings |
-| `wrap_tuples` | `bool` | `False` | Wrap tuple values as inline HCL2 strings |
-| `explicit_blocks` | `bool` | `True` | Add `__is_block__: True` markers to blocks |
-| `preserve_heredocs` | `bool` | `True` | Keep heredocs in their original form |
-| `force_operation_parentheses` | `bool` | `False` | Force parentheses around all operations |
-| `preserve_scientific_notation` | `bool` | `True` | Keep scientific notation as-is |
+| Field | Type | Default | Description                                                                                                                                     |
+|---|---|---|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| `with_comments` | `bool` | `True` | Include comments as `__comments__` and `__inline_comments__` keys (see [Comment Format](#comment-format))                                       |
+| `with_meta` | `bool` | `False` | Add `__start_line__` / `__end_line__` metadata                                                                                                  |
+| `wrap_objects` | `bool` | `False` | Wrap object values as inline HCL2 strings                                                                                                       |
+| `wrap_tuples` | `bool` | `False` | Wrap tuple values as inline HCL2 strings                                                                                                        |
+| `explicit_blocks` | `bool` | `True` | Add `__is_block__: True` markers to blocks. **Mandatory for JSON->HCL2 deserialization and reconstruction.**                                    |
+| `preserve_heredocs` | `bool` | `True` | Keep heredocs in their original form                                                                                                            |
+| `force_operation_parentheses` | `bool` | `False` | Force parentheses around all operations                                                                                                         |
+| `preserve_scientific_notation` | `bool` | `True` | Keep scientific notation as-is                                                                                                                  |
+| `strip_string_quotes` | `bool` | `False` | Remove surrounding quotes from string values (e.g. `"hello"` instead of `'"hello"'`). **Breaks JSON->HCL2 deserialization and reconstruction.** |
+
+### Comment Format
+
+When `with_comments` is enabled (the default), comments are included as lists of objects under the `__comments__` and `__inline_comments__` keys. Each object has a `"value"` key containing the comment text (with delimiters stripped):
+
+```python
+from hcl2 import loads, SerializationOptions
+
+data = loads(
+    "# Configure the provider\nx = 1\n",
+    serialization_options=SerializationOptions(with_comments=True),
+)
+
+data["__comments__"]
+# [{"value": "Configure the provider"}]
+```
+
+`__comments__` contains standalone comments (on their own lines), while `__inline_comments__` contains comments found inside expressions.
+
+> **Note:** Comments are currently **read-only** — they are captured during parsing but not restored when converting a dict back to HCL2 with `dump`/`dumps`.
 
 ## Python dict to HCL
 
@@ -111,107 +147,9 @@ text = dumps(data, formatter_options=FormatterOptions(
 | `vertically_align_attributes` | `bool` | `True` | Vertically align `=` signs in attribute groups |
 | `vertically_align_object_elements` | `bool` | `True` | Vertically align `=` signs in object elements |
 
-## Building HCL from scratch
-
-The `Builder` class produces dicts with the correct `__is_block__` markers so that `dumps` can distinguish blocks from plain objects:
-
-```python
-import hcl2
-
-doc = hcl2.Builder()
-res = doc.block("resource", labels=["aws_instance", "web"],
-                ami="abc-123", instance_type="t2.micro")
-res.block("tags", Name="HelloWorld")
-
-hcl_string = hcl2.dumps(doc.build())
-```
-
-Output:
-
-```hcl
-resource "aws_instance" "web" {
-  ami           = "abc-123"
-  instance_type = "t2.micro"
-
-  tags {
-    Name = "HelloWorld"
-  }
-}
-```
-
-### Builder.block()
-
-```python
-block(
-    block_type: str,
-    labels: Optional[List[str]] = None,
-    __nested_builder__: Optional[Builder] = None,
-    **attributes,
-) -> Builder
-```
-
-Returns the child `Builder` for the new block, allowing chained calls.
-
-## Intermediate pipeline stages
-
-The full pipeline looks like this:
-
-```
-Forward:  HCL2 Text → Lark Parse Tree → LarkElement Tree → Python Dict
-Reverse:  Python Dict → LarkElement Tree → HCL2 Text
-```
-
-You can access each stage individually for advanced use cases.
-
-### parse / parses — HCL2 text to LarkElement tree
-
-```python
-tree = hcl2.parses('x = 1')       # StartRule
-tree = hcl2.parse(open("main.tf")) # StartRule
-```
-
-Pass `discard_comments=True` to strip comments during transformation.
-
-### parse_to_tree / parses_to_tree — HCL2 text to raw Lark tree
-
-```python
-lark_tree = hcl2.parses_to_tree('x = 1')  # lark.Tree
-```
-
-### transform — raw Lark tree to LarkElement tree
-
-```python
-lark_tree = hcl2.parses_to_tree('x = 1')
-tree = hcl2.transform(lark_tree)  # StartRule
-```
-
-### serialize — LarkElement tree to Python dict
-
-```python
-tree = hcl2.parses('x = 1')
-data = hcl2.serialize(tree)
-# or with options:
-from hcl2 import SerializationOptions
-data = hcl2.serialize(tree, serialization_options=SerializationOptions(with_meta=True))
-```
-
-### from_dict / from_json — Python dict or JSON to LarkElement tree
-
-```python
-tree = hcl2.from_dict(data)                   # StartRule
-tree = hcl2.from_json('{"x": 1}')             # StartRule
-```
-
-Both accept optional `deserializer_options`, `formatter_options`, and `apply_format` (default `True`).
-
-### reconstruct — LarkElement tree (or Lark tree) to HCL2 text
-
-```python
-tree = hcl2.from_dict(data)
-text = hcl2.reconstruct(tree)
-```
-
 ## CLI Tools
+
+python-hcl2 ships three console scripts: `hcl2tojson`, `jsontohcl2`, and [`hq`](04_hq.md).
 
 ### hcl2tojson
 
@@ -231,7 +169,7 @@ cat main.tf | hcl2tojson -          # read from stdin
 | `-s` | Skip un-parsable files |
 | `--json-indent N` | JSON indentation width (default: 2) |
 | `--with-meta` | Add `__start_line__` / `__end_line__` metadata |
-| `--with-comments` | Include comments in the output |
+| `--with-comments` | Include comments as `__comments__` / `__inline_comments__` object lists |
 | `--wrap-objects` | Wrap object values as inline HCL2 |
 | `--wrap-tuples` | Wrap tuple values as inline HCL2 |
 | `--no-explicit-blocks` | Disable `__is_block__` markers |
@@ -267,40 +205,19 @@ cat output.json | jsontohcl2 -      # read from stdin
 | `--no-align` | Disable vertical alignment of attributes and object elements |
 | `--version` | Show version and exit |
 
-## Pipeline Diagram
+### hq
 
+Query HCL2 files by structure, with optional Python expressions.
+
+```sh
+hq 'resource.aws_instance.main.ami' main.tf
+hq 'variable[*]' variables.tf --json
 ```
-                        Forward Pipeline
-                        ================
-  HCL2 Text
-      │
-      ▼
-  ┌──────────────────┐   parse_to_tree / parses_to_tree
-  │ Lark Parse Tree  │
-  └────────┬─────────┘
-           │             transform
-           ▼
-  ┌──────────────────┐
-  │ LarkElement Tree │   parse / parses  (shortcut: HCL2 text → here)
-  └────────┬─────────┘
-           │             serialize
-           ▼
-  ┌──────────────────┐
-  │ Python Dict      │   load / loads  (shortcut: HCL2 text → here)
-  └──────────────────┘
 
+For the full guide, see [hq Reference](04_hq.md).
 
-                        Reverse Pipeline
-                        ================
-  Python Dict / JSON
-      │
-      ▼
-  ┌──────────────────┐   from_dict / from_json
-  │ LarkElement Tree │
-  └────────┬─────────┘
-           │             reconstruct
-           ▼
-  ┌──────────────────┐
-  │ HCL2 Text        │   dump / dumps  (shortcut: Python Dict / JSON → here)
-  └──────────────────┘
-```
+## Next Steps
+
+- [Querying HCL (Python)](02_querying.md) — navigate documents with typed view facades
+- [Advanced API Reference](03_advanced_api.md) — intermediate pipeline stages, Builder, pipeline diagram
+- [hq Reference](04_hq.md) — query HCL files from the command line

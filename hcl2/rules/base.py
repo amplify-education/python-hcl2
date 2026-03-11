@@ -99,7 +99,7 @@ class BodyRule(LarkRule):
             if inline_comments:
                 result[INLINE_COMMENTS_KEY] = inline_comments
 
-        return result
+        return {key: value for key, value in result.items()}
 
 
 class StartRule(LarkRule):
