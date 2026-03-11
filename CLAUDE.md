@@ -68,9 +68,11 @@ Follows the `json` module convention. All option parameters are keyword-only.
 
 ## CLI
 
-Console scripts defined in `pyproject.toml`. Each uses argparse flags that map directly to the option dataclass fields above.
+Console scripts defined in `pyproject.toml`. Both accept one or more positional `PATH` arguments (files, directories, or `-` for stdin) and an optional `-o`/`--output` flag. Additional option flags map directly to the option dataclass fields above.
 
 ```
+hcl2tojson file.tf                          # single file to stdout
+hcl2tojson a.tf b.tf -o out/               # multiple files to output dir
 hcl2tojson --json-indent 2 --with-meta file.tf
 jsontohcl2 --indent 4 --no-align file.json
 ```

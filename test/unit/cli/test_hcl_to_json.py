@@ -43,7 +43,7 @@ class TestHclToJson(TestCase):
             out_path = os.path.join(tmpdir, "test.json")
             _write_file(hcl_path, SIMPLE_HCL)
 
-            with patch("sys.argv", ["hcl2tojson", hcl_path, out_path]):
+            with patch("sys.argv", ["hcl2tojson", hcl_path, "-o", out_path]):
                 main()
 
             result = json.loads(_read_file(out_path))
@@ -99,7 +99,7 @@ class TestHclToJson(TestCase):
             _write_file(os.path.join(in_dir, "b.hcl"), SIMPLE_HCL)
             _write_file(os.path.join(in_dir, "readme.txt"), "not hcl")
 
-            with patch("sys.argv", ["hcl2tojson", in_dir, out_dir]):
+            with patch("sys.argv", ["hcl2tojson", in_dir, "-o", out_dir]):
                 main()
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "a.json")))
@@ -184,18 +184,57 @@ class TestHclToJson(TestCase):
             _write_file(os.path.join(in_dir, "good.tf"), SIMPLE_HCL)
             _write_file(os.path.join(in_dir, "bad.tf"), "this is {{{{ not valid hcl")
 
-            with patch("sys.argv", ["hcl2tojson", "-s", in_dir, out_dir]):
+            with patch("sys.argv", ["hcl2tojson", "-s", in_dir, "-o", out_dir]):
                 main()
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "good.json")))
 
-    def test_directory_requires_out_path(self):
+    def test_directory_requires_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             in_dir = os.path.join(tmpdir, "input")
             os.mkdir(in_dir)
             _write_file(os.path.join(in_dir, "a.tf"), SIMPLE_HCL)
 
             with patch("sys.argv", ["hcl2tojson", in_dir]):
+                with self.assertRaises(RuntimeError):
+                    main()
+
+    def test_multiple_files_to_stdout(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path_a = os.path.join(tmpdir, "a.tf")
+            path_b = os.path.join(tmpdir, "b.tf")
+            _write_file(path_a, "a = 1\n")
+            _write_file(path_b, "b = 2\n")
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", path_a, path_b]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue()
+            self.assertIn('"a"', output)
+            self.assertIn('"b"', output)
+
+    def test_multiple_files_to_output_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path_a = os.path.join(tmpdir, "a.tf")
+            path_b = os.path.join(tmpdir, "b.tf")
+            out_dir = os.path.join(tmpdir, "out")
+            _write_file(path_a, "a = 1\n")
+            _write_file(path_b, "b = 2\n")
+
+            with patch("sys.argv", ["hcl2tojson", path_a, path_b, "-o", out_dir]):
+                main()
+
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "a.json")))
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "b.json")))
+
+    def test_multiple_files_invalid_path_raises(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path_a = os.path.join(tmpdir, "a.tf")
+            _write_file(path_a, "a = 1\n")
+
+            with patch("sys.argv", ["hcl2tojson", path_a, "/nonexistent.tf"]):
                 with self.assertRaises(RuntimeError):
                     main()
 
@@ -212,7 +251,7 @@ class TestSingleFileErrorHandling(TestCase):
             out_path = os.path.join(tmpdir, "out.json")
             _write_file(in_path, "this is {{{{ not valid hcl")
 
-            with patch("sys.argv", ["hcl2tojson", "-s", in_path, out_path]):
+            with patch("sys.argv", ["hcl2tojson", "-s", in_path, "-o", out_path]):
                 main()
 
             # The partial output file is cleaned up on skipped errors.
@@ -224,7 +263,7 @@ class TestSingleFileErrorHandling(TestCase):
             out_path = os.path.join(tmpdir, "out.json")
             _write_file(in_path, "this is {{{{ not valid hcl")
 
-            with patch("sys.argv", ["hcl2tojson", in_path, out_path]):
+            with patch("sys.argv", ["hcl2tojson", in_path, "-o", out_path]):
                 with self.assertRaises(Exception):
                     main()
 
@@ -320,7 +359,7 @@ class TestDirectoryEdgeCases(TestCase):
 
             _write_file(os.path.join(sub_dir, "nested.tf"), SIMPLE_HCL)
 
-            with patch("sys.argv", ["hcl2tojson", in_dir, out_dir]):
+            with patch("sys.argv", ["hcl2tojson", in_dir, "-o", out_dir]):
                 main()
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "sub", "nested.json")))
@@ -333,6 +372,6 @@ class TestDirectoryEdgeCases(TestCase):
 
             _write_file(os.path.join(in_dir, "bad.tf"), "this is {{{{ not valid hcl")
 
-            with patch("sys.argv", ["hcl2tojson", in_dir, out_dir]):
+            with patch("sys.argv", ["hcl2tojson", in_dir, "-o", out_dir]):
                 with self.assertRaises(Exception):
                     main()

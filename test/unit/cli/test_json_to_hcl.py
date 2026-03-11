@@ -47,7 +47,7 @@ class TestJsonToHcl(TestCase):
             out_path = os.path.join(tmpdir, "test.tf")
             _write_file(json_path, SIMPLE_JSON)
 
-            with patch("sys.argv", ["jsontohcl2", json_path, out_path]):
+            with patch("sys.argv", ["jsontohcl2", json_path, "-o", out_path]):
                 main()
 
             output = _read_file(out_path)
@@ -74,7 +74,7 @@ class TestJsonToHcl(TestCase):
             _write_file(os.path.join(in_dir, "a.json"), SIMPLE_JSON)
             _write_file(os.path.join(in_dir, "readme.txt"), "not json")
 
-            with patch("sys.argv", ["jsontohcl2", in_dir, out_dir]):
+            with patch("sys.argv", ["jsontohcl2", in_dir, "-o", out_dir]):
                 main()
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "a.tf")))
@@ -133,7 +133,7 @@ class TestJsonToHcl(TestCase):
             _write_file(os.path.join(in_dir, "good.json"), SIMPLE_JSON)
             _write_file(os.path.join(in_dir, "bad.json"), "{not valid json")
 
-            with patch("sys.argv", ["jsontohcl2", "-s", in_dir, out_dir]):
+            with patch("sys.argv", ["jsontohcl2", "-s", in_dir, "-o", out_dir]):
                 main()
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "good.tf")))
@@ -142,6 +142,36 @@ class TestJsonToHcl(TestCase):
         with patch("sys.argv", ["jsontohcl2", "/nonexistent/path/foo.json"]):
             with self.assertRaises(RuntimeError):
                 main()
+
+    def test_multiple_files_to_stdout(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path_a = os.path.join(tmpdir, "a.json")
+            path_b = os.path.join(tmpdir, "b.json")
+            _write_file(path_a, json.dumps({"a": 1}))
+            _write_file(path_b, json.dumps({"b": 2}))
+
+            stdout = StringIO()
+            with patch("sys.argv", ["jsontohcl2", path_a, path_b]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue()
+            self.assertIn("a", output)
+            self.assertIn("b", output)
+
+    def test_multiple_files_to_output_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path_a = os.path.join(tmpdir, "a.json")
+            path_b = os.path.join(tmpdir, "b.json")
+            out_dir = os.path.join(tmpdir, "out")
+            _write_file(path_a, json.dumps({"a": 1}))
+            _write_file(path_b, json.dumps({"b": 2}))
+
+            with patch("sys.argv", ["jsontohcl2", path_a, path_b, "-o", out_dir]):
+                main()
+
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "a.tf")))
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "b.tf")))
 
 
 class TestJsonToHclFlags(TestCase):

@@ -1,8 +1,9 @@
 """Shared file-conversion helpers for the HCL2 CLI commands."""
+
 import json
 import os
 import sys
-from typing import Callable, IO, Set, Tuple, Type
+from typing import Callable, IO, List, Optional, Set, Tuple, Type
 
 from lark import UnexpectedCharacters, UnexpectedToken
 
@@ -50,7 +51,7 @@ def _convert_directory(
     out_extension: str,
 ) -> None:
     if out_path is None:
-        raise RuntimeError("Positional OUT_PATH parameter shouldn't be empty")
+        raise RuntimeError("Output path is required for directory conversion (use -o)")
     if not os.path.exists(out_path):
         os.mkdir(out_path)
 
@@ -89,6 +90,23 @@ def _convert_directory(
                             os.remove(out_file_path)
                         continue
                     raise
+
+
+def _convert_multiple_files(
+    in_paths: List[str],
+    out_path: str,
+    convert_fn: Callable[[IO, IO], None],
+    skip: bool,
+    skippable: Tuple[Type[BaseException], ...],
+    out_extension: str,
+) -> None:
+    """Convert multiple files into an output directory."""
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+    for in_path in in_paths:
+        base = os.path.splitext(os.path.basename(in_path))[0] + out_extension
+        file_out = os.path.join(out_path, base)
+        _convert_single_file(in_path, file_out, convert_fn, skip, skippable)
 
 
 def _convert_stdin(convert_fn: Callable[[IO, IO], None]) -> None:
