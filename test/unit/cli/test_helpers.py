@@ -5,7 +5,12 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from cli.helpers import _convert_single_file, _convert_directory, _convert_stdin
+from cli.helpers import (
+    _convert_single_file,
+    _convert_directory,
+    _convert_multiple_files,
+    _convert_stdin,
+)
 
 
 def _write_file(path, content):
@@ -170,6 +175,99 @@ class TestConvertDirectory(TestCase):
                     in_extensions={".tf"},
                     out_extension=".json",
                 )
+
+
+class TestConvertMultipleFiles(TestCase):
+    def test_converts_all_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.tf"), "aaa")
+            _write_file(os.path.join(tmpdir, "b.tf"), "bbb")
+
+            out_dir = os.path.join(tmpdir, "out")
+            converted = []
+
+            def convert(in_f, out_f):
+                converted.append(in_f.read())
+                out_f.write("ok")
+
+            _convert_multiple_files(
+                [os.path.join(tmpdir, "a.tf"), os.path.join(tmpdir, "b.tf")],
+                out_dir,
+                convert,
+                False,
+                (Exception,),
+                out_extension=".json",
+            )
+
+            self.assertEqual(len(converted), 2)
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "a.json")))
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "b.json")))
+
+    def test_creates_output_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.tf"), "aaa")
+
+            out_dir = os.path.join(tmpdir, "new_out")
+
+            def convert(_in_f, out_f):
+                out_f.write("ok")
+
+            _convert_multiple_files(
+                [os.path.join(tmpdir, "a.tf")],
+                out_dir,
+                convert,
+                False,
+                (Exception,),
+                out_extension=".json",
+            )
+
+            self.assertTrue(os.path.isdir(out_dir))
+
+    def test_skip_errors(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.tf"), "aaa")
+            _write_file(os.path.join(tmpdir, "b.tf"), "bbb")
+
+            out_dir = os.path.join(tmpdir, "out")
+            converted = []
+
+            def convert(in_f, out_f):
+                data = in_f.read()
+                if "aaa" in data:
+                    raise ValueError("boom")
+                converted.append(data)
+                out_f.write("ok")
+
+            _convert_multiple_files(
+                [os.path.join(tmpdir, "a.tf"), os.path.join(tmpdir, "b.tf")],
+                out_dir,
+                convert,
+                True,
+                (ValueError,),
+                out_extension=".json",
+            )
+
+            self.assertEqual(len(converted), 1)
+
+    def test_custom_out_extension(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.json"), "data")
+
+            out_dir = os.path.join(tmpdir, "out")
+
+            def convert(_in_f, out_f):
+                out_f.write("ok")
+
+            _convert_multiple_files(
+                [os.path.join(tmpdir, "a.json")],
+                out_dir,
+                convert,
+                False,
+                (Exception,),
+                out_extension=".tf",
+            )
+
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "a.tf")))
 
 
 class TestConvertStdin(TestCase):

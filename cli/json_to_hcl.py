@@ -1,4 +1,5 @@
 """``jsontohcl2`` CLI entry point — convert JSON files to HCL2."""
+
 import argparse
 import json
 import os
@@ -12,6 +13,7 @@ from .helpers import (
     JSON_SKIPPABLE,
     _convert_single_file,
     _convert_directory,
+    _convert_multiple_files,
     _convert_stdin,
 )
 
@@ -36,12 +38,14 @@ def main():
     )
     parser.add_argument(
         "PATH",
-        help='The file or directory to convert (use "-" for stdin)',
+        nargs="+",
+        help='One or more files or directories to convert (use "-" for stdin)',
     )
     parser.add_argument(
-        "OUT_PATH",
-        nargs="?",
-        help="The path to write output to. Optional for single file (defaults to stdout)",
+        "-o",
+        "--output",
+        dest="output",
+        help="Output path (file for single input, directory for multiple inputs)",
     )
     parser.add_argument("--version", action="version", version=__version__)
 
@@ -116,21 +120,40 @@ def main():
     def convert(in_file, out_file):
         _json_to_hcl(in_file, out_file, d_opts, f_opts)
 
-    if args.PATH == "-":
-        _convert_stdin(convert)
-    elif os.path.isfile(args.PATH):
-        _convert_single_file(
-            args.PATH, args.OUT_PATH, convert, args.skip, JSON_SKIPPABLE
-        )
-    elif os.path.isdir(args.PATH):
-        _convert_directory(
-            args.PATH,
-            args.OUT_PATH,
-            convert,
-            args.skip,
-            JSON_SKIPPABLE,
-            in_extensions={".json"},
-            out_extension=".tf",
-        )
+    paths = args.PATH
+    output = args.output
+
+    if len(paths) == 1:
+        path = paths[0]
+        if path == "-":
+            _convert_stdin(convert)
+        elif os.path.isfile(path):
+            _convert_single_file(path, output, convert, args.skip, JSON_SKIPPABLE)
+        elif os.path.isdir(path):
+            _convert_directory(
+                path,
+                output,
+                convert,
+                args.skip,
+                JSON_SKIPPABLE,
+                in_extensions={".json"},
+                out_extension=".tf",
+            )
+        else:
+            raise RuntimeError(f"Invalid Path: {path}")
     else:
-        raise RuntimeError(f"Invalid Path: {args.PATH}")
+        for p in paths:
+            if not os.path.isfile(p):
+                raise RuntimeError(f"Invalid file: {p}")
+        if output is None:
+            for p in paths:
+                _convert_single_file(p, None, convert, args.skip, JSON_SKIPPABLE)
+        else:
+            _convert_multiple_files(
+                paths,
+                output,
+                convert,
+                args.skip,
+                JSON_SKIPPABLE,
+                out_extension=".tf",
+            )

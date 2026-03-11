@@ -215,19 +215,23 @@ text = hcl2.reconstruct(tree)
 
 ### hcl2tojson
 
-Convert HCL2 files to JSON.
+Convert HCL2 files to JSON. Accepts one or more files, a directory, or stdin.
 
 ```sh
-hcl2tojson main.tf                  # print JSON to stdout
-hcl2tojson main.tf output.json      # write to file
-hcl2tojson terraform/ output/       # convert a directory
-cat main.tf | hcl2tojson -          # read from stdin
+hcl2tojson main.tf                       # single file to stdout
+hcl2tojson main.tf -o output.json        # single file to output file
+hcl2tojson terraform/ -o output/         # convert a directory
+hcl2tojson a.tf b.tf                     # multiple files to stdout
+hcl2tojson a.tf b.tf -o output/          # multiple files to output directory
+hcl2tojson *.tf -o output/               # shell glob expansion
+cat main.tf | hcl2tojson -               # read from stdin
 ```
 
 **Flags:**
 
 | Flag | Description |
 |---|---|
+| `-o`, `--output` | Output path (file for single input, directory for multiple) |
 | `-s` | Skip un-parsable files |
 | `--json-indent N` | JSON indentation width (default: 2) |
 | `--with-meta` | Add `__start_line__` / `__end_line__` metadata |
@@ -238,23 +242,28 @@ cat main.tf | hcl2tojson -          # read from stdin
 | `--no-preserve-heredocs` | Convert heredocs to plain strings |
 | `--force-parens` | Force parentheses around all operations |
 | `--no-preserve-scientific` | Convert scientific notation to standard floats |
+| `--strip-string-quotes` | Strip surrounding double-quotes from string values |
 | `--version` | Show version and exit |
 
 ### jsontohcl2
 
-Convert JSON files to HCL2.
+Convert JSON files to HCL2. Accepts one or more files, a directory, or stdin.
 
 ```sh
-jsontohcl2 output.json              # print HCL2 to stdout
-jsontohcl2 output.json main.tf      # write to file
-jsontohcl2 output/ terraform/       # convert a directory
-cat output.json | jsontohcl2 -      # read from stdin
+jsontohcl2 output.json                   # single file to stdout
+jsontohcl2 output.json -o main.tf        # single file to output file
+jsontohcl2 output/ -o terraform/         # convert a directory
+jsontohcl2 a.json b.json                 # multiple files to stdout
+jsontohcl2 a.json b.json -o terraform/   # multiple files to output directory
+jsontohcl2 *.json -o terraform/          # shell glob expansion
+cat output.json | jsontohcl2 -           # read from stdin
 ```
 
 **Flags:**
 
 | Flag | Description |
 |---|---|
+| `-o`, `--output` | Output path (file for single input, directory for multiple) |
 | `-s` | Skip un-parsable files |
 | `--indent N` | Indentation width (default: 2) |
 | `--colon-separator` | Use `:` instead of `=` in object elements |
