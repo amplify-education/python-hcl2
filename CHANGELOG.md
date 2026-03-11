@@ -9,16 +9,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Nothing yet.
 
-## \[8.0.0\] - rc1
+## \[8.0.0\] - rc2
 
 ### Added
 
 - Full architecture overhaul: bidirectional HCL2 ↔ JSON pipeline with typed rule classes. ([#203](https://github.com/amplify-education/python-hcl2/pull/203))
+  - add function tuples round-trip test suite ([#268](https://github.com/amplify-education/python-hcl2/pull/268))
+  - Add postlexer to support multiline binary operators and ternary expressions ([#270](https://github.com/amplify-education/python-hcl2/pull/270))
+  - more robust whitespace handling in reconstruction ([#271](https://github.com/amplify-education/python-hcl2/pull/271))
+  - SerializationOptions - add an option to strip string quotes in dict/JSON output ([#272](https://github.com/amplify-education/python-hcl2/pull/272))
 - CLAUDE.md ([#260](https://github.com/amplify-education/python-hcl2/pull/260))
 
 ### Fixed
 
 - Ternary with strings parse error ([#55](https://github.com/amplify-education/python-hcl2/issues/55))
+- "No terminal matches '|' in the current parser context" when parsing multi-line conditional ([#142](https://github.com/amplify-education/python-hcl2/issues/142))
 - reverse_transform not working with object-type variables ([#231](https://github.com/amplify-education/python-hcl2/issues/231))
 - reverse_transform not handling nested functions ([#235](https://github.com/amplify-education/python-hcl2/issues/235))
 - `writes` omits quotes around map keys with `/` ([#236](https://github.com/amplify-education/python-hcl2/issues/236))
@@ -29,6 +34,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Interpolation literals added to locals/variables in maps ([#252](https://github.com/amplify-education/python-hcl2/issues/252))
 - Object literal expression can't be serialized ([#253](https://github.com/amplify-education/python-hcl2/issues/253))
 - Heredocs should interpret backslash literally ([#262](https://github.com/amplify-education/python-hcl2/issues/262))
+- Parsing a multi-line multi-conditional expression causes exception - Unexpected token Token('QMARK', '?') ([#269](https://github.com/amplify-education/python-hcl2/issues/269))
 
 ### Changed
 
