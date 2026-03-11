@@ -280,8 +280,8 @@ class BaseFormatter(LarkElementTreeFormatter):
         for attribute in attributes_sequence:
             name_length = len(attribute.identifier.token.value)
             spaces_to_add = max_length - name_length
-            base = attribute.children[1].value.lstrip(" ")
-            attribute.children[1].set_value(" " * spaces_to_add + base)
+            base = attribute.children[1].value.lstrip(" \t")
+            attribute.children[1].set_value(" " * (spaces_to_add + 1) + base)
 
     def _vertically_align_object_elems(self, rule: ObjectRule):
         max_length = max(self._key_text_width(elem.key) for elem in rule.elements)
@@ -294,8 +294,12 @@ class BaseFormatter(LarkElementTreeFormatter):
             if isinstance(separator, COLON):  # type: ignore[misc]
                 spaces_to_add += 1
 
-            base = separator.value.lstrip(" ")
-            elem.children[1].set_value(" " * spaces_to_add + base)
+            base = separator.value.lstrip(" \t")
+            # EQ gets +1 for the base space (reconstructor no longer adds it
+            # when the token already has leading whitespace); COLON already
+            # has its own +1 above and the reconstructor doesn't add space.
+            extra = 1 if not isinstance(separator, COLON) else 0  # type: ignore[misc]
+            elem.children[1].set_value(" " * (spaces_to_add + extra) + base)
 
     @staticmethod
     def _key_text_width(key: LarkElement) -> int:

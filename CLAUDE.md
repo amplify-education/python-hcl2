@@ -131,6 +131,14 @@ Use concrete stubs when testing ABCs (e.g., `StubExpression(ExpressionRule)`).
 
 Always run round-trip full test suite after any modification.
 
+## Pre-commit Checks
+
+Hooks are defined in `.pre-commit-config.yaml` (includes black, mypy, pylint, and others). All changed files must pass these checks before committing. When writing or modifying code:
+
+- Format Python with **black** (Python 3.8 target).
+- Ensure **mypy** and **pylint** pass. Pylint config is in `pylintrc`, scoped to `hcl2/` and `test/`.
+- End files with a newline; strip trailing whitespace (except under `test/integration/(hcl2_reconstructed|specialized)/`).
+
 ## Keeping Docs Current
 
 Update this file when architecture, modules, API surface, or testing conventions change. Also update `README.md` and `docs/usage.md` when changes affect the public API, CLI flags, or option fields.

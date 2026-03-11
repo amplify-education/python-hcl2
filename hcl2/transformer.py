@@ -83,10 +83,10 @@ class RuleTransformer(Transformer):
         # TODO make this return StaticStringToken where applicable
         value = token.value
         # The EQ terminal /[ \t]*=(?!=|>)/ captures leading whitespace.
-        # Strip it so parsed and deserialized tokens produce the same "=" value,
-        # preventing the reconstructor from emitting double spaces.
-        if token.type == "EQ":
-            value = value.lstrip(" \t")
+        # Preserve it so the direct pipeline (to_lark → reconstruct) retains
+        # original alignment.  The reconstructor skips its own space insertion
+        # when the EQ token already carries leading whitespace.
+
         if value in StaticStringToken.classes_by_value:
             return StaticStringToken.classes_by_value[value]()
         return StringToken[token.type](value)  # type: ignore[misc]
