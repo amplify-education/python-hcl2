@@ -79,6 +79,14 @@ def _parse_and_serialize(hcl_text: str, options=None) -> dict:
     return rules.serialize()
 
 
+def _direct_reconstruct(hcl_text: str) -> str:
+    """Parse HCL text, transform to IR, convert to Lark tree, and reconstruct."""
+    parsed_tree = parses_to_tree(hcl_text)
+    rules = RuleTransformer().transform(parsed_tree)
+    lark_tree = rules.to_lark()
+    return HCLReconstructor().reconstruct(lark_tree)
+
+
 def _deserialize_and_reserialize(serialized: dict) -> dict:
     """Deserialize a Python dict back through the rule tree and reserialize."""
     deserializer = BaseDeserializer()
@@ -117,6 +125,33 @@ class TestRoundTripSerialization(TestCase):
                     actual,
                     expected,
                     f"HCL → JSON serialization mismatch for suite {suite}",
+                )
+
+
+class TestDirectReconstruction(TestCase):
+    """Test HCL2 → IR → HCL2 direct pipeline.
+
+    Parse HCL, transform to IR, convert directly to Lark tree (skipping
+    serialization to dict), reconstruct HCL, then verify the result
+    re-parses to the same JSON as the original.
+    """
+
+    maxDiff = None
+
+    def test_direct_reconstruct(self):
+        for suite in _get_suites():
+            with self.subTest(suite=suite):
+                hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
+                original_hcl = hcl_path.read_text()
+
+                # Direct: HCL → IR → Lark → HCL
+                reconstructed_hcl = _direct_reconstruct(original_hcl)
+
+                self.assertMultiLineEqual(
+                    reconstructed_hcl,
+                    original_hcl,
+                    f"Direct reconstruction mismatch for suite {suite}: "
+                    f"HCL → IR → HCL did not match original HCL",
                 )
 
 

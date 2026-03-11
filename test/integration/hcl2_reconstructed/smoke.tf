@@ -61,7 +61,7 @@ block {
         for account_name in var.route53_resolver_forwarding_rule_shares[forwarding_rule_key].aws_account_names :
         module.remote_state_subaccounts.map[account_name].outputs["aws_account_id"]
       ]
-    } ... 
+    } ...
     if substr(bucket_name, 0, 1) == "l"
   }
 }

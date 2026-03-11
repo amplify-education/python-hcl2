@@ -4,6 +4,7 @@ from typing import List, Optional, Union
 from lark import Tree, Token
 from hcl2.rules import tokens
 from hcl2.rules.base import BlockRule
+from hcl2.rules.containers import ObjectElemRule
 from hcl2.rules.for_expressions import ForIntroRule, ForTupleExprRule, ForObjectExprRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.strings import StringRule
@@ -76,14 +77,20 @@ class HCLReconstructor:
                 or self._last_token_name
                 in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
             ):
+                # COLON may already carry leading whitespace from the grammar
+                if token_type == tokens.COLON.lark_name() and str(
+                    current_node
+                ).startswith((" ", "\t")):
+                    return False
                 return True
 
-            # Space after
+            # Space before colon in for_intro
             if (
                 parent_rule_name == ForIntroRule.lark_name()
                 and token_type == tokens.COLON.lark_name()
             ):
-
+                if str(current_node).startswith((" ", "\t")):
+                    return False
                 return True
 
             # Space after commas in tuples and function arguments...
@@ -120,10 +127,28 @@ class HCLReconstructor:
                 return True
 
             # Space after ellipsis in function arguments
+            # ... except before newlines which provide their own whitespace
             if self._last_token_name == tokens.ELLIPSIS.lark_name():
+                if token_type == "NL_OR_COMMENT":
+                    return False
                 return True
 
-            if tokens.EQ.lark_name() in [token_type, self._last_token_name]:
+            # Space around EQ and COLON separators in attributes/object elements.
+            # Both terminals may carry leading whitespace from the original
+            # source (e.g. "   =" for aligned attributes, " :" for object
+            # elements).  Skip the automatic space when the token already
+            # provides it.  COLON only gets space if it already has leading
+            # whitespace (unlike EQ which always gets at least one space).
+            if token_type == tokens.EQ.lark_name():
+                if str(current_node).startswith((" ", "\t")):
+                    return False
+                return True
+            if token_type == tokens.COLON.lark_name():
+                return False
+            if self._last_token_name == tokens.EQ.lark_name():
+                # Don't add space before newlines which provide their own whitespace
+                if token_type == "NL_OR_COMMENT":
+                    return False
                 return True
 
             # Don't add space around operator tokens inside unary_op
@@ -158,14 +183,16 @@ class HCLReconstructor:
             ):
                 return True
 
-            # Space after colon in for expressions (before value expression,
-            # but not before newline/comment which provides its own whitespace)
+            # Space after colon in for expressions and object elements
+            # (before value expression, but not before newline/comment
+            # which provides its own whitespace)
             if (
                 self._last_token_name == tokens.COLON.lark_name()
                 and parent_rule_name
                 in [
                     ForTupleExprRule.lark_name(),
                     ForObjectExprRule.lark_name(),
+                    ObjectElemRule.lark_name(),
                 ]
                 and rule_name != "new_line_or_comment"
             ):
@@ -252,6 +279,14 @@ class HCLReconstructor:
 
         if postproc:
             result = postproc(result)
+
+        # The grammar's body rule ends with an optional new_line_or_comment
+        # which captures the final newline.  The parser often produces two
+        # NL_OR_COMMENT tokens for a single trailing newline (the statement
+        # separator plus the EOF newline), resulting in a spurious blank line.
+        # Strip exactly one trailing newline when there are two or more.
+        if result.endswith("\n\n"):
+            result = result[:-1]
 
         # Ensure file ends with newline
         if result and not result.endswith("\n"):
