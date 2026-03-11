@@ -1,4 +1,5 @@
 """Transform Lark parse trees into typed LarkElement rule trees."""
+
 # pylint: disable=missing-function-docstring,unused-argument
 from lark import Token, Tree, v_args, Transformer, Discard
 from lark.tree import Meta
@@ -54,6 +55,16 @@ from hcl2.rules.strings import (
     StringPartRule,
     HeredocTemplateRule,
     HeredocTrimTemplateRule,
+    TemplateStringRule,
+)
+from hcl2.rules.directives import (
+    TemplateIfRule,
+    TemplateForRule,
+    TemplateIfStartRule,
+    TemplateElseRule,
+    TemplateEndifRule,
+    TemplateForStartRule,
+    TemplateEndforRule,
 )
 from hcl2.rules.tokens import (
     NAME,
@@ -86,6 +97,11 @@ class RuleTransformer(Transformer):
         # Preserve it so the direct pipeline (to_lark → reconstruct) retains
         # original alignment.  The reconstructor skips its own space insertion
         # when the EQ token already carries leading whitespace.
+
+        # Don't convert STRING_CHARS or ESCAPED_* tokens to static tokens.
+        # E.g., STRING_CHARS("=") must stay STRING_CHARS, not become EQ.
+        if token.type in ("STRING_CHARS", "ESCAPED_INTERPOLATION", "ESCAPED_DIRECTIVE"):
+            return StringToken[token.type](value)  # type: ignore[misc]
 
         if value in StaticStringToken.classes_by_value:
             return StaticStringToken.classes_by_value[value]()
@@ -148,7 +164,85 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def string(self, meta: Meta, args) -> StringRule:
+        # Assemble flat directive parts into nested TemplateIfRule/TemplateForRule
+        args = self._assemble_directives(list(args), meta)
         return StringRule(args, meta)
+
+    def _assemble_directives(self, parts, meta: Meta):
+        """Assemble flat directive string_parts into nested template rules.
+
+        Scans for TemplateIfStartRule/TemplateForStartRule within StringPartRules
+        and collects children up to matching endif/endfor, handling nesting.
+        """
+        result = []
+        i = 0
+        while i < len(parts):
+            assembled, i = self._try_assemble_nested(parts, i, meta)
+            if assembled is not None:
+                result.append(StringPartRule([assembled], meta))
+            else:
+                result.append(parts[i])
+                i += 1
+        return result
+
+    def _try_assemble_nested(self, parts, idx, meta):
+        """If parts[idx] starts a directive, assemble and return (rule, next_idx).
+
+        Returns (None, idx) if parts[idx] is not a directive opener.
+        """
+        part = parts[idx]
+        if isinstance(part, StringPartRule):
+            content = part.content
+            if isinstance(content, TemplateIfStartRule):
+                return self._assemble_template_if(parts, idx, meta)
+            if isinstance(content, TemplateForStartRule):
+                return self._assemble_template_for(parts, idx, meta)
+        return None, idx
+
+    def _collect_body(self, parts, start, end_types, meta):
+        """Collect body parts from start until a StringPartRule with end_types content.
+
+        Recursively assembles nested directives. Returns (body_list, end_content, next_idx).
+        """
+        body: list = []
+        i = start
+        while i < len(parts):
+            part = parts[i]
+            if isinstance(part, StringPartRule) and isinstance(part.content, end_types):
+                return body, part.content, i + 1
+            assembled, i = self._try_assemble_nested(parts, i, meta)
+            if assembled is not None:
+                body.append(StringPartRule([assembled], meta))
+            else:
+                body.append(parts[i])
+                i += 1
+        return body, None, i
+
+    def _assemble_template_if(self, parts, start_idx, meta: Meta):
+        """Assemble a TemplateIfRule from flat parts starting at start_idx."""
+        if_start = parts[start_idx].content
+        # Collect if-body until else or endif
+        if_body, end, i = self._collect_body(
+            parts, start_idx + 1, (TemplateElseRule, TemplateEndifRule), meta
+        )
+        else_rule = None
+        else_body = None
+        if isinstance(end, TemplateElseRule):
+            else_rule = end
+            else_body, end, i = self._collect_body(parts, i, (TemplateEndifRule,), meta)
+        if not isinstance(end, TemplateEndifRule):
+            raise RuntimeError("Unterminated template if directive")
+        return TemplateIfRule(if_start, if_body, else_rule, else_body, end, meta), i
+
+    def _assemble_template_for(self, parts, start_idx, meta: Meta):
+        """Assemble a TemplateForRule from flat parts starting at start_idx."""
+        for_start = parts[start_idx].content
+        body, end, i = self._collect_body(
+            parts, start_idx + 1, (TemplateEndforRule,), meta
+        )
+        if not isinstance(end, TemplateEndforRule):
+            raise RuntimeError("Unterminated template for directive")
+        return TemplateForRule(for_start, body, end, meta), i
 
     @v_args(meta=True)
     def string_part(self, meta: Meta, args) -> StringPartRule:
@@ -304,3 +398,27 @@ class RuleTransformer(Transformer):
     @v_args(meta=True)
     def for_cond(self, meta: Meta, args) -> ForCondRule:
         return ForCondRule(args, meta)
+
+    @v_args(meta=True)
+    def template_if_start(self, meta: Meta, args) -> TemplateIfStartRule:
+        return TemplateIfStartRule(args, meta)
+
+    @v_args(meta=True)
+    def template_else(self, meta: Meta, args) -> TemplateElseRule:
+        return TemplateElseRule(args, meta)
+
+    @v_args(meta=True)
+    def template_endif(self, meta: Meta, args) -> TemplateEndifRule:
+        return TemplateEndifRule(args, meta)
+
+    @v_args(meta=True)
+    def template_for_start(self, meta: Meta, args) -> TemplateForStartRule:
+        return TemplateForStartRule(args, meta)
+
+    @v_args(meta=True)
+    def template_endfor(self, meta: Meta, args) -> TemplateEndforRule:
+        return TemplateEndforRule(args, meta)
+
+    @v_args(meta=True)
+    def template_string(self, meta: Meta, args) -> TemplateStringRule:
+        return TemplateStringRule(args, meta)

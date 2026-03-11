@@ -1,10 +1,20 @@
 """Reconstruct HCL2 text from a Lark Tree AST."""
+
 from typing import List, Optional, Union
 
 from lark import Tree, Token
 from hcl2.rules import tokens
 from hcl2.rules.base import BlockRule
 from hcl2.rules.containers import ObjectElemRule
+from hcl2.rules.directives import (
+    TemplateIfRule,
+    TemplateForRule,
+    TemplateIfStartRule,
+    TemplateElseRule,
+    TemplateEndifRule,
+    TemplateForStartRule,
+    TemplateEndforRule,
+)
 from hcl2.rules.for_expressions import ForIntroRule, ForTupleExprRule, ForObjectExprRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.strings import StringRule
@@ -99,6 +109,50 @@ class HCLReconstructor:
                 if token_type in (tokens.RSQB.lark_name(), "NL_OR_COMMENT"):
                     return False
                 return True
+
+            # Template directive spacing: %{~ keyword ~} patterns
+            _directive_rules = (
+                TemplateIfStartRule.lark_name(),
+                TemplateElseRule.lark_name(),
+                TemplateEndifRule.lark_name(),
+                TemplateForStartRule.lark_name(),
+                TemplateEndforRule.lark_name(),
+                TemplateIfRule.lark_name(),
+                TemplateForRule.lark_name(),
+            )
+            if parent_rule_name in _directive_rules:
+                # Space after DIRECTIVE_START (before keyword or strip marker)
+                if self._last_token_name == tokens.DIRECTIVE_START.lark_name():
+                    # No space before strip marker
+                    if token_type == tokens.STRIP_MARKER.lark_name():
+                        return False
+                    return True
+                # Space after STRIP_MARKER (before keyword)
+                if self._last_token_name == tokens.STRIP_MARKER.lark_name():
+                    # After strip marker: space before keyword, no space before RBRACE
+                    if token_type == tokens.RBRACE.lark_name():
+                        return False
+                    return True
+                # Space after keywords
+                if self._last_token_name in [
+                    tokens.FOR.lark_name(),
+                    tokens.IN.lark_name(),
+                    tokens.IF.lark_name(),
+                ]:
+                    return True
+                # Space before IN keyword (after identifier)
+                if token_type == tokens.IN.lark_name():
+                    return True
+                # Space before STRIP_MARKER (before closing })
+                if token_type == tokens.STRIP_MARKER.lark_name():
+                    return True
+                # Space before RBRACE (closing directive, no strip marker)
+                if token_type == tokens.RBRACE.lark_name():
+                    return True
+                # Space after COMMA in for directives
+                if self._last_token_name == tokens.COMMA.lark_name():
+                    return True
+                return False
 
             if token_type in [
                 tokens.FOR.lark_name(),
