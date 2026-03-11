@@ -32,12 +32,20 @@ from hcl2.rules.whitespace import NewLineOrCommentRule
 class FormatterOptions:
     """Options controlling whitespace formatting of LarkElement trees."""
 
+    # Number of spaces per indentation level.
     indent_length: int = 2
+    # Use multi-line format for empty blocks (opening brace on same line,
+    # closing brace on next). When False, empty blocks collapse to "{}".
     open_empty_blocks: bool = True
+    # Use multi-line format for empty objects. When False, empty objects
+    # collapse to "{}".
     open_empty_objects: bool = False
+    # Use multi-line format for empty tuples. When False, empty tuples
+    # collapse to "[]".
     open_empty_tuples: bool = False
-
+    # Pad attribute equals signs so they align vertically within a block body.
     vertically_align_attributes: bool = True
+    # Pad object element equals/colons so they align vertically within an object.
     vertically_align_object_elements: bool = True
 
 

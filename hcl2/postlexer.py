@@ -7,7 +7,6 @@ add new passes without touching existing logic.
 
 from typing import FrozenSet, Iterator, Optional, Tuple
 
-
 from lark import Token
 
 # Type alias for a token stream consumed and produced by each pass.

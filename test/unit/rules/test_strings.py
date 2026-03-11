@@ -159,6 +159,26 @@ class TestStringRule(TestCase):
         rule = _make_string([_make_string_part_interpolation("x")])
         self.assertEqual(rule.serialize(), '"${x}"')
 
+    def test_serialize_strip_string_quotes(self):
+        rule = _make_string([_make_string_part_chars("hello")])
+        opts = SerializationOptions(strip_string_quotes=True)
+        self.assertEqual(rule.serialize(opts), "hello")
+
+    def test_serialize_strip_string_quotes_empty(self):
+        rule = _make_string([])
+        opts = SerializationOptions(strip_string_quotes=True)
+        self.assertEqual(rule.serialize(opts), "")
+
+    def test_serialize_strip_string_quotes_with_interpolation(self):
+        rule = _make_string(
+            [
+                _make_string_part_chars("prefix:"),
+                _make_string_part_interpolation("var.name"),
+            ]
+        )
+        opts = SerializationOptions(strip_string_quotes=True)
+        self.assertEqual(rule.serialize(opts), "prefix:${var.name}")
+
 
 # --- HeredocTemplateRule tests ---
 
@@ -237,6 +257,18 @@ class TestHeredocTemplateRule(TestCase):
         with self.assertRaises(RuntimeError):
             rule.serialize(opts)
 
+    def test_serialize_strip_string_quotes_preserve(self):
+        token = HEREDOC_TEMPLATE("<<EOF\nhello world\nEOF")
+        rule = HeredocTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=True, strip_string_quotes=True)
+        self.assertEqual(rule.serialize(opts), "<<EOF\nhello world\nEOF")
+
+    def test_serialize_strip_string_quotes_no_preserve(self):
+        token = HEREDOC_TEMPLATE("<<EOF\nline1\nline2\nEOF")
+        rule = HeredocTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
+        self.assertEqual(rule.serialize(opts), "line1\\nline2")
+
 
 # --- HeredocTrimTemplateRule tests ---
 
@@ -310,3 +342,15 @@ class TestHeredocTrimTemplateRule(TestCase):
         opts = SerializationOptions(preserve_heredocs=False)
         with self.assertRaises(RuntimeError):
             rule.serialize(opts)
+
+    def test_serialize_strip_string_quotes_preserve(self):
+        token = HEREDOC_TRIM_TEMPLATE("<<-EOF\n    line1\n    line2\nEOF")
+        rule = HeredocTrimTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=True, strip_string_quotes=True)
+        self.assertEqual(rule.serialize(opts), "<<-EOF\n    line1\n    line2\nEOF")
+
+    def test_serialize_strip_string_quotes_no_preserve(self):
+        token = HEREDOC_TRIM_TEMPLATE("<<-EOF\n    line1\n    line2\nEOF")
+        rule = HeredocTrimTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
+        self.assertEqual(rule.serialize(opts), "line1\\nline2")
