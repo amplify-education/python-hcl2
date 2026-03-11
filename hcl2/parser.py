@@ -4,6 +4,8 @@ from pathlib import Path
 
 from lark import Lark
 
+from hcl2.postlexer import PostLexer
+
 
 PARSER_FILE = Path(__file__).absolute().resolve().parent / ".lark_cache.bin"
 
@@ -17,4 +19,5 @@ def parser() -> Lark:
         cache=str(PARSER_FILE),  # Disable/Delete file to effect changes to the grammar
         rel_to=__file__,
         propagate_positions=True,
+        postlex=PostLexer(),
     )

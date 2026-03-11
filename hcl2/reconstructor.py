@@ -183,6 +183,11 @@ class HCLReconstructor:
         # Check spacing BEFORE processing children, while _last_rule_name
         # still reflects the previous sibling (not a child of this tree).
         needs_space = self._should_add_space_before(tree, parent_rule_name)
+        if needs_space:
+            # A space will be inserted before this tree's output, so tell
+            # children that the last character was a space to prevent the
+            # first child from adding a duplicate leading space.
+            self._last_was_space = True
 
         if rule_name == UnaryOpRule.lark_name():
             for i, child in enumerate(tree.children):

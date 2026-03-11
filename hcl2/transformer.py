@@ -81,9 +81,15 @@ class RuleTransformer(Transformer):
 
     def __default_token__(self, token: Token) -> StringToken:
         # TODO make this return StaticStringToken where applicable
-        if token.value in StaticStringToken.classes_by_value:
-            return StaticStringToken.classes_by_value[token.value]()
-        return StringToken[token.type](token.value)  # type: ignore[misc]
+        value = token.value
+        # The EQ terminal /[ \t]*=(?!=|>)/ captures leading whitespace.
+        # Strip it so parsed and deserialized tokens produce the same "=" value,
+        # preventing the reconstructor from emitting double spaces.
+        if token.type == "EQ":
+            value = value.lstrip(" \t")
+        if value in StaticStringToken.classes_by_value:
+            return StaticStringToken.classes_by_value[value]()
+        return StringToken[token.type](value)  # type: ignore[misc]
 
     # pylint: disable=C0103
     def FLOAT_LITERAL(self, token: Token) -> FloatLiteral:
@@ -164,8 +170,32 @@ class RuleTransformer(Transformer):
     def expr_term(self, meta: Meta, args) -> ExprTermRule:
         return ExprTermRule(args, meta)
 
+    def _extract_nl_prefix(self, token):
+        """Strip leading newlines from a token value.
+
+        If the token contains a newline prefix (from the postlexer merging a
+        line-continuation newline into the operator token), strip it and
+        return a NewLineOrCommentRule.  Otherwise return None.
+        """
+        value = str(token.value)
+        stripped = value.lstrip("\n \t")
+        if len(stripped) == len(value):
+            return None
+        nl_text = value[: len(value) - len(stripped)]
+        token.set_value(stripped)
+        if self.discard_new_line_or_comments:
+            return None
+        return NewLineOrCommentRule.from_string(nl_text)
+
     @v_args(meta=True)
     def conditional(self, meta: Meta, args) -> ConditionalRule:
+        # args: [condition, QMARK, NL?, if_true, NL?, COLON, NL?, if_false]
+        # QMARK is at index 1 — check for NL prefix from the postlexer
+        qmark_token = args[1]
+        nl_rule = self._extract_nl_prefix(qmark_token)
+        if nl_rule is not None:
+            args = list(args)
+            args.insert(1, nl_rule)
         return ConditionalRule(args, meta)
 
     @v_args(meta=True)
@@ -174,6 +204,12 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def binary_term(self, meta: Meta, args) -> BinaryTermRule:
+        # args: [BinaryOperatorRule, NL?, ExprTermRule]
+        # The operator's token may contain a NL prefix from the postlexer
+        op_rule = args[0]
+        nl_rule = self._extract_nl_prefix(op_rule.token)
+        if nl_rule is not None:
+            args = [nl_rule] + list(args)
         return BinaryTermRule(args, meta)
 
     @v_args(meta=True)

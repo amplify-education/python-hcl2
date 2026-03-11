@@ -43,6 +43,28 @@ block label1 label2 {
   }
 }
 
+block multiline_ternary {
+  foo = (
+    bar
+    ? baz(foo)
+    : foo == "bar"
+    ? "baz"
+    : foo
+  )
+}
+
+block multiline_binary_ops {
+  expr = {
+    for k, v in local.map_a : k => v
+    if lookup(local.map_b[v.id
+    ], "enabled", false)
+    || (
+    contains(local.map_c, v.id)
+    && contains(local.map_d, v.id)
+    )
+  }
+}
+
 block {
   route53_forwarding_rule_shares = {
     for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) :
