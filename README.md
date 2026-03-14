@@ -67,12 +67,18 @@ res.block("tags", Name="HelloWorld")
 hcl_string = hcl2.dumps(doc.build())
 ```
 
-For the full API reference, option dataclasses, intermediate pipeline stages, and more examples
-see [docs/usage.md](https://github.com/amplify-education/python-hcl2/blob/main/docs/usage.md).
+### Documentation
+
+| Guide | Contents |
+|---|---|
+| [Getting Started](docs/01_getting_started.md) | Installation, load/dump, options, CLI converters |
+| [Querying HCL (Python)](docs/02_querying.md) | DocumentView, BlockView, tree walking, view hierarchy |
+| [Advanced API](docs/03_advanced_api.md) | Pipeline stages, Builder |
+| [hq Reference](docs/04_hq.md) | `hq` CLI — structural queries, hybrid/eval, introspection |
 
 ### CLI Tools
 
-python-hcl2 ships two command-line converters:
+python-hcl2 ships three command-line tools:
 
 ```sh
 # HCL2 → JSON
@@ -84,9 +90,13 @@ hcl2tojson terraform/ output/          # converts a directory
 jsontohcl2 output.json                 # prints HCL2 to stdout
 jsontohcl2 output.json main.tf         # writes to file
 jsontohcl2 output/ terraform/          # converts a directory
+
+# Query HCL2 files
+hq 'resource.aws_instance.main.ami' main.tf
+hq 'variable[*]' variables.tf --json
 ```
 
-Both commands accept `-` as PATH to read from stdin. Run `hcl2tojson --help` or `jsontohcl2 --help` for the full list of flags.
+All commands accept `-` as PATH to read from stdin. Run `--help` on any command for the full list of flags.
 
 ## Building From Source
 
