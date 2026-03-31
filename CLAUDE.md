@@ -79,14 +79,48 @@ Follows the `json` module convention. All option parameters are keyword-only.
 
 ## CLI
 
-Console scripts defined in `pyproject.toml`. Both accept one or more positional `PATH` arguments (files, directories, or `-` for stdin) and an optional `-o`/`--output` flag. Additional option flags map directly to the option dataclass fields above.
+Console scripts defined in `pyproject.toml`. All three CLIs accept positional `PATH` arguments (files, directories, glob patterns, or `-` for stdin). When no `PATH` is given, stdin is read by default (like `jq`).
+
+### Exit Codes
+
+All CLIs use structured error output (plain text to stderr) and distinct exit codes:
+
+| Code | `hcl2tojson` | `jsontohcl2` | `hq` |
+|------|---|---|---|
+| 0 | Success | Success | Success |
+| 1 | Partial (some skipped) | JSON parse error | No results |
+| 2 | All unparsable | Bad HCL structure | Parse error |
+| 3 | — | — | Query error |
+| 4 | I/O error | I/O error | I/O error |
+
+### `hcl2tojson`
 
 ```
 hcl2tojson file.tf                          # single file to stdout
+hcl2tojson dir/                             # directory → NDJSON to stdout
 hcl2tojson a.tf b.tf -o out/               # multiple files to output dir
-hcl2tojson --json-indent 2 --with-meta file.tf
+hcl2tojson --ndjson 'modules/**/*.tf'      # glob + NDJSON streaming
+hcl2tojson --only resource,module file.tf  # block type filtering
+hcl2tojson --exclude variable file.tf      # exclude block types
+hcl2tojson --fields cpu,memory file.tf     # field projection
+hcl2tojson --compact file.tf               # single-line JSON
+hcl2tojson -q dir/ -o out/                 # quiet (no stderr progress)
+echo 'x = 1' | hcl2tojson                 # stdin (no args needed)
+```
+
+Key flags: `--ndjson`, `--compact`, `--only`/`--exclude`, `--fields`, `-q`/`--quiet`, `--json-indent N`, `--with-meta`, `--with-comments`, `--strip-string-quotes` (breaks round-trip).
+
+### `jsontohcl2`
+
+```
+jsontohcl2 file.json                          # single file to stdout
+jsontohcl2 --diff original.tf modified.json  # preview changes
+jsontohcl2 --dry-run file.json               # convert without writing
+jsontohcl2 --fragment -                       # attribute snippets from stdin
 jsontohcl2 --indent 4 --no-align file.json
 ```
+
+Key flags: `--diff ORIGINAL`, `--dry-run`, `--fragment`, `-q`/`--quiet`, `--indent N`, `--no-align`, `--colon-separator`.
 
 Add new options as `parser.add_argument()` calls in the relevant entry point module.
 

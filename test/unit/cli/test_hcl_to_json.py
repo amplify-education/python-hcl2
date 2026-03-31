@@ -6,6 +6,7 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
+from cli.helpers import EXIT_IO_ERROR, EXIT_PARSE_ERROR, EXIT_PARTIAL
 from cli.hcl_to_json import main
 
 
@@ -189,15 +190,35 @@ class TestHclToJson(TestCase):
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "good.json")))
 
-    def test_directory_requires_output(self):
+    def test_directory_to_stdout_ndjson(self):
+        """Directory without -o streams NDJSON to stdout."""
         with tempfile.TemporaryDirectory() as tmpdir:
             in_dir = os.path.join(tmpdir, "input")
             os.mkdir(in_dir)
-            _write_file(os.path.join(in_dir, "a.tf"), SIMPLE_HCL)
+            _write_file(os.path.join(in_dir, "a.tf"), "a = 1\n")
+            _write_file(os.path.join(in_dir, "b.tf"), "b = 2\n")
 
+            stdout = StringIO()
             with patch("sys.argv", ["hcl2tojson", in_dir]):
-                with self.assertRaises(RuntimeError):
+                with patch("sys.stdout", stdout):
                     main()
+
+            lines = stdout.getvalue().strip().split("\n")
+            self.assertEqual(len(lines), 2)
+            for line in lines:
+                data = json.loads(line)
+                self.assertIn("__file__", data)
+
+    def test_stdin_default_when_no_args(self):
+        """No PATH args reads from stdin (like jq)."""
+        stdout = StringIO()
+        stdin = StringIO(SIMPLE_HCL)
+        with patch("sys.argv", ["hcl2tojson"]):
+            with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
+                main()
+
+        result = json.loads(stdout.getvalue())
+        self.assertEqual(result["x"], 1)
 
     def test_multiple_files_to_stdout(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -229,19 +250,21 @@ class TestHclToJson(TestCase):
             self.assertTrue(os.path.exists(os.path.join(out_dir, "a.json")))
             self.assertTrue(os.path.exists(os.path.join(out_dir, "b.json")))
 
-    def test_multiple_files_invalid_path_raises(self):
+    def test_multiple_files_invalid_path_exits_4(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path_a = os.path.join(tmpdir, "a.tf")
             _write_file(path_a, "a = 1\n")
 
             with patch("sys.argv", ["hcl2tojson", path_a, "/nonexistent.tf"]):
-                with self.assertRaises(RuntimeError):
+                with self.assertRaises(SystemExit) as cm:
                     main()
+                self.assertEqual(cm.exception.code, EXIT_IO_ERROR)
 
-    def test_invalid_path_raises_error(self):
+    def test_invalid_path_exits_4(self):
         with patch("sys.argv", ["hcl2tojson", "/nonexistent/path/foo.tf"]):
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(SystemExit) as cm:
                 main()
+            self.assertEqual(cm.exception.code, EXIT_IO_ERROR)
 
 
 class TestSingleFileErrorHandling(TestCase):
@@ -257,15 +280,16 @@ class TestSingleFileErrorHandling(TestCase):
             # The partial output file is cleaned up on skipped errors.
             self.assertFalse(os.path.exists(out_path))
 
-    def test_raise_error_with_output_file(self):
+    def test_parse_error_exits_2(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             in_path = os.path.join(tmpdir, "test.tf")
             out_path = os.path.join(tmpdir, "out.json")
             _write_file(in_path, "this is {{{{ not valid hcl")
 
             with patch("sys.argv", ["hcl2tojson", in_path, "-o", out_path]):
-                with self.assertRaises(Exception):
+                with self.assertRaises(SystemExit) as cm:
                     main()
+                self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
 
     def test_skip_error_to_stdout(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -279,7 +303,7 @@ class TestSingleFileErrorHandling(TestCase):
 
             self.assertEqual(stdout.getvalue(), "")
 
-    def test_raise_error_to_stdout(self):
+    def test_parse_error_to_stdout_exits_2(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             in_path = os.path.join(tmpdir, "test.tf")
             _write_file(in_path, "this is {{{{ not valid hcl")
@@ -287,8 +311,9 @@ class TestSingleFileErrorHandling(TestCase):
             stdout = StringIO()
             with patch("sys.argv", ["hcl2tojson", in_path]):
                 with patch("sys.stdout", stdout):
-                    with self.assertRaises(Exception):
+                    with self.assertRaises(SystemExit) as cm:
                         main()
+                    self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
 
 
 class TestHclToJsonFlags(TestCase):
@@ -348,6 +373,54 @@ class TestHclToJsonFlags(TestCase):
             # 4-space indent produces longer output than 2-space
             self.assertGreater(len(stdout_4.getvalue()), len(stdout_2.getvalue()))
 
+    def test_compact_flag(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "test.tf")
+            _write_file(hcl_path, "x = {\n  a = 1\n}\n")
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--compact", hcl_path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue().strip()
+            # Compact = single line (no newlines inside the JSON)
+            self.assertEqual(output.count("\n"), 0)
+            data = json.loads(output)
+            self.assertEqual(data["x"]["a"], 1)
+
+    def test_tty_auto_indent(self):
+        """When stdout is a TTY and no --json-indent, default to indent=2."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "test.tf")
+            _write_file(hcl_path, "x = {\n  a = 1\n}\n")
+
+            stdout = StringIO()
+            stdout.isatty = lambda: True  # type: ignore[assignment]
+            with patch("sys.argv", ["hcl2tojson", hcl_path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue()
+            # Indented = multiple lines
+            self.assertGreater(output.count("\n"), 1)
+
+    def test_non_tty_auto_compact(self):
+        """When stdout is not a TTY and no --json-indent, default to compact."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "test.tf")
+            _write_file(hcl_path, "x = {\n  a = 1\n}\n")
+
+            stdout = StringIO()
+            # StringIO.isatty() returns False by default
+            with patch("sys.argv", ["hcl2tojson", hcl_path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue().strip()
+            # Compact = single line
+            self.assertEqual(output.count("\n"), 0)
+
 
 class TestDirectoryEdgeCases(TestCase):
     def test_subdirectory_creation(self):
@@ -364,7 +437,7 @@ class TestDirectoryEdgeCases(TestCase):
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "sub", "nested.json")))
 
-    def test_directory_raise_error_without_skip(self):
+    def test_directory_parse_error_exits_2(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             in_dir = os.path.join(tmpdir, "input")
             out_dir = os.path.join(tmpdir, "output")
@@ -373,5 +446,238 @@ class TestDirectoryEdgeCases(TestCase):
             _write_file(os.path.join(in_dir, "bad.tf"), "this is {{{{ not valid hcl")
 
             with patch("sys.argv", ["hcl2tojson", in_dir, "-o", out_dir]):
-                with self.assertRaises(Exception):
+                with self.assertRaises(SystemExit) as cm:
                     main()
+                self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+
+class TestStructuredErrors(TestCase):
+    def test_io_error_structured_stderr(self):
+        stderr = StringIO()
+        with patch("sys.argv", ["hcl2tojson", "/nonexistent.tf"]):
+            with patch("sys.stderr", stderr):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_IO_ERROR)
+
+        output = stderr.getvalue()
+        self.assertIn("Error:", output)
+
+    def test_parse_error_structured_stderr(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "bad.tf")
+            _write_file(path, "this is {{{{ not valid hcl")
+
+            stderr = StringIO()
+            with patch("sys.argv", ["hcl2tojson", path]):
+                with patch("sys.stderr", stderr):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+            output = stderr.getvalue()
+            self.assertIn("Error:", output)
+
+
+class TestQuietFlag(TestCase):
+    def test_quiet_suppresses_progress(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.tf")
+            _write_file(path, SIMPLE_HCL)
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "-q", path]):
+                with patch("sys.stdout", stdout), patch("sys.stderr", stderr):
+                    main()
+
+            # No progress output to stderr
+            self.assertEqual(stderr.getvalue(), "")
+            # But JSON still goes to stdout
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(result["x"], 1)
+
+    def test_not_quiet_shows_progress(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.tf")
+            _write_file(path, SIMPLE_HCL)
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with patch("sys.argv", ["hcl2tojson", path]):
+                with patch("sys.stdout", stdout), patch("sys.stderr", stderr):
+                    main()
+
+            self.assertIn("test.tf", stderr.getvalue())
+
+
+class TestGlobExpansion(TestCase):
+    def test_glob_pattern_expands(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.tf"), "a = 1\n")
+            _write_file(os.path.join(tmpdir, "b.tf"), "b = 2\n")
+
+            stdout = StringIO()
+            pattern = os.path.join(tmpdir, "*.tf")
+            with patch("sys.argv", ["hcl2tojson", pattern]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue()
+            self.assertIn('"a"', output)
+            self.assertIn('"b"', output)
+
+
+class TestNdjson(TestCase):
+    def test_ndjson_flag_single_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.tf")
+            _write_file(path, SIMPLE_HCL)
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--ndjson", path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            lines = stdout.getvalue().strip().split("\n")
+            self.assertEqual(len(lines), 1)
+            data = json.loads(lines[0])
+            self.assertEqual(data["x"], 1)
+            # Single file: no __file__ provenance
+            self.assertNotIn("__file__", data)
+
+    def test_ndjson_flag_multiple_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path_a = os.path.join(tmpdir, "a.tf")
+            path_b = os.path.join(tmpdir, "b.tf")
+            _write_file(path_a, "a = 1\n")
+            _write_file(path_b, "b = 2\n")
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--ndjson", path_a, path_b]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            lines = stdout.getvalue().strip().split("\n")
+            self.assertEqual(len(lines), 2)
+            for line in lines:
+                data = json.loads(line)
+                self.assertIn("__file__", data)
+
+    def test_ndjson_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            in_dir = os.path.join(tmpdir, "input")
+            os.mkdir(in_dir)
+            _write_file(os.path.join(in_dir, "a.tf"), "a = 1\n")
+            _write_file(os.path.join(in_dir, "b.tf"), "b = 2\n")
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--ndjson", in_dir]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            lines = stdout.getvalue().strip().split("\n")
+            self.assertEqual(len(lines), 2)
+            files = set()
+            for line in lines:
+                data = json.loads(line)
+                self.assertIn("__file__", data)
+                files.add(data["__file__"])
+            self.assertEqual(len(files), 2)
+
+    def test_ndjson_skip_bad_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            in_dir = os.path.join(tmpdir, "input")
+            os.mkdir(in_dir)
+            _write_file(os.path.join(in_dir, "good.tf"), SIMPLE_HCL)
+            _write_file(os.path.join(in_dir, "bad.tf"), "this is {{{{ not valid")
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--ndjson", "-s", in_dir]):
+                with patch("sys.stdout", stdout):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_PARTIAL)
+
+            lines = [ln for ln in stdout.getvalue().strip().split("\n") if ln]
+            self.assertEqual(len(lines), 1)
+
+
+HCL_WITH_BLOCKS = """\
+variable "name" {
+  default = "hello"
+}
+
+resource "aws_instance" "main" {
+  ami = "abc-123"
+}
+
+output "result" {
+  value = "world"
+}
+"""
+
+
+class TestBlockFiltering(TestCase):
+    def test_only_single_type(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.tf")
+            _write_file(path, HCL_WITH_BLOCKS)
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--only", "resource", path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            data = json.loads(stdout.getvalue())
+            self.assertIn("resource", data)
+            self.assertNotIn("variable", data)
+            self.assertNotIn("output", data)
+
+    def test_only_multiple_types(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.tf")
+            _write_file(path, HCL_WITH_BLOCKS)
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--only", "resource,variable", path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            data = json.loads(stdout.getvalue())
+            self.assertIn("resource", data)
+            self.assertIn("variable", data)
+            self.assertNotIn("output", data)
+
+    def test_exclude_single_type(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.tf")
+            _write_file(path, HCL_WITH_BLOCKS)
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--exclude", "variable", path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            data = json.loads(stdout.getvalue())
+            self.assertNotIn("variable", data)
+            self.assertIn("resource", data)
+            self.assertIn("output", data)
+
+
+class TestFieldProjection(TestCase):
+    def test_fields_filter(self):
+        hcl = "x = 1\ny = 2\nz = 3\n"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.tf")
+            _write_file(path, hcl)
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--fields", "x,y", path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            data = json.loads(stdout.getvalue())
+            self.assertIn("x", data)
+            self.assertIn("y", data)
+            self.assertNotIn("z", data)

@@ -1,4 +1,5 @@
 # pylint: disable=C0103,C0114,C0115,C0116
+import json
 import os
 import tempfile
 from io import StringIO
@@ -6,10 +7,13 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from cli.helpers import (
+    _collect_files,
     _convert_single_file,
     _convert_directory,
     _convert_multiple_files,
     _convert_stdin,
+    _error,
+    _expand_file_args,
 )
 
 
@@ -285,3 +289,113 @@ class TestConvertStdin(TestCase):
 
         self.assertEqual(captured[0], "input")
         self.assertIn("output", stdout.getvalue())
+
+
+class TestError(TestCase):
+    def test_plain_text(self):
+        result = _error("something broke", use_json=False)
+        self.assertEqual(result, "Error: something broke")
+
+    def test_json_format(self):
+        result = _error("parse failed", use_json=True, error_type="parse_error")
+        data = json.loads(result)
+        self.assertEqual(data["error"], "parse_error")
+        self.assertEqual(data["message"], "parse failed")
+
+    def test_json_extra_fields(self):
+        result = _error("bad", use_json=True, error_type="io_error", file="x.tf")
+        data = json.loads(result)
+        self.assertEqual(data["file"], "x.tf")
+
+    def test_json_default_error_type(self):
+        result = _error("oops", use_json=True)
+        data = json.loads(result)
+        self.assertEqual(data["error"], "error")
+
+
+class TestExpandFileArgs(TestCase):
+    def test_literal_passthrough(self):
+        self.assertEqual(_expand_file_args(["a.tf", "b.tf"]), ["a.tf", "b.tf"])
+
+    def test_stdin_passthrough(self):
+        self.assertEqual(_expand_file_args(["-"]), ["-"])
+
+    def test_glob_expansion(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.tf"), "")
+            _write_file(os.path.join(tmpdir, "b.tf"), "")
+            _write_file(os.path.join(tmpdir, "c.json"), "")
+
+            result = _expand_file_args([os.path.join(tmpdir, "*.tf")])
+            self.assertEqual(len(result), 2)
+            self.assertTrue(all(r.endswith(".tf") for r in result))
+
+    def test_no_match_keeps_literal(self):
+        result = _expand_file_args(["/nonexistent/*.tf"])
+        self.assertEqual(result, ["/nonexistent/*.tf"])
+
+
+class TestCollectFiles(TestCase):
+    def test_stdin(self):
+        self.assertEqual(_collect_files("-", {".tf"}), ["-"])
+
+    def test_single_file(self):
+        with tempfile.NamedTemporaryFile(suffix=".tf", delete=False) as f:
+            f.write(b"x = 1\n")
+            path = f.name
+        try:
+            self.assertEqual(_collect_files(path, {".tf"}), [path])
+        finally:
+            os.unlink(path)
+
+    def test_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.tf"), "")
+            _write_file(os.path.join(tmpdir, "b.hcl"), "")
+            _write_file(os.path.join(tmpdir, "c.txt"), "")
+
+            result = _collect_files(tmpdir, {".tf", ".hcl"})
+            basenames = [os.path.basename(f) for f in result]
+            self.assertEqual(sorted(basenames), ["a.tf", "b.hcl"])
+
+    def test_nonexistent_returns_literal(self):
+        self.assertEqual(_collect_files("/no/such/path", {".tf"}), ["/no/such/path"])
+
+
+class TestQuietMode(TestCase):
+    def test_quiet_suppresses_stderr(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.txt")
+            _write_file(path, "hello")
+
+            stderr = StringIO()
+            stdout = StringIO()
+
+            def convert(in_f, out_f):
+                out_f.write(in_f.read())
+
+            with patch("sys.stderr", stderr), patch("sys.stdout", stdout):
+                _convert_single_file(
+                    path, None, convert, False, (Exception,), quiet=True
+                )
+
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertIn("hello", stdout.getvalue())
+
+    def test_not_quiet_prints_to_stderr(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.txt")
+            _write_file(path, "hello")
+
+            stderr = StringIO()
+            stdout = StringIO()
+
+            def convert(in_f, out_f):
+                out_f.write(in_f.read())
+
+            with patch("sys.stderr", stderr), patch("sys.stdout", stdout):
+                _convert_single_file(
+                    path, None, convert, False, (Exception,), quiet=False
+                )
+
+            self.assertIn("test.txt", stderr.getvalue())

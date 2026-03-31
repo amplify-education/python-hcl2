@@ -153,17 +153,22 @@ python-hcl2 ships three console scripts: `hcl2tojson`, `jsontohcl2`, and [`hq`](
 
 ### hcl2tojson
 
-Convert HCL2 files to JSON. Accepts one or more files, a directory, or stdin.
+Convert HCL2 files to JSON. Accepts files, directories, glob patterns, or stdin (default when no args given).
 
 ```sh
-hcl2tojson main.tf                       # single file to stdout
-hcl2tojson main.tf -o output.json        # single file to output file
-hcl2tojson terraform/ -o output/         # convert a directory
-hcl2tojson a.tf b.tf                     # multiple files to stdout
-hcl2tojson a.tf b.tf -o output/          # multiple files to output directory
-hcl2tojson *.tf -o output/               # shell glob expansion
-cat main.tf | hcl2tojson -               # read from stdin
+hcl2tojson main.tf                          # single file to stdout
+hcl2tojson main.tf -o output.json           # single file to output file
+hcl2tojson terraform/ -o output/            # directory to output dir
+hcl2tojson terraform/                       # directory to stdout (NDJSON)
+hcl2tojson --ndjson 'modules/**/*.tf'       # glob + NDJSON streaming
+hcl2tojson a.tf b.tf -o output/             # multiple files to output dir
+hcl2tojson --only resource,module main.tf   # block type filtering
+hcl2tojson --fields cpu,memory main.tf      # field projection
+hcl2tojson --compact main.tf                # single-line JSON
+echo 'x = 1' | hcl2tojson                  # stdin (no args needed)
 ```
+
+**Exit codes:** 0 = success, 1 = partial (some skipped), 2 = all unparsable, 4 = I/O error.
 
 **Flags:**
 
@@ -171,7 +176,13 @@ cat main.tf | hcl2tojson -               # read from stdin
 |---|---|
 | `-o`, `--output` | Output path (file for single input, directory for multiple) |
 | `-s` | Skip un-parsable files |
-| `--json-indent N` | JSON indentation width (default: 2) |
+| `-q`, `--quiet` | Suppress progress output on stderr |
+| `--ndjson` | One JSON object per line (newline-delimited JSON) |
+| `--compact` | Compact JSON output (no indentation) |
+| `--json-indent N` | JSON indentation width (default: 2 for TTY, compact otherwise) |
+| `--only TYPES` | Comma-separated block types to include |
+| `--exclude TYPES` | Comma-separated block types to exclude |
+| `--fields FIELDS` | Comma-separated field names to keep |
 | `--with-meta` | Add `__start_line__` / `__end_line__` metadata |
 | `--with-comments` | Include comments as `__comments__` / `__inline_comments__` object lists |
 | `--wrap-objects` | Wrap object values as inline HCL2 |
@@ -180,22 +191,26 @@ cat main.tf | hcl2tojson -               # read from stdin
 | `--no-preserve-heredocs` | Convert heredocs to plain strings |
 | `--force-parens` | Force parentheses around all operations |
 | `--no-preserve-scientific` | Convert scientific notation to standard floats |
-| `--strip-string-quotes` | Strip surrounding double-quotes from string values |
+| `--strip-string-quotes` | Strip surrounding double-quotes from string values (breaks round-trip) |
 | `--version` | Show version and exit |
+
+> **Note on `--strip-string-quotes`:** This removes the surrounding `"..."` from serialized string values (e.g. `"\"my-bucket\""` becomes `"my-bucket"`). Useful for read-only workflows but round-trip through `jsontohcl2` is **not supported** with this option, as the parser cannot distinguish bare strings from expressions.
 
 ### jsontohcl2
 
-Convert JSON files to HCL2. Accepts one or more files, a directory, or stdin.
+Convert JSON files to HCL2. Accepts files, directories, glob patterns, or stdin (default when no args given).
 
 ```sh
-jsontohcl2 output.json                   # single file to stdout
-jsontohcl2 output.json -o main.tf        # single file to output file
-jsontohcl2 output/ -o terraform/         # convert a directory
-jsontohcl2 a.json b.json                 # multiple files to stdout
-jsontohcl2 a.json b.json -o terraform/   # multiple files to output directory
-jsontohcl2 *.json -o terraform/          # shell glob expansion
-cat output.json | jsontohcl2 -           # read from stdin
+jsontohcl2 output.json                       # single file to stdout
+jsontohcl2 output.json -o main.tf            # single file to output file
+jsontohcl2 output/ -o terraform/             # directory conversion
+jsontohcl2 --diff original.tf modified.json  # preview changes as unified diff
+jsontohcl2 --dry-run file.json               # convert without writing
+jsontohcl2 --fragment -                       # attribute snippets from stdin
+echo '{"x": 1}' | jsontohcl2                 # stdin (no args needed)
 ```
+
+**Exit codes:** 0 = success, 1 = JSON parse error, 2 = bad HCL structure, 4 = I/O error.
 
 **Flags:**
 
@@ -203,6 +218,10 @@ cat output.json | jsontohcl2 -           # read from stdin
 |---|---|
 | `-o`, `--output` | Output path (file for single input, directory for multiple) |
 | `-s` | Skip un-parsable files |
+| `-q`, `--quiet` | Suppress progress output on stderr |
+| `--diff ORIGINAL` | Show unified diff against ORIGINAL file (exit 0 = identical, 1 = differs) |
+| `--dry-run` | Convert and print to stdout without writing files |
+| `--fragment` | Treat input as attribute dict, not full HCL document |
 | `--indent N` | Indentation width (default: 2) |
 | `--colon-separator` | Use `:` instead of `=` in object elements |
 | `--no-trailing-comma` | Omit trailing commas in object elements |

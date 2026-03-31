@@ -6,6 +6,7 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
+from cli.helpers import EXIT_IO_ERROR, EXIT_PARTIAL
 from cli.json_to_hcl import main
 
 
@@ -138,10 +139,23 @@ class TestJsonToHcl(TestCase):
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "good.tf")))
 
-    def test_invalid_path_raises_error(self):
+    def test_invalid_path_exits_4(self):
         with patch("sys.argv", ["jsontohcl2", "/nonexistent/path/foo.json"]):
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(SystemExit) as cm:
                 main()
+            self.assertEqual(cm.exception.code, EXIT_IO_ERROR)
+
+    def test_stdin_default_when_no_args(self):
+        """No PATH args reads from stdin."""
+        stdout = StringIO()
+        stdin = StringIO(SIMPLE_JSON)
+        with patch("sys.argv", ["jsontohcl2"]):
+            with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
+                main()
+
+        output = stdout.getvalue().strip()
+        self.assertIn("x", output)
+        self.assertIn("1", output)
 
     def test_multiple_files_to_stdout(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -233,3 +247,153 @@ class TestJsonToHclFlags(TestCase):
         default = self._run_json_to_hcl(data)
         expanded = self._run_json_to_hcl(data, ["--open-empty-tuples"])
         self.assertNotEqual(default, expanded)
+
+
+class TestStructuredErrors(TestCase):
+    def test_io_error_structured_stderr(self):
+        stderr = StringIO()
+        with patch("sys.argv", ["jsontohcl2", "/nonexistent.json"]):
+            with patch("sys.stderr", stderr):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_IO_ERROR)
+
+        output = stderr.getvalue()
+        self.assertIn("Error:", output)
+
+    def test_invalid_json_exits_1(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "bad.json")
+            _write_file(path, "{not valid json")
+
+            stderr = StringIO()
+            with patch("sys.argv", ["jsontohcl2", path]):
+                with patch("sys.stderr", stderr):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_PARTIAL)
+
+
+class TestQuietFlag(TestCase):
+    def test_quiet_suppresses_progress(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.json")
+            _write_file(path, SIMPLE_JSON)
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with patch("sys.argv", ["jsontohcl2", "-q", path]):
+                with patch("sys.stdout", stdout), patch("sys.stderr", stderr):
+                    main()
+
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertIn("x", stdout.getvalue())
+
+    def test_not_quiet_shows_progress(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.json")
+            _write_file(path, SIMPLE_JSON)
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with patch("sys.argv", ["jsontohcl2", path]):
+                with patch("sys.stdout", stdout), patch("sys.stderr", stderr):
+                    main()
+
+            self.assertIn("test.json", stderr.getvalue())
+
+
+class TestDiffMode(TestCase):
+    def test_diff_shows_changes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Write original HCL
+            original_path = os.path.join(tmpdir, "original.tf")
+            _write_file(original_path, "x = 1\n")
+
+            # Write modified JSON (x = 2)
+            json_path = os.path.join(tmpdir, "modified.json")
+            _write_file(json_path, json.dumps({"x": 2}))
+
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--diff", original_path, json_path],
+            ):
+                with patch("sys.stdout", stdout):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    # Exit code 1 = there are differences
+                    self.assertEqual(cm.exception.code, 1)
+
+            diff_output = stdout.getvalue()
+            self.assertIn("---", diff_output)
+            self.assertIn("+++", diff_output)
+
+    def test_diff_no_changes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "same.json")
+            _write_file(json_path, json.dumps({"x": 1}))
+
+            # Use --dry-run to get the exact HCL output
+            stdout = StringIO()
+            with patch("sys.argv", ["jsontohcl2", "--dry-run", json_path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            original_path = os.path.join(tmpdir, "original.tf")
+            _write_file(original_path, stdout.getvalue())
+
+            # Now diff — should be identical (exit 0)
+            stdout2 = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--diff", original_path, json_path],
+            ):
+                with patch("sys.stdout", stdout2):
+                    main()
+
+            self.assertEqual(stdout2.getvalue(), "")
+
+
+class TestDryRun(TestCase):
+    def test_dry_run_prints_to_stdout(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "test.json")
+            _write_file(json_path, SIMPLE_JSON)
+
+            stdout = StringIO()
+            with patch("sys.argv", ["jsontohcl2", "--dry-run", json_path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue()
+            self.assertIn("x", output)
+            self.assertIn("1", output)
+
+
+class TestFragment(TestCase):
+    def test_fragment_from_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "frag.json")
+            _write_file(json_path, json.dumps({"bucket": "my-data", "acl": "private"}))
+
+            stdout = StringIO()
+            with patch("sys.argv", ["jsontohcl2", "--fragment", json_path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue()
+            self.assertIn("bucket", output)
+            self.assertIn("acl", output)
+            self.assertIn("my-data", output)
+
+    def test_fragment_from_stdin(self):
+        stdin = StringIO(json.dumps({"cpu": 512}))
+        stdout = StringIO()
+        with patch("sys.argv", ["jsontohcl2", "--fragment", "-"]):
+            with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
+                main()
+
+        output = stdout.getvalue()
+        self.assertIn("cpu", output)
+        self.assertIn("512", output)
