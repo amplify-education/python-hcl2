@@ -28,6 +28,17 @@ The **Direct** pipeline (`parse_to_tree` → `transform` → `to_lark` → `reco
 | `cli/helpers.py` | File/directory/stdin conversion helpers |
 | `cli/hcl_to_json.py` | `hcl2tojson` entry point |
 | `cli/json_to_hcl.py` | `jsontohcl2` entry point |
+| `cli/hq.py` | `hq` CLI entry point — query dispatch, formatting, optional operator |
+| `hcl2/query/__init__.py` | Public query API exports |
+| `hcl2/query/_base.py` | `NodeView` base class, view registry, `view_for()` factory |
+| `hcl2/query/path.py` | Structural path parser (`PathSegment`, `parse_path`, `[select()]`, `type:name`) |
+| `hcl2/query/resolver.py` | Path resolver — segment-by-segment with label depth, type filter, FunctionCallView |
+| `hcl2/query/pipeline.py` | Pipe operator — `split_pipeline`, `classify_stage`, `execute_pipeline` |
+| `hcl2/query/builtins.py` | Built-in transforms: `keys`, `values`, `length` |
+| `hcl2/query/diff.py` | Structural diff between two HCL documents |
+| `hcl2/query/predicate.py` | `select()` predicate tokenizer, recursive descent parser, evaluator |
+| `hcl2/query/safe_eval.py` | AST-validated Python expression eval for hybrid/eval modes |
+| `hcl2/query/introspect.py` | `--describe` and `--schema` output generation |
 
 `hcl2/__main__.py` is a thin wrapper that imports `cli.hcl_to_json:main`.
 
@@ -141,4 +152,4 @@ Hooks are defined in `.pre-commit-config.yaml` (includes black, mypy, pylint, an
 
 ## Keeping Docs Current
 
-Update this file when architecture, modules, API surface, or testing conventions change. Also update `README.md` and `docs/usage.md` when changes affect the public API, CLI flags, or option fields.
+Update this file when architecture, modules, API surface, or testing conventions change. Also update `README.md` and the docs in `docs/` (`01_getting_started.md`, `02_querying.md`, `03_advanced_api.md`, `04_hq.md`, `05_hq_examples.md`) when changes affect the public API, CLI flags, or option fields.
