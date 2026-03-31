@@ -11,6 +11,8 @@ from hcl2.rules.tokens import (
     DBLQUOTE,
     STRING_CHARS,
     ESCAPED_INTERPOLATION,
+    ESCAPED_DIRECTIVE,
+    TEMPLATE_STRING,
     HEREDOC_TEMPLATE,
     HEREDOC_TRIM_TEMPLATE,
 )
@@ -50,10 +52,14 @@ class InterpolationRule(LarkRule):
 
 
 class StringPartRule(LarkRule):
-    """Rule for a single part of a string (literal text, escape, or interpolation)."""
+    """Rule for a single part of a string (literal text, escape, interpolation, or directive)."""
 
-    _children_layout: Tuple[
-        Union[STRING_CHARS, ESCAPED_INTERPOLATION, InterpolationRule]
+    # Content may be a plain token (STRING_CHARS, ESCAPED_INTERPOLATION,
+    # ESCAPED_DIRECTIVE), an InterpolationRule, or a template directive rule
+    # (TemplateIfRule, TemplateForRule, and flat variants).  Forward refs are
+    # quoted to avoid circular imports.
+    _children_layout: Tuple[  # type: ignore[type-arg]
+        Union[STRING_CHARS, ESCAPED_INTERPOLATION, ESCAPED_DIRECTIVE, InterpolationRule]
     ]
 
     @staticmethod
@@ -62,8 +68,8 @@ class StringPartRule(LarkRule):
         return "string_part"
 
     @property
-    def content(self) -> Union[STRING_CHARS, ESCAPED_INTERPOLATION, InterpolationRule]:
-        """Return the content element (string chars, escape, or interpolation)."""
+    def content(self):
+        """Return the content element (string chars, escape, interpolation, or directive)."""
         return self._children[0]
 
     def serialize(
@@ -185,3 +191,42 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
         if options.strip_string_quotes:
             return inner
         return '"' + inner + '"'
+
+
+class TemplateStringRule(LarkRule):
+    """Rule for escaped-quote-delimited strings in template expressions (\\\"...\\\" )."""
+
+    _children_layout: Tuple[TEMPLATE_STRING]
+
+    @staticmethod
+    def lark_name() -> str:
+        """Return the grammar rule name."""
+        return "template_string"
+
+    @property
+    def raw_value(self) -> str:
+        """Return the raw token value including escaped quotes."""
+        return str(self._children[0].value)
+
+    @property
+    def inner_value(self) -> str:
+        """Return the string content without the escaped quote delimiters."""
+        raw = self.raw_value
+        # Strip leading \" and trailing \"
+        if raw.startswith('\\"') and raw.endswith('\\"'):
+            return raw[2:-2]
+        return raw
+
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
+        """Serialize preserving escaped-quote delimiters for round-trip fidelity.
+
+        Inside template directive expressions, strings are delimited by \\"
+        rather than plain ". We preserve these as \\" in serialized form so
+        the deserializer can reconstruct them correctly.
+        """
+        raw = self.raw_value
+        if options.strip_string_quotes:
+            return self.inner_value
+        return raw

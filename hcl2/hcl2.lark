@@ -10,12 +10,16 @@ IF : "if"
 IN : "in"
 FOR : "for"
 FOR_EACH : "for_each"
+ELSE : "else"
+ENDIF : "endif"
+ENDFOR : "endfor"
 
 
 // Literals
 NAME : /[a-zA-Z_][a-zA-Z0-9_-]*/
 ESCAPED_INTERPOLATION.2: /\$\$\{[^}]*\}/
-STRING_CHARS.1: /(?:(?!\$\$\{)(?!\$\{)[^"\\]|\\.|(?:\$(?!\$?\{)))+/
+ESCAPED_DIRECTIVE.2: /%%\{[^}]*\}/
+STRING_CHARS.1: /(?:(?!\$\$\{)(?!\$\{)(?!%%\{)(?!%\{)[^"\\]|\\.|(?:\$(?!\$?\{))|(?:%(?!%?\{)))+/
 DECIMAL : "0".."9"
 NEGATIVE_DECIMAL : "-" DECIMAL
 EXP_MARK : ("e" | "E") ("+" | "-")? DECIMAL+
@@ -52,9 +56,17 @@ DOT : "."
 EQ : /[ \t]*=(?!=|>)/
 COLON : /[ \t]*:(?!:)/
 DBLQUOTE : "\""
+// Escaped-quote string inside template directives: matches \"content\"
+// (Lark escape-processes the regex, so the compiled pattern is \\?"(...)\\?" —
+// i.e. one literal backslash + quote as delimiters.)
+TEMPLATE_STRING.3 : /\\\\"(?:[^"\\\\]|\\\\.)*\\\\"/
 
 // Interpolation
 INTERP_START : "${"
+
+// Template Directives
+DIRECTIVE_START : "%{"
+STRIP_MARKER : "~"
 
 // Splat Operators
 ATTR_SPLAT : ".*"
@@ -90,18 +102,31 @@ new_line_or_comment: ( NL_OR_COMMENT )+
 
 // Basic literals and identifiers
 identifier : NAME
-keyword: IN | FOR | IF | FOR_EACH
+keyword: IN | FOR | IF | FOR_EACH | ELSE | ENDIF | ENDFOR
 int_lit: INT_LITERAL
 float_lit: FLOAT_LITERAL
 string: DBLQUOTE string_part* DBLQUOTE
 string_part: STRING_CHARS
            | ESCAPED_INTERPOLATION
+           | ESCAPED_DIRECTIVE
            | interpolation
+           | template_if_start
+           | template_else
+           | template_endif
+           | template_for_start
+           | template_endfor
 
 // Expressions
 ?expression : or_expr QMARK new_line_or_comment? expression new_line_or_comment? COLON new_line_or_comment? expression -> conditional
             | or_expr
 interpolation: INTERP_START expression RBRACE
+
+// Template directives (flat rules — transformer assembles if/for structure)
+template_if_start: DIRECTIVE_START STRIP_MARKER? IF expression STRIP_MARKER? RBRACE
+template_else: DIRECTIVE_START STRIP_MARKER? ELSE STRIP_MARKER? RBRACE
+template_endif: DIRECTIVE_START STRIP_MARKER? ENDIF STRIP_MARKER? RBRACE
+template_for_start: DIRECTIVE_START STRIP_MARKER? FOR identifier (COMMA identifier)? IN expression STRIP_MARKER? RBRACE
+template_endfor: DIRECTIVE_START STRIP_MARKER? ENDFOR STRIP_MARKER? RBRACE
 
 // Operator precedence ladder (lowest to highest)
 // Each level uses left recursion for left-associativity.
@@ -160,6 +185,7 @@ expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
             | float_lit
             | int_lit
             | string
+            | template_string
             | tuple
             | object
             | identifier
@@ -172,6 +198,8 @@ expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
             | full_splat_expr_term
             | for_tuple_expr
             | for_object_expr
+
+template_string : TEMPLATE_STRING
 
 // Collections
 tuple : LSQB new_line_or_comment? (expression new_line_or_comment? COMMA new_line_or_comment?)* (expression new_line_or_comment? COMMA? new_line_or_comment?)?  RSQB
