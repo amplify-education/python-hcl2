@@ -35,6 +35,17 @@ class ConstructStage:
     fields: List[Tuple[str, List[PathSegment]]]  # [(output_key, path_segments), ...]
 
 
+class _LocatedDict(dict):
+    """Dict that carries source location metadata from a construct stage.
+
+    When ``execute_pipeline`` builds a dict from a ``ConstructStage``, the
+    input ``NodeView``'s ``_meta`` (line/column info) is stored here so
+    downstream consumers (e.g. ``--with-location``) can still access it.
+    """
+
+    _source_meta: Any = None
+
+
 def split_pipeline(query_str: str) -> List[str]:
     """Split a query string on ``|`` at depth 0.
 
@@ -318,8 +329,14 @@ def execute_pipeline(root: Any, stages: List[Any], file_path: str = "") -> List[
                 if evaluate_predicate(stage.predicate, item):
                     next_results.append(item)
         elif isinstance(stage, ConstructStage):
+            from hcl2.query._base import NodeView
+
             for item in results:
-                obj: dict = {}
+                obj = _LocatedDict()
+                if isinstance(item, NodeView):
+                    obj._source_meta = getattr(item.raw, "_meta", None)
+                elif isinstance(item, _LocatedDict):
+                    obj._source_meta = item._source_meta
                 for key, segments in stage.fields:
                     # __file__ is a virtual field resolved to the source path
                     if len(segments) == 1 and segments[0].name == "__file__":

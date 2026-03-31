@@ -273,7 +273,7 @@ class TestHqMainCli(TestCase):
                     with patch("sys.stdout", new_callable=StringIO) as mock_out:
                         with self.assertRaises(SystemExit) as cm:
                             main()
-                        self.assertEqual(cm.exception.code, EXIT_SUCCESS)
+                        self.assertEqual(cm.exception.code, EXIT_NO_RESULTS)
                         output = mock_out.getvalue().strip()
                         self.assertIn("~", output)
             finally:
@@ -295,7 +295,7 @@ class TestHqMainCli(TestCase):
                     with patch("sys.stdout", new_callable=StringIO) as mock_out:
                         with self.assertRaises(SystemExit) as cm:
                             main()
-                        self.assertEqual(cm.exception.code, EXIT_SUCCESS)
+                        self.assertEqual(cm.exception.code, EXIT_NO_RESULTS)
                         data = json.loads(mock_out.getvalue())
                         self.assertIsInstance(data, list)
                         self.assertTrue(len(data) > 0)
@@ -772,6 +772,34 @@ class TestWithLocation(TestCase):
                             data = json.loads(line)
                             self.assertIn("__file__", data)
                             self.assertIn("__line__", data)
+            finally:
+                os.unlink(f.name)
+
+    def test_with_location_after_construct(self):
+        """--with-location preserves line numbers through object construction."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as f:
+            f.write('resource "aws_instance" "main" {\n  ami = "ami-123"\n}\n')
+            f.flush()
+            try:
+                with patch(
+                    "sys.argv",
+                    [
+                        "hq",
+                        "resource[*] | {ami: .ami}",
+                        f.name,
+                        "--json",
+                        "--with-location",
+                    ],
+                ):
+                    with patch("sys.stdout", new_callable=StringIO) as mock_out:
+                        mock_out.isatty = lambda: True
+                        with self.assertRaises(SystemExit) as cm:
+                            main()
+                        self.assertEqual(cm.exception.code, EXIT_SUCCESS)
+                        data = json.loads(mock_out.getvalue())
+                        self.assertIn("__file__", data)
+                        self.assertIn("__line__", data)
+                        self.assertIn("ami", data)
             finally:
                 os.unlink(f.name)
 

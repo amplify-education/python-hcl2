@@ -15,7 +15,11 @@ from hcl2.query.introspect import build_schema, describe_results
 from hcl2.query.path import QuerySyntaxError
 from hcl2.query.pipeline import classify_stage, execute_pipeline, split_pipeline
 from hcl2.query.resolver import resolve_path
-from hcl2.query.safe_eval import UnsafeExpressionError, safe_eval
+from hcl2.query.safe_eval import (
+    UnsafeExpressionError,
+    _SAFE_CALLABLE_NAMES,
+    safe_eval,
+)
 from hcl2.version import __version__
 
 # Exit codes
@@ -91,6 +95,9 @@ docs: https://github.com/amplify-education/python-hcl2/tree/main/docs
 """
 
 
+_EVAL_PREFIXES = tuple(f"{name}(" for name in sorted(_SAFE_CALLABLE_NAMES)) + ("doc",)
+
+
 def _normalize_eval_expr(expr_part: str) -> str:
     """Normalize the eval expression after '::' for ergonomics."""
     stripped = expr_part.strip()
@@ -101,32 +108,8 @@ def _normalize_eval_expr(expr_part: str) -> str:
     if stripped.startswith("."):
         return "_" + stripped
     # Check if it starts with a known function/variable name
-    for prefix in (
-        "len(",
-        "str(",
-        "int(",
-        "float(",
-        "bool(",
-        "list(",
-        "tuple(",
-        "sorted(",
-        "reversed(",
-        "enumerate(",
-        "zip(",
-        "range(",
-        "min(",
-        "max(",
-        "print(",
-        "any(",
-        "all(",
-        "filter(",
-        "map(",
-        "isinstance(",
-        "type(",
-        "doc",
-    ):
-        if stripped.startswith(prefix):
-            return stripped
+    if stripped.startswith(_EVAL_PREFIXES):
+        return stripped
     return "_." + stripped
 
 
@@ -311,6 +294,13 @@ def _format_output(
     return "\n".join(parts)
 
 
+_EXIT_TO_ERROR_TYPE = {
+    EXIT_IO_ERROR: "io_error",
+    EXIT_PARSE_ERROR: "parse_error",
+    EXIT_QUERY_ERROR: "query_error",
+}
+
+
 def _error(msg: str, use_json: bool, **extra) -> str:
     """Format an error message."""
     if use_json:
@@ -322,8 +312,12 @@ def _error(msg: str, use_json: bool, **extra) -> str:
 
 def _run_diff(
     file1: str, file2: str, use_json: bool, json_indent: Optional[int]
-) -> None:
-    """Run structural diff between two HCL files."""
+) -> int:
+    """Run structural diff between two HCL files.
+
+    Returns an exit code: 0 if files are identical, 1 if they differ.
+    Exits directly on I/O or parse errors (matching ``diff(1)`` convention).
+    """
     import hcl2
     from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
 
@@ -364,30 +358,13 @@ def _run_diff(
 
     entries = diff_dicts(dict1, dict2)
     if not entries:
-        sys.exit(EXIT_SUCCESS)
+        return EXIT_SUCCESS
 
     if use_json:
         print(format_diff_json(entries))
     else:
         print(format_diff_text(entries))
-
-
-def _find_file_keys(query: str) -> List[str]:
-    """Find construct output keys that reference ``__file__``.
-
-    Handles both shorthand ``{__file__}`` (key="__file__") and
-    renamed ``{file: .__file__}`` (key="file").
-    """
-    import re
-
-    keys: List[str] = []
-    # Match renamed: "key: .__file__" or "key: __file__"
-    for m in re.finditer(r"(\w+)\s*:\s*\.?__file__", query):
-        keys.append(m.group(1))
-    # Match shorthand: bare "__file__" as a construct field (not after ":")
-    if re.search(r"(?<![:\w])\.?__file__(?!\s*:)", query):
-        keys.append("__file__")
-    return keys
+    return EXIT_NO_RESULTS
 
 
 _HCL_EXTENSIONS = {".tf", ".hcl", ".tfvars"}
@@ -499,18 +476,23 @@ def _inject_provenance(converted: Any, file_path: str) -> Any:
 
 def _extract_location(result: Any, file_path: str) -> dict:
     """Extract source location metadata from a result."""
+    from hcl2.query.pipeline import _LocatedDict
+
     loc: dict = {"__file__": file_path}
+    meta = None
     if isinstance(result, NodeView):
         meta = getattr(result.raw, "_meta", None)
-        if meta is not None:
-            if hasattr(meta, "line"):
-                loc["__line__"] = meta.line
-            if hasattr(meta, "end_line"):
-                loc["__end_line__"] = meta.end_line
-            if hasattr(meta, "column"):
-                loc["__column__"] = meta.column
-            if hasattr(meta, "end_column"):
-                loc["__end_column__"] = meta.end_column
+    elif isinstance(result, _LocatedDict):
+        meta = result._source_meta
+    if meta is not None:
+        if hasattr(meta, "line"):
+            loc["__line__"] = meta.line
+        if hasattr(meta, "end_line"):
+            loc["__end_line__"] = meta.end_line
+        if hasattr(meta, "column"):
+            loc["__column__"] = meta.column
+        if hasattr(meta, "end_column"):
+            loc["__end_column__"] = meta.end_column
     return loc
 
 
@@ -724,8 +706,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
         file1 = args.QUERY
         if file1 is None:
             parser.error("--diff requires two files: hq FILE1 --diff FILE2")
-        _run_diff(file1, args.diff, use_json, json_indent)
-        sys.exit(EXIT_SUCCESS)
+        sys.exit(_run_diff(file1, args.diff, use_json, json_indent))
 
     # QUERY is required unless --schema or --diff
     if args.QUERY is None:
@@ -798,7 +779,11 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
                 _process_file, worker_args
             ):
                 if error_msg:
-                    print(_error(error_msg, use_json), file=sys.stderr)
+                    etype = _EXIT_TO_ERROR_TYPE.get(exit_code, "error")
+                    print(
+                        _error(error_msg, use_json, error_type=etype),
+                        file=sys.stderr,
+                    )
                     worst_exit = max(worst_exit, exit_code)
                     continue
                 if not converted:
@@ -839,10 +824,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
                     if multi and not args.no_filename and not args.with_location:
                         # provenance already injected into dict; for non-dicts
                         # prefix with filename
-                        if not isinstance(
-                            _convert_for_json(result, options=serialization_options),
-                            dict,
-                        ):
+                        if not isinstance(converted, dict):
                             line = f"{file_path}:{line}"
                     print(line, flush=True)
                 continue
@@ -888,6 +870,10 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
 
     # Emit accumulated JSON results as a single merged array
     if json_accumulator:
+        # Sort by __file__ for deterministic output (parallel uses imap_unordered)
+        json_accumulator.sort(
+            key=lambda x: x.get("__file__", "") if isinstance(x, dict) else ""
+        )
         print(json.dumps(json_accumulator, indent=json_indent, default=str))
 
     if any_results:
