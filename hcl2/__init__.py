@@ -19,6 +19,7 @@ from .api import (
     reconstruct,
     transform,
     serialize,
+    query,
 )
 
 from .builder import Builder
