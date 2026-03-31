@@ -49,35 +49,41 @@ class TestNewLineOrCommentRule(TestCase):
     def test_to_list_line_comment(self):
         rule = _make_nlc("// my comment\n")
         result = rule.to_list()
-        self.assertEqual(result, ["my comment"])
+        self.assertEqual(result, [{"value": "my comment"}])
 
     def test_to_list_hash_comment(self):
         rule = _make_nlc("# my comment\n")
         result = rule.to_list()
-        self.assertEqual(result, ["my comment"])
+        self.assertEqual(result, [{"value": "my comment"}])
 
     def test_to_list_block_comment(self):
         rule = _make_nlc("/* block comment */\n")
         result = rule.to_list()
-        self.assertEqual(result, ["block comment"])
+        self.assertEqual(result, [{"value": "block comment"}])
 
     def test_to_list_line_comment_ending_in_block_close(self):
         """A // comment ending in */ should preserve the */ suffix."""
         rule = _make_nlc("// comment ending in */\n")
         result = rule.to_list()
-        self.assertEqual(result, ["comment ending in */"])
+        self.assertEqual(result, [{"value": "comment ending in */"}])
 
     def test_to_list_hash_comment_ending_in_block_close(self):
         """A # comment ending in */ should preserve the */ suffix."""
         rule = _make_nlc("# comment ending in */\n")
         result = rule.to_list()
-        self.assertEqual(result, ["comment ending in */"])
+        self.assertEqual(result, [{"value": "comment ending in */"}])
+
+    def test_to_list_multiline_block_comment(self):
+        """A multiline block comment should be a single value."""
+        rule = _make_nlc("/* \nline one\nline two\n*/\n")
+        result = rule.to_list()
+        self.assertEqual(result, [{"value": "line one\nline two"}])
 
     def test_to_list_multiple_comments(self):
         rule = _make_nlc("// first\n// second\n")
         result = rule.to_list()
-        self.assertIn("first", result)
-        self.assertIn("second", result)
+        self.assertIn({"value": "first"}, result)
+        self.assertIn({"value": "second"}, result)
 
     def test_token_property(self):
         token = NL_OR_COMMENT("\n")
@@ -119,7 +125,7 @@ class TestInlineCommentMixIn(TestCase):
 
         rule = ConcreteInlineComment([NAME("x"), comment])
         result = rule.inline_comments()
-        self.assertEqual(result, ["hello"])
+        self.assertEqual(result, [{"value": "hello"}])
 
     def test_inline_comments_skips_bare_newlines(self):
         newline = _make_nlc("\n")
@@ -133,7 +139,7 @@ class TestInlineCommentMixIn(TestCase):
         inner = ConcreteInlineComment([comment])
         outer = ConcreteInlineComment([inner])
         result = outer.inline_comments()
-        self.assertEqual(result, ["inner"])
+        self.assertEqual(result, [{"value": "inner"}])
 
     def test_inline_comments_empty(self):
 
