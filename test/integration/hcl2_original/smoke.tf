@@ -65,6 +65,16 @@ block multiline_binary_ops {
   }
 }
 
+block binary_op_before_unary {
+  dedup_keys_layer7 = {
+    for k, v in local.action_keys_layer7 :
+    k => v
+    if !contains(keys(local.dedup_keys_layer8), k)
+    && !contains(keys(local.dedup_keys_layer9), k)
+    && !contains(keys(local.dedup_keys_layer10), k)
+  }
+}
+
 block {
   route53_forwarding_rule_shares = {
     for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) :

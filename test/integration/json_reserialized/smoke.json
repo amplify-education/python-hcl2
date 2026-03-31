@@ -61,6 +61,12 @@
    }
   },
   {
+   "binary_op_before_unary": {
+    "dedup_keys_layer7": "${{for k, v in local.action_keys_layer7 : k => v if !contains(keys(local.dedup_keys_layer8), k) && !contains(keys(local.dedup_keys_layer9), k) && !contains(keys(local.dedup_keys_layer10), k)}}",
+    "__is_block__": true
+   }
+  },
+  {
    "route53_forwarding_rule_shares": "${{for forwarding_rule_key in keys(var.route53_resolver_forwarding_rule_shares) : \"${forwarding_rule_key}\" => {aws_account_ids = [for account_name in var.route53_resolver_forwarding_rule_shares[forwarding_rule_key].aws_account_names : module.remote_state_subaccounts.map[account_name].outputs[\"aws_account_id\"]]}... if substr(bucket_name, 0, 1) == \"l\"}}",
    "__is_block__": true
   }
