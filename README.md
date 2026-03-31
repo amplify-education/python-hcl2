@@ -119,6 +119,20 @@ To create a new release go to Releases page, press 'Draft a new release', create
 with a version you want to be released, fill the release notes and press 'Publish release'.
 Github actions will take care of publishing it to PyPi.
 
+## Roadmap
+
+Planned features, roughly in priority order:
+
+- **Agent-friendly CLIs** — structured errors, NDJSON streaming, and filtering for `hcl2tojson`/`jsontohcl2`
+- **Comment deserialization** — preserve comments through JSON round-trip (issue #134)
+- **jq syntax compatibility** — `.[]` as alias for `[*]`; canonical `hq --json | jq` patterns for data transforms
+- **MCP server** — expose parsing, querying, and formatting as MCP tools for AI agents
+- **Canonical formatting** — predictable whitespace output, closer to `terraform fmt`
+- **In-place tree edits** — `hq set`, `hq delete` for programmatic HCL modification
+- **Comment reserialization** — comments survive tree edits, not just JSON round-trips
+- **Expression intelligence** — variable reference tracking, unused variable detection, cross-file analysis
+- **Refactoring operations** — `hq rename`, `hq extract-module`, `hq sort` for high-level code transforms
+
 ## Responsible Disclosure
 
 If you have any security issue to report, contact project maintainers privately.
