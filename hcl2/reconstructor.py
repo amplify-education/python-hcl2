@@ -164,6 +164,10 @@ class HCLReconstructor:
         elif isinstance(current_node, Tree):
             rule_name = current_node.data
 
+            # Space after binary operator tokens before a tree node (e.g. && !foo)
+            if self._last_token_name in self._binary_op_types:
+                return True
+
             if parent_rule_name == BlockRule.lark_name():
                 # Add space between multiple string/identifier labels in blocks
                 if rule_name in [
