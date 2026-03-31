@@ -55,7 +55,10 @@ COMMA : ","
 DOT : "."
 EQ : /[ \t]*=(?!=|>)/
 COLON : /[ \t]*:(?!:)/
-DBLQUOTE : /\\?"/
+DBLQUOTE : "\""
+// Escaped-quote string inside template directives: matches \"content\"
+// (Lark escape-processes the regex, so the compiled pattern is \\?"(...)\\?" —
+// i.e. one literal backslash + quote as delimiters.)
 TEMPLATE_STRING.3 : /\\\\"(?:[^"\\\\]|\\\\.)*\\\\"/
 
 // Interpolation

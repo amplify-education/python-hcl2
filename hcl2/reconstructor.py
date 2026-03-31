@@ -44,6 +44,16 @@ class HCLReconstructor:
         "PLUS",
     }
 
+    _directive_rule_names = {
+        TemplateIfStartRule.lark_name(),
+        TemplateElseRule.lark_name(),
+        TemplateEndifRule.lark_name(),
+        TemplateForStartRule.lark_name(),
+        TemplateEndforRule.lark_name(),
+        TemplateIfRule.lark_name(),
+        TemplateForRule.lark_name(),
+    }
+
     def __init__(self):
         self._last_was_space = True
         self._current_indent = 0
@@ -111,16 +121,7 @@ class HCLReconstructor:
                 return True
 
             # Template directive spacing: %{~ keyword ~} patterns
-            _directive_rules = (
-                TemplateIfStartRule.lark_name(),
-                TemplateElseRule.lark_name(),
-                TemplateEndifRule.lark_name(),
-                TemplateForStartRule.lark_name(),
-                TemplateEndforRule.lark_name(),
-                TemplateIfRule.lark_name(),
-                TemplateForRule.lark_name(),
-            )
-            if parent_rule_name in _directive_rules:
+            if parent_rule_name in self._directive_rule_names:
                 # Space after DIRECTIVE_START (before keyword or strip marker)
                 if self._last_token_name == tokens.DIRECTIVE_START.lark_name():
                     # No space before strip marker
