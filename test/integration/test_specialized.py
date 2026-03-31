@@ -4,6 +4,7 @@ Unlike the suite-based round-trip tests, these target individual features
 (operator precedence, Builder round-trip) with dedicated golden files
 in test/integration/special/.
 """
+
 # pylint: disable=C0103,C0114,C0115,C0116
 
 import json
@@ -15,6 +16,7 @@ from test.integration.test_round_trip import (
     _parse_and_serialize,
     _deserialize_and_reserialize,
     _deserialize_and_reconstruct,
+    _direct_reconstruct,
 )
 
 from hcl2.deserializer import BaseDeserializer, DeserializerOptions
@@ -94,6 +96,58 @@ def _deserialize_and_reconstruct_with_options(
     formatter.format_tree(deserialized)
     lark_tree = deserialized.to_lark()
     return reconstructor.reconstruct(lark_tree)
+
+
+class TestTemplateDirectives(TestCase):
+    """Test template directives (%{if}, %{for}) parsing, serialization, and round-trip.
+
+    Covers: basic if/else/endif, for/endfor, strip markers, escaped quotes in
+    directive expressions (issue #247), nested directives, and escaped directives.
+    """
+
+    maxDiff = None
+
+    def _load_special(self, name, suffix):
+        return (SPECIAL_DIR / f"{name}{suffix}").read_text()
+
+    def test_hcl_to_json(self):
+        """HCL with directives -> JSON serialization matches expected."""
+        hcl_text = self._load_special("template_directives", ".tf")
+        actual = _parse_and_serialize(hcl_text)
+        expected = json.loads(self._load_special("template_directives", ".json"))
+        self.assertEqual(actual, expected)
+
+    def test_direct_reconstruct(self):
+        """HCL -> IR -> Lark -> HCL matches original."""
+        hcl_text = self._load_special("template_directives", ".tf")
+        actual = _direct_reconstruct(hcl_text)
+        self.assertMultiLineEqual(actual, hcl_text)
+
+    def test_json_reserialization(self):
+        """JSON -> deserialize -> reserialize matches expected."""
+        hcl_text = self._load_special("template_directives", ".tf")
+        serialized = _parse_and_serialize(hcl_text)
+        actual = _deserialize_and_reserialize(serialized)
+        expected = json.loads(
+            self._load_special("template_directives_reserialized", ".json")
+        )
+        self.assertEqual(actual, expected)
+
+    def test_json_to_hcl(self):
+        """JSON -> deserialize -> reconstruct matches expected HCL."""
+        hcl_text = self._load_special("template_directives", ".tf")
+        serialized = _parse_and_serialize(hcl_text)
+        actual = _deserialize_and_reconstruct(serialized)
+        expected = self._load_special("template_directives_reconstructed", ".tf")
+        self.assertMultiLineEqual(actual, expected)
+
+    def test_full_round_trip(self):
+        """HCL -> JSON -> HCL -> JSON produces identical JSON."""
+        hcl_text = self._load_special("template_directives", ".tf")
+        serialized = _parse_and_serialize(hcl_text)
+        reconstructed = _deserialize_and_reconstruct(serialized)
+        reserialized = _parse_and_serialize(reconstructed)
+        self.assertEqual(reserialized, serialized)
 
 
 class TestHeredocs(TestCase):

@@ -1,4 +1,5 @@
 """Deserialize Python dicts (or JSON) into LarkElement trees."""
+
 import json
 import re
 from abc import ABC, abstractmethod
@@ -189,6 +190,13 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         return IdentifierRule([NAME(value)])
 
     def _deserialize_string(self, value: str) -> StringRule:
+        # If the string contains template directives, delegate to parser
+        inner = value[1:-1] if value.startswith('"') and value.endswith('"') else value
+        # Check for unescaped %{ (i.e. %{ not preceded by another %)
+        stripped = inner.replace("%%{", "")
+        if "%{" in stripped:
+            return self._deserialize_string_via_parser(value)
+
         result = []
         # split string into individual parts based on lark grammar
         # e.g. 'aaa$${bbb}ccc${"ddd-${eee}"}' -> ['aaa', '$${bbb}', 'ccc', '${"ddd-${eee}"}']
@@ -209,6 +217,23 @@ class BaseDeserializer(LarkElementTreeDeserializer):
             result.append(string_part)
 
         return StringRule([DBLQUOTE(), *result, DBLQUOTE()])
+
+    def _deserialize_string_via_parser(self, value: str) -> StringRule:
+        """Deserialize a string containing template directives by parsing it."""
+        # Ensure the value is quoted
+        if not (value.startswith('"') and value.endswith('"')):
+            value = f'"{value}"'
+        snippet = f"temp = {value}"
+        parsed_tree = _get_parser().parse(snippet)
+        rules_tree = self._transformer.transform(parsed_tree)
+        # Extract the string from: start -> body -> attribute -> expression -> string
+        expr = rules_tree.body.children[0].expression
+        # The expression is an ExprTermRule wrapping a StringRule
+        for child in expr.children:
+            if isinstance(child, StringRule):
+                return child
+        # Fallback: shouldn't happen, but return as-is
+        return expr  # type: ignore[return-value]
 
     def _deserialize_string_part(self, value: str) -> StringPartRule:
         if value.startswith("$${") and value.endswith("}"):

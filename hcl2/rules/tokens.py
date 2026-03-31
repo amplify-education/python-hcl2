@@ -93,6 +93,8 @@ class StaticStringToken(StringToken):
 NAME = StringToken["NAME"]  # type: ignore
 STRING_CHARS = StringToken["STRING_CHARS"]  # type: ignore
 ESCAPED_INTERPOLATION = StringToken["ESCAPED_INTERPOLATION"]  # type: ignore
+ESCAPED_DIRECTIVE = StringToken["ESCAPED_DIRECTIVE"]  # type: ignore
+TEMPLATE_STRING = StringToken["TEMPLATE_STRING"]  # type: ignore
 BINARY_OP = StringToken["BINARY_OP"]  # type: ignore
 HEREDOC_TEMPLATE = StringToken["HEREDOC_TEMPLATE"]  # type: ignore
 HEREDOC_TRIM_TEMPLATE = StringToken["HEREDOC_TRIM_TEMPLATE"]  # type: ignore
@@ -111,6 +113,8 @@ QMARK = StaticStringToken[("QMARK", "?")]  # type: ignore
 LSQB = StaticStringToken[("LSQB", "[")]  # type: ignore
 RSQB = StaticStringToken[("RSQB", "]")]  # type: ignore
 INTERP_START = StaticStringToken[("INTERP_START", "${")]  # type: ignore
+DIRECTIVE_START = StaticStringToken[("DIRECTIVE_START", "%{")]  # type: ignore
+STRIP_MARKER = StaticStringToken[("STRIP_MARKER", "~")]  # type: ignore
 DBLQUOTE = StaticStringToken[("DBLQUOTE", '"')]  # type: ignore
 ATTR_SPLAT = StaticStringToken[("ATTR_SPLAT", ".*")]  # type: ignore
 FULL_SPLAT = StaticStringToken[("FULL_SPLAT", "[*]")]  # type: ignore
@@ -118,6 +122,9 @@ FOR = StaticStringToken[("FOR", "for")]  # type: ignore
 IN = StaticStringToken[("IN", "in")]  # type: ignore
 IF = StaticStringToken[("IF", "if")]  # type: ignore
 FOR_OBJECT_ARROW = StaticStringToken[("FOR_OBJECT_ARROW", "=>")]  # type: ignore
+ELSE = StaticStringToken[("ELSE", "else")]  # type: ignore
+ENDIF = StaticStringToken[("ENDIF", "endif")]  # type: ignore
+ENDFOR = StaticStringToken[("ENDFOR", "endfor")]  # type: ignore
 
 # pylint: enable=invalid-name
 

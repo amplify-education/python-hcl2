@@ -52,10 +52,11 @@ The **Direct** pipeline (`parse_to_tree` → `transform` → `to_lark` → `reco
 | `rules/containers.py` | `TupleRule`, `ObjectRule`, `ObjectElemRule`, `ObjectElemKeyRule` |
 | `rules/expressions.py` | `ExprTermRule`, `BinaryOpRule`, `UnaryOpRule`, `ConditionalRule` |
 | `rules/literal_rules.py` | `IntLitRule`, `FloatLitRule`, `IdentifierRule`, `KeywordRule` |
-| `rules/strings.py` | `StringRule`, `InterpolationRule`, `HeredocTemplateRule` |
+| `rules/strings.py` | `StringRule`, `InterpolationRule`, `HeredocTemplateRule`, `TemplateStringRule` |
 | `rules/functions.py` | `FunctionCallRule`, `ArgumentsRule` |
 | `rules/indexing.py` | `GetAttrRule`, `SqbIndexRule`, splat rules |
 | `rules/for_expressions.py` | `ForTupleExprRule`, `ForObjectExprRule`, `ForIntroRule`, `ForCondRule` |
+| `rules/directives.py` | `TemplateIfRule`, `TemplateForRule`, and flat directive start/end rules |
 | `rules/whitespace.py` | `NewLineOrCommentRule`, `InlineCommentMixIn` |
 
 ## Public API (`api.py`)
