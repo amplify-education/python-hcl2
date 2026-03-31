@@ -164,6 +164,10 @@ class HCLReconstructor:
         elif isinstance(current_node, Tree):
             rule_name = current_node.data
 
+            # Space after binary operator tokens before a tree node (e.g. && !foo)
+            if self._last_token_name in self._binary_op_types:
+                return True
+
             if parent_rule_name == BlockRule.lark_name():
                 # Add space between multiple string/identifier labels in blocks
                 if rule_name in [
@@ -265,6 +269,20 @@ class HCLReconstructor:
             return [self._reconstruct_token(node, parent_rule_name)]
         # Fallback: convert to string
         return [str(node)]
+
+    def reconstruct_fragment(self, tree) -> str:
+        """Reconstruct a subtree without trailing-newline normalization.
+
+        Suitable for rendering individual nodes (blocks, attributes, etc.)
+        rather than full documents.
+        """
+        from hcl2.rules.abstract import LarkRule
+
+        self._reset_state()
+        if isinstance(tree, LarkRule):
+            tree = tree.to_lark()
+        fragments = self._reconstruct_node(tree)
+        return "".join(fragments)
 
     def reconstruct(self, tree: Tree, postproc=None) -> str:
         """Convert a Lark.Tree AST back into a string representation of HCL."""

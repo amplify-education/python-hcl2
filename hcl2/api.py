@@ -207,6 +207,18 @@ def transform(lark_tree: Tree, *, discard_comments: bool = False) -> StartRule:
     )
 
 
+def query(source):
+    """Parse HCL2 text or file into a DocumentView for querying.
+
+    :param source: HCL2 text string or file-like object.
+    """
+    from hcl2.query.body import DocumentView  # avoid circular with hcl2.query package
+
+    if hasattr(source, "read"):
+        return DocumentView(parse(source))
+    return DocumentView(parses(source))
+
+
 def serialize(
     tree: StartRule,
     *,
