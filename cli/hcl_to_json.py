@@ -158,8 +158,9 @@ def _stream_ndjson(  # pylint: disable=too-many-arguments,too-many-positional-ar
 _EXAMPLES = """\
 examples:
   hcl2tojson file.tf                        # single file to stdout
-  hcl2tojson dir/                           # directory to stdout (NDJSON)
+  hcl2tojson --ndjson dir/                  # directory to stdout (NDJSON)
   hcl2tojson a.tf b.tf -o out/             # multiple files to output dir
+  hcl2tojson --ndjson a.tf b.tf            # multiple files as NDJSON
   hcl2tojson --ndjson 'modules/**/*.tf'    # glob + NDJSON streaming
   hcl2tojson --only resource,module file.tf # block type filtering
   hcl2tojson --compact file.tf             # single-line JSON
@@ -335,8 +336,8 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
     output = args.output
 
     try:
-        # NDJSON or multi-file streaming mode
-        if ndjson or _needs_ndjson_streaming(paths, output):
+        # NDJSON streaming mode (explicit --ndjson flag)
+        if ndjson:
             file_paths = _resolve_file_paths(paths, parser)
             # NDJSON always uses compact output (one object per line)
             ndjson_indent = None
@@ -364,6 +365,8 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                     path, output, convert, args.skip, HCL_SKIPPABLE, quiet=quiet
                 )
             elif os.path.isdir(path):
+                if output is None:
+                    parser.error("directory to stdout requires --ndjson or -o <dir>")
                 _convert_directory(
                     path,
                     output,
@@ -398,25 +401,16 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                     )
                     sys.exit(EXIT_IO_ERROR)
             if output is None:
-                for file_path in paths:
-                    _convert_single_file(
-                        file_path,
-                        None,
-                        convert,
-                        args.skip,
-                        HCL_SKIPPABLE,
-                        quiet=quiet,
-                    )
-            else:
-                _convert_multiple_files(
-                    paths,
-                    output,
-                    convert,
-                    args.skip,
-                    HCL_SKIPPABLE,
-                    out_extension=".json",
-                    quiet=quiet,
-                )
+                parser.error("multiple files to stdout requires --ndjson or -o <dir>")
+            _convert_multiple_files(
+                paths,
+                output,
+                convert,
+                args.skip,
+                HCL_SKIPPABLE,
+                out_extension=".json",
+                quiet=quiet,
+            )
     except HCL_SKIPPABLE as exc:
         print(
             _error(str(exc), error_type="parse_error"),
@@ -429,16 +423,6 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
             file=sys.stderr,
         )
         sys.exit(EXIT_IO_ERROR)
-
-
-def _needs_ndjson_streaming(paths: List[str], output: Optional[str]) -> bool:
-    """Return True when a directory is given without an output path.
-
-    In this case we stream NDJSON to stdout instead of requiring ``-o``.
-    """
-    if output is not None:
-        return False
-    return len(paths) == 1 and os.path.isdir(paths[0])
 
 
 def _resolve_file_paths(paths: List[str], parser) -> List[str]:

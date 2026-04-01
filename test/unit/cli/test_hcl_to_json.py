@@ -190,24 +190,18 @@ class TestHclToJson(TestCase):
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "good.json")))
 
-    def test_directory_to_stdout_ndjson(self):
-        """Directory without -o streams NDJSON to stdout."""
+    def test_directory_to_stdout_without_ndjson_errors(self):
+        """Directory without -o or --ndjson is an error."""
         with tempfile.TemporaryDirectory() as tmpdir:
             in_dir = os.path.join(tmpdir, "input")
             os.mkdir(in_dir)
             _write_file(os.path.join(in_dir, "a.tf"), "a = 1\n")
             _write_file(os.path.join(in_dir, "b.tf"), "b = 2\n")
 
-            stdout = StringIO()
             with patch("sys.argv", ["hcl2tojson", in_dir]):
-                with patch("sys.stdout", stdout):
+                with self.assertRaises(SystemExit) as cm:
                     main()
-
-            lines = stdout.getvalue().strip().split("\n")
-            self.assertEqual(len(lines), 2)
-            for line in lines:
-                data = json.loads(line)
-                self.assertIn("__file__", data)
+                self.assertEqual(cm.exception.code, 2)
 
     def test_stdin_default_when_no_args(self):
         """No PATH args reads from stdin (like jq)."""
@@ -220,21 +214,18 @@ class TestHclToJson(TestCase):
         result = json.loads(stdout.getvalue())
         self.assertEqual(result["x"], 1)
 
-    def test_multiple_files_to_stdout(self):
+    def test_multiple_files_to_stdout_without_ndjson_errors(self):
+        """Multiple files without -o or --ndjson is an error."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path_a = os.path.join(tmpdir, "a.tf")
             path_b = os.path.join(tmpdir, "b.tf")
             _write_file(path_a, "a = 1\n")
             _write_file(path_b, "b = 2\n")
 
-            stdout = StringIO()
             with patch("sys.argv", ["hcl2tojson", path_a, path_b]):
-                with patch("sys.stdout", stdout):
+                with self.assertRaises(SystemExit) as cm:
                     main()
-
-            output = stdout.getvalue()
-            self.assertIn('"a"', output)
-            self.assertIn('"b"', output)
+                self.assertEqual(cm.exception.code, 2)
 
     def test_multiple_files_to_output_dir(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -253,9 +244,14 @@ class TestHclToJson(TestCase):
     def test_multiple_files_invalid_path_exits_4(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path_a = os.path.join(tmpdir, "a.tf")
+            out_dir = os.path.join(tmpdir, "out")
+            os.mkdir(out_dir)
             _write_file(path_a, "a = 1\n")
 
-            with patch("sys.argv", ["hcl2tojson", path_a, "/nonexistent.tf"]):
+            with patch(
+                "sys.argv",
+                ["hcl2tojson", path_a, "/nonexistent.tf", "-o", out_dir],
+            ):
                 with self.assertRaises(SystemExit) as cm:
                     main()
                 self.assertEqual(cm.exception.code, EXIT_IO_ERROR)
@@ -519,7 +515,7 @@ class TestGlobExpansion(TestCase):
 
             stdout = StringIO()
             pattern = os.path.join(tmpdir, "*.tf")
-            with patch("sys.argv", ["hcl2tojson", pattern]):
+            with patch("sys.argv", ["hcl2tojson", "--ndjson", pattern]):
                 with patch("sys.stdout", stdout):
                     main()
 
