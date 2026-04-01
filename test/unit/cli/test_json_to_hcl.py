@@ -6,7 +6,7 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from cli.helpers import EXIT_DIFF, EXIT_IO_ERROR, EXIT_PARTIAL
+from cli.helpers import EXIT_DIFF, EXIT_IO_ERROR, EXIT_PARSE_ERROR, EXIT_PARTIAL
 from cli.json_to_hcl import main
 
 
@@ -510,3 +510,94 @@ class TestFragment(TestCase):
         output = stdout.getvalue()
         self.assertIn("cpu", output)
         self.assertIn("512", output)
+
+    def test_fragment_strips_block_markers(self):
+        """The distinguishing feature of --fragment: __is_block__ markers are removed."""
+        data = {
+            "resource": [
+                {
+                    "aws_instance": {
+                        "main": {"ami": "abc-123", "__is_block__": True},
+                        "__is_block__": True,
+                    }
+                }
+            ],
+            "__is_block__": True,
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "frag.json")
+            _write_file(path, json.dumps(data))
+
+            stdout = StringIO()
+            with patch("sys.argv", ["jsontohcl2", "--fragment", path]):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            output = stdout.getvalue()
+            # Should produce attribute-style output (no block syntax)
+            self.assertIn("resource", output)
+            self.assertNotIn("__is_block__", output)
+
+    def test_fragment_rejects_non_dict(self):
+        """--fragment with a JSON array should exit 2 (structure error)."""
+        stdin = StringIO("[1, 2, 3]")
+        stderr = StringIO()
+        with patch("sys.argv", ["jsontohcl2", "--fragment", "-"]):
+            with patch("sys.stdin", stdin), patch("sys.stderr", stderr):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+
+class TestStructureError(TestCase):
+    def test_structure_error_exits_2(self):
+        """TypeError/KeyError/ValueError from dump() should exit 2."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "valid.json")
+            _write_file(path, SIMPLE_JSON)
+
+            stderr = StringIO()
+            with patch("sys.argv", ["jsontohcl2", path]):
+                with patch(
+                    "cli.json_to_hcl.dump", side_effect=TypeError("bad structure")
+                ):
+                    with patch("sys.stderr", stderr):
+                        with self.assertRaises(SystemExit) as cm:
+                            main()
+                        self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+            output = stderr.getvalue()
+            self.assertIn("Error:", output)
+            self.assertIn("bad structure", output)
+
+
+class TestDiffEdgeCases(TestCase):
+    def test_diff_nonexistent_original_exits_4(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "test.json")
+            _write_file(json_path, SIMPLE_JSON)
+
+            stderr = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--diff", "/nonexistent.tf", json_path],
+            ):
+                with patch("sys.stderr", stderr):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_IO_ERROR)
+
+    def test_diff_from_stdin(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.path.join(tmpdir, "original.tf")
+            _write_file(original_path, "x = 1\n")
+
+            stdin = StringIO(json.dumps({"x": 2}))
+            stdout = StringIO()
+            with patch("sys.argv", ["jsontohcl2", "--diff", original_path, "-"]):
+                with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_DIFF)
+
+            self.assertIn("---", stdout.getvalue())

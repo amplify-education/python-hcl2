@@ -17,7 +17,7 @@ from .helpers import (
     EXIT_IO_ERROR,
     EXIT_PARSE_ERROR,
     EXIT_PARTIAL,
-    JSON_SKIPPABLE,
+    JSON_SKIPPABLE,  # used in _convert_* calls for skip handling
     _convert_directory,
     _convert_multiple_files,
     _convert_single_file,
@@ -60,6 +60,8 @@ def _json_to_hcl_fragment(
     ``hcl2tojson`` output.
     """
     data = json.load(in_file)
+    if not isinstance(data, dict):
+        raise TypeError(f"--fragment expects a JSON object, got {type(data).__name__}")
     data = _strip_block_markers(data)
     buf = StringIO()
     dump(data, buf, deserializer_options=d_opts, formatter_options=f_opts)
@@ -359,7 +361,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
             file=sys.stderr,
         )
         sys.exit(EXIT_PARTIAL)
-    except JSON_SKIPPABLE as exc:
+    except UnicodeDecodeError as exc:
         print(
             _error(str(exc), error_type="parse_error"),
             file=sys.stderr,

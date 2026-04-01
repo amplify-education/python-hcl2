@@ -341,6 +341,11 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
         # NDJSON streaming mode (explicit --ndjson flag)
         if ndjson:
             file_paths = _resolve_file_paths(paths, parser)
+            if args.json_indent is not None and not quiet:
+                print(
+                    "Warning: --json-indent is ignored in NDJSON mode",
+                    file=sys.stderr,
+                )
             # NDJSON always uses compact output (one object per line)
             ndjson_indent = None
             exit_code = _stream_ndjson(

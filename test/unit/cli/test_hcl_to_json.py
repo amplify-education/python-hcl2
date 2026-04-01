@@ -755,6 +755,23 @@ class TestBlockFiltering(TestCase):
             self.assertIn("resource", data)
             self.assertIn("output", data)
 
+    def test_exclude_multiple_types(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.tf")
+            _write_file(path, HCL_WITH_BLOCKS)
+
+            stdout = StringIO()
+            with patch(
+                "sys.argv", ["hcl2tojson", "--exclude", "variable,output", path]
+            ):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            data = json.loads(stdout.getvalue())
+            self.assertNotIn("variable", data)
+            self.assertNotIn("output", data)
+            self.assertIn("resource", data)
+
 
 class TestFieldProjection(TestCase):
     def test_fields_filter(self):
@@ -772,3 +789,34 @@ class TestFieldProjection(TestCase):
             self.assertIn("x", data)
             self.assertIn("y", data)
             self.assertNotIn("z", data)
+
+
+class TestNdjsonStdin(TestCase):
+    def test_ndjson_from_stdin(self):
+        """--ndjson with stdin (file_path == '-') branch."""
+        stdin = StringIO(SIMPLE_HCL)
+        stdout = StringIO()
+        with patch("sys.argv", ["hcl2tojson", "--ndjson", "-"]):
+            with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
+                main()
+
+        data = json.loads(stdout.getvalue().strip())
+        self.assertEqual(data["x"], 1)
+        # Single stdin file: no __file__ provenance
+        self.assertNotIn("__file__", data)
+
+    def test_ndjson_all_fail_with_skip_exits_2(self):
+        """When all files fail with -s in NDJSON mode, exit code is 2."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bad = os.path.join(tmpdir, "bad.tf")
+            _write_file(bad, "this is {{{{ not valid hcl")
+
+            stdout = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--ndjson", "-s", bad]):
+                with patch("sys.stdout", stdout):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+            # No successful output
+            self.assertEqual(stdout.getvalue().strip(), "")
