@@ -21,6 +21,7 @@ from .helpers import (
     _convert_single_file,
     _error,
     _expand_file_args,
+    _install_sigpipe_handler,
 )
 
 _HCL_EXTENSIONS = {".tf", ".hcl"}
@@ -74,13 +75,15 @@ def _hcl_to_json(  # pylint: disable=too-many-arguments,too-many-positional-argu
     out_file: IO,
     options: SerializationOptions,
     json_indent: Optional[int] = None,
+    compact_separators: bool = False,
     only: Optional[str] = None,
     exclude: Optional[str] = None,
     fields: Optional[str] = None,
 ) -> None:
     data = load(in_file, serialization_options=options)
     data = _filter_data(data, only, exclude, fields)
-    json.dump(data, out_file, indent=json_indent)
+    separators = (",", ":") if compact_separators else None
+    json.dump(data, out_file, indent=json_indent, separators=separators)
 
 
 def _load_to_dict(
@@ -112,6 +115,7 @@ def _stream_ndjson(  # pylint: disable=too-many-arguments,too-many-positional-ar
     """
     worst_exit = EXIT_SUCCESS
     any_success = False
+    worst_skip_exit = EXIT_PARSE_ERROR  # default for all-fail case
     for file_path in file_paths:
         if not quiet and file_path != "-":
             print(file_path, file=sys.stderr, flush=True)
@@ -139,6 +143,7 @@ def _stream_ndjson(  # pylint: disable=too-many-arguments,too-many-positional-ar
         except (OSError, IOError) as exc:
             if skip:
                 worst_exit = max(worst_exit, EXIT_PARTIAL)
+                worst_skip_exit = EXIT_IO_ERROR
                 continue
             print(
                 _error(str(exc), use_json=True, error_type="io_error", file=file_path),
@@ -146,13 +151,16 @@ def _stream_ndjson(  # pylint: disable=too-many-arguments,too-many-positional-ar
             )
             return EXIT_IO_ERROR
 
+        # Skip empty results after filtering (no useful data for agents)
+        if not data:
+            continue
         if add_provenance:
             data = {"__file__": file_path, **data}
-        print(json.dumps(data, indent=json_indent), flush=True)
+        print(json.dumps(data, indent=json_indent, separators=(",", ":")), flush=True)
         any_success = True
 
     if not any_success and worst_exit > EXIT_SUCCESS:
-        return EXIT_PARSE_ERROR
+        return worst_skip_exit
     return worst_exit
 
 
@@ -177,6 +185,7 @@ exit codes:
 
 def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-locals
     """The ``hcl2tojson`` console_scripts entry point."""
+    _install_sigpipe_handler()
     parser = argparse.ArgumentParser(
         description="Convert HCL2 files to JSON",
         epilog=_EXAMPLES,
@@ -269,7 +278,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
     parser.add_argument(
         "--compact",
         action="store_true",
-        help="Compact single-line JSON output (no indentation or newlines)",
+        help="Compact single-line JSON output (no whitespace)",
     )
 
     # Filtering
@@ -314,6 +323,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
     else:
         json_indent = None
 
+    compact = args.compact
     quiet = args.quiet
     ndjson = args.ndjson
     only = args.only
@@ -326,6 +336,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
             out_file,
             options,
             json_indent=json_indent,
+            compact_separators=compact,
             only=only,
             exclude=exclude,
             fields=fields,
@@ -364,14 +375,11 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
 
         if len(paths) == 1:
             path = paths[0]
-            if path == "-":
-                _convert_single_file(
+            if path == "-" or os.path.isfile(path):
+                if not _convert_single_file(
                     path, output, convert, args.skip, HCL_SKIPPABLE, quiet=quiet
-                )
-            elif os.path.isfile(path):
-                _convert_single_file(
-                    path, output, convert, args.skip, HCL_SKIPPABLE, quiet=quiet
-                )
+                ):
+                    sys.exit(EXIT_PARTIAL)
             elif os.path.isdir(path):
                 if output is None:
                     parser.error("directory to stdout requires --ndjson or -o <dir>")

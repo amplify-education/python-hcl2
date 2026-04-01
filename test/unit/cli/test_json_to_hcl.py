@@ -141,13 +141,15 @@ class TestJsonToHcl(TestCase):
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "good.tf")))
 
-    def test_skip_stdin_bad_input(self):
-        """With -s, stdin JSON parse errors are skipped (no output, no crash)."""
+    def test_skip_stdin_bad_input_exits_1(self):
+        """With -s, stdin JSON parse errors exit 1 (partial)."""
         stdout = StringIO()
         stdin = StringIO("{not valid json")
         with patch("sys.argv", ["jsontohcl2", "-s", "-"]):
             with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
-                main()
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARTIAL)
         self.assertEqual(stdout.getvalue(), "")
 
     def test_multi_file_stdin_rejected(self):

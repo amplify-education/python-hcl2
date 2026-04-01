@@ -23,6 +23,7 @@ from .helpers import (
     _convert_single_file,
     _error,
     _expand_file_args,
+    _install_sigpipe_handler,
 )
 
 
@@ -98,6 +99,7 @@ exit codes:
 
 def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-locals
     """The ``jsontohcl2`` console_scripts entry point."""
+    _install_sigpipe_handler()
     parser = argparse.ArgumentParser(
         description="Convert JSON files to HCL2",
         epilog=_EXAMPLES,
@@ -288,14 +290,11 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
 
         if len(paths) == 1:
             path = paths[0]
-            if path == "-":
-                _convert_single_file(
+            if path == "-" or os.path.isfile(path):
+                if not _convert_single_file(
                     path, output, convert, args.skip, JSON_SKIPPABLE, quiet=quiet
-                )
-            elif os.path.isfile(path):
-                _convert_single_file(
-                    path, output, convert, args.skip, JSON_SKIPPABLE, quiet=quiet
-                )
+                ):
+                    sys.exit(EXIT_PARTIAL)
             elif os.path.isdir(path):
                 if output is None:
                     parser.error("directory conversion requires -o <dir>")

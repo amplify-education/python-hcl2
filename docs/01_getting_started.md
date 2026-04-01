@@ -178,7 +178,7 @@ echo 'x = 1' | hcl2tojson                  # stdin (no args needed)
 | `-s` | Skip un-parsable files |
 | `-q`, `--quiet` | Suppress progress output on stderr |
 | `--ndjson` | One JSON object per line (newline-delimited JSON) |
-| `--compact` | Compact JSON output (no indentation) |
+| `--compact` | Compact JSON output (no whitespace) |
 | `--json-indent N` | JSON indentation width (default: 2 for TTY, compact otherwise) |
 | `--only TYPES` | Comma-separated block types to include |
 | `--exclude TYPES` | Comma-separated block types to exclude |

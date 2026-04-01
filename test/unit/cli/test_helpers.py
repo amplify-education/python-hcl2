@@ -11,7 +11,6 @@ from cli.helpers import (
     _convert_single_file,
     _convert_directory,
     _convert_multiple_files,
-    _convert_stdin,
     _error,
     _expand_file_args,
 )
@@ -295,23 +294,6 @@ class TestConvertMultipleFiles(TestCase):
             # Should produce a.json, not ..json
             self.assertTrue(os.path.exists(os.path.join(out_dir, "a.json")))
             self.assertFalse(os.path.exists(os.path.join(out_dir, "..json")))
-
-
-class TestConvertStdin(TestCase):
-    def test_stdin_forward(self):
-        stdout = StringIO()
-        captured = []
-
-        def convert(in_f, out_f):
-            data = in_f.read()
-            captured.append(data)
-            out_f.write("output")
-
-        with patch("sys.stdin", StringIO("input")), patch("sys.stdout", stdout):
-            _convert_stdin(convert)
-
-        self.assertEqual(captured[0], "input")
-        self.assertIn("output", stdout.getvalue())
 
 
 class TestError(TestCase):

@@ -3,6 +3,7 @@
 import glob as glob_mod
 import json
 import os
+import signal
 import sys
 from io import StringIO
 from typing import Callable, IO, List, Optional, Set, Tuple, Type
@@ -19,6 +20,12 @@ EXIT_DIFF = 5  # jsontohcl2 --diff: differences found
 # Exceptions that can be skipped when -s is passed
 HCL_SKIPPABLE = (UnexpectedToken, UnexpectedCharacters, UnicodeDecodeError)
 JSON_SKIPPABLE = (json.JSONDecodeError, UnicodeDecodeError)
+
+
+def _install_sigpipe_handler() -> None:
+    """Reset SIGPIPE to default so piping to ``head`` etc. exits cleanly."""
+    if hasattr(signal, "SIGPIPE"):
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
 def _error(msg: str, use_json: bool = False, **extra) -> str:
@@ -91,6 +98,17 @@ def _convert_single_file(  # pylint: disable=too-many-positional-arguments
 ) -> bool:
     """Convert a single file.  Returns ``True`` on success, ``False`` if skipped."""
     if in_path == "-":
+        if out_path is not None:
+            try:
+                with open(out_path, "w", encoding="utf-8") as out_file:
+                    convert_fn(sys.stdin, out_file)
+            except skippable:
+                if skip:
+                    if os.path.exists(out_path):
+                        os.remove(out_path)
+                    return False
+                raise
+            return True
         return _convert_single_stream(sys.stdin, convert_fn, skip, skippable)
     with open(in_path, "r", encoding="utf-8") as in_file:
         if not quiet:
@@ -234,8 +252,3 @@ def _convert_single_stream(
         convert_fn(in_file, sys.stdout)
         sys.stdout.write("\n")
     return True
-
-
-def _convert_stdin(convert_fn: Callable[[IO, IO], None]) -> None:
-    convert_fn(sys.stdin, sys.stdout)
-    sys.stdout.write("\n")

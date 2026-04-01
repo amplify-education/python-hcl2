@@ -273,7 +273,9 @@ class TestSingleFileErrorHandling(TestCase):
             _write_file(in_path, "this is {{{{ not valid hcl")
 
             with patch("sys.argv", ["hcl2tojson", "-s", in_path, "-o", out_path]):
-                main()
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARTIAL)
 
             # The partial output file is cleaned up on skipped errors.
             self.assertFalse(os.path.exists(out_path))
@@ -289,7 +291,7 @@ class TestSingleFileErrorHandling(TestCase):
                     main()
                 self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
 
-    def test_skip_error_to_stdout(self):
+    def test_skip_error_to_stdout_exits_1(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             in_path = os.path.join(tmpdir, "test.tf")
             _write_file(in_path, "this is {{{{ not valid hcl")
@@ -297,17 +299,21 @@ class TestSingleFileErrorHandling(TestCase):
             stdout = StringIO()
             with patch("sys.argv", ["hcl2tojson", "-s", in_path]):
                 with patch("sys.stdout", stdout):
-                    main()
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_PARTIAL)
 
             self.assertEqual(stdout.getvalue(), "")
 
-    def test_skip_stdin_bad_input(self):
-        """With -s, stdin parse errors are skipped (no output, no crash)."""
+    def test_skip_stdin_bad_input_exits_1(self):
+        """With -s, stdin parse errors are skipped and exit code is 1."""
         stdout = StringIO()
         stdin = StringIO("this is {{{{ not valid hcl")
         with patch("sys.argv", ["hcl2tojson", "-s", "-"]):
             with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
-                main()
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARTIAL)
         self.assertEqual(stdout.getvalue(), "")
 
     def test_multi_file_stdin_rejected(self):
