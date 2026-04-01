@@ -159,7 +159,7 @@ Convert HCL2 files to JSON. Accepts files, directories, glob patterns, or stdin 
 hcl2tojson main.tf                          # single file to stdout
 hcl2tojson main.tf -o output.json           # single file to output file
 hcl2tojson terraform/ -o output/            # directory to output dir
-hcl2tojson terraform/                       # directory to stdout (NDJSON)
+hcl2tojson --ndjson terraform/               # directory to stdout (NDJSON)
 hcl2tojson --ndjson 'modules/**/*.tf'       # glob + NDJSON streaming
 hcl2tojson a.tf b.tf -o output/             # multiple files to output dir
 hcl2tojson --only resource,module main.tf   # block type filtering

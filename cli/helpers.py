@@ -72,7 +72,7 @@ def _collect_files(path: str, extensions: Set[str]) -> List[str]:
     if os.path.isdir(path):
         files: List[str] = []
         for dirpath, _, filenames in os.walk(path):
-            for fname in sorted(filenames):
+            for fname in filenames:
                 if os.path.splitext(fname)[1] in extensions:
                     files.append(os.path.join(dirpath, fname))
         files.sort()
@@ -90,6 +90,8 @@ def _convert_single_file(  # pylint: disable=too-many-positional-arguments
     quiet: bool = False,
 ) -> bool:
     """Convert a single file.  Returns ``True`` on success, ``False`` if skipped."""
+    if in_path == "-":
+        return _convert_single_stream(sys.stdin, convert_fn, skip, skippable)
     with open(in_path, "r", encoding="utf-8") as in_file:
         if not quiet:
             print(in_path, file=sys.stderr, flush=True)
@@ -142,7 +144,7 @@ def _convert_directory(  # pylint: disable=too-many-positional-arguments,too-man
             os.path.join(out_path, relative_current_dir)
         )
         if not os.path.exists(current_out_path):
-            os.mkdir(current_out_path)
+            os.makedirs(current_out_path)
         for file_name in files:
             _, ext = os.path.splitext(file_name)
             if ext not in in_extensions:
@@ -193,6 +195,8 @@ def _convert_multiple_files(  # pylint: disable=too-many-positional-arguments
         os.makedirs(out_path)
     abs_paths = [os.path.abspath(p) for p in in_paths]
     common = os.path.commonpath(abs_paths) if len(abs_paths) > 1 else ""
+    if common and not os.path.isdir(common):
+        common = os.path.dirname(common)
     any_skipped = False
     for in_path, abs_path in zip(in_paths, abs_paths):
         if common:
@@ -209,6 +213,27 @@ def _convert_multiple_files(  # pylint: disable=too-many-positional-arguments
         ):
             any_skipped = True
     return any_skipped
+
+
+def _convert_single_stream(
+    in_file: IO,
+    convert_fn: Callable[[IO, IO], None],
+    skip: bool,
+    skippable: Tuple[Type[BaseException], ...],
+) -> bool:
+    """Convert from a stream (e.g. stdin) to stdout.  Returns ``True`` on success."""
+    if skip:
+        buf = StringIO()
+        try:
+            convert_fn(in_file, buf)
+        except skippable:
+            return False
+        sys.stdout.write(buf.getvalue())
+        sys.stdout.write("\n")
+    else:
+        convert_fn(in_file, sys.stdout)
+        sys.stdout.write("\n")
+    return True
 
 
 def _convert_stdin(convert_fn: Callable[[IO, IO], None]) -> None:

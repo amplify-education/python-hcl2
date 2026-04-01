@@ -98,7 +98,7 @@ All CLIs use structured error output (plain text to stderr) and distinct exit co
 
 ```
 hcl2tojson file.tf                          # single file to stdout
-hcl2tojson dir/                             # directory → NDJSON to stdout
+hcl2tojson --ndjson dir/                    # directory → NDJSON to stdout
 hcl2tojson a.tf b.tf -o out/               # multiple files to output dir
 hcl2tojson --ndjson 'modules/**/*.tf'      # glob + NDJSON streaming
 hcl2tojson --only resource,module file.tf  # block type filtering

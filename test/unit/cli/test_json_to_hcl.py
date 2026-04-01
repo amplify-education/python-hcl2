@@ -141,6 +141,25 @@ class TestJsonToHcl(TestCase):
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "good.tf")))
 
+    def test_skip_stdin_bad_input(self):
+        """With -s, stdin JSON parse errors are skipped (no output, no crash)."""
+        stdout = StringIO()
+        stdin = StringIO("{not valid json")
+        with patch("sys.argv", ["jsontohcl2", "-s", "-"]):
+            with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
+                main()
+        self.assertEqual(stdout.getvalue(), "")
+
+    def test_multi_file_stdin_rejected(self):
+        """Stdin (-) cannot be combined with other file paths."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "test.json")
+            _write_file(json_path, SIMPLE_JSON)
+            with self.assertRaises(SystemExit) as cm:
+                with patch("sys.argv", ["jsontohcl2", json_path, "-", "-o", tmpdir]):
+                    main()
+            self.assertEqual(cm.exception.code, 2)  # argparse error
+
     def test_invalid_path_exits_4(self):
         with patch("sys.argv", ["jsontohcl2", "/nonexistent/path/foo.json"]):
             with self.assertRaises(SystemExit) as cm:

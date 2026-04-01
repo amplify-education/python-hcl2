@@ -301,6 +301,25 @@ class TestSingleFileErrorHandling(TestCase):
 
             self.assertEqual(stdout.getvalue(), "")
 
+    def test_skip_stdin_bad_input(self):
+        """With -s, stdin parse errors are skipped (no output, no crash)."""
+        stdout = StringIO()
+        stdin = StringIO("this is {{{{ not valid hcl")
+        with patch("sys.argv", ["hcl2tojson", "-s", "-"]):
+            with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
+                main()
+        self.assertEqual(stdout.getvalue(), "")
+
+    def test_multi_file_stdin_rejected(self):
+        """Stdin (-) cannot be combined with other file paths."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "test.tf")
+            _write_file(hcl_path, SIMPLE_HCL)
+            with self.assertRaises(SystemExit) as cm:
+                with patch("sys.argv", ["hcl2tojson", hcl_path, "-", "-o", tmpdir]):
+                    main()
+            self.assertEqual(cm.exception.code, 2)  # argparse error
+
     def test_parse_error_to_stdout_exits_2(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             in_path = os.path.join(tmpdir, "test.tf")

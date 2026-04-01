@@ -19,7 +19,6 @@ from .helpers import (
     _convert_directory,
     _convert_multiple_files,
     _convert_single_file,
-    _convert_stdin,
     _error,
     _expand_file_args,
 )
@@ -366,7 +365,9 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
         if len(paths) == 1:
             path = paths[0]
             if path == "-":
-                _convert_stdin(convert)
+                _convert_single_file(
+                    path, output, convert, args.skip, HCL_SKIPPABLE, quiet=quiet
+                )
             elif os.path.isfile(path):
                 _convert_single_file(
                     path, output, convert, args.skip, HCL_SKIPPABLE, quiet=quiet
@@ -396,12 +397,14 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                 )
                 sys.exit(EXIT_IO_ERROR)
         else:
-            # Validate all paths are files
+            # Validate all paths are files (stdin not supported with multiple)
             for file_path in paths:
+                if file_path == "-":
+                    parser.error("stdin (-) cannot be combined with other files")
                 if not os.path.isfile(file_path):
                     print(
                         _error(
-                            f"Invalid file: {file_path}",
+                            f"File not found: {file_path}",
                             error_type="io_error",
                             file=file_path,
                         ),

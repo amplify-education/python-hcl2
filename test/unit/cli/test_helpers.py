@@ -273,6 +273,29 @@ class TestConvertMultipleFiles(TestCase):
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "a.tf")))
 
+    def test_duplicate_paths_do_not_produce_dot_filename(self):
+        """commonpath of identical files should not produce '..json' output."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.tf"), "aaa")
+            out_dir = os.path.join(tmpdir, "out")
+
+            def convert(_in_f, out_f):
+                out_f.write("ok")
+
+            path = os.path.join(tmpdir, "a.tf")
+            _convert_multiple_files(
+                [path, path],
+                out_dir,
+                convert,
+                False,
+                (Exception,),
+                out_extension=".json",
+            )
+
+            # Should produce a.json, not ..json
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "a.json")))
+            self.assertFalse(os.path.exists(os.path.join(out_dir, "..json")))
+
 
 class TestConvertStdin(TestCase):
     def test_stdin_forward(self):
@@ -429,6 +452,34 @@ class TestConvertSingleFileReturnValue(TestCase):
                 result = _convert_single_file(path, None, convert, True, (ValueError,))
 
             self.assertFalse(result)
+
+
+class TestConvertSingleFileStdin(TestCase):
+    def test_stdin_skip_error(self):
+        """When stdin fails to parse with skip=True, returns False and no output."""
+        stdout = StringIO()
+
+        def convert(_in_f, _out_f):
+            raise ValueError("parse fail")
+
+        with patch("sys.stdin", StringIO("bad")), patch("sys.stdout", stdout):
+            result = _convert_single_file("-", None, convert, True, (ValueError,))
+
+        self.assertFalse(result)
+        self.assertEqual(stdout.getvalue(), "")
+
+    def test_stdin_success(self):
+        """When stdin parses successfully, output is written."""
+        stdout = StringIO()
+
+        def convert(in_f, out_f):
+            out_f.write(in_f.read())
+
+        with patch("sys.stdin", StringIO("hello")), patch("sys.stdout", stdout):
+            result = _convert_single_file("-", None, convert, False, (ValueError,))
+
+        self.assertTrue(result)
+        self.assertIn("hello", stdout.getvalue())
 
 
 class TestConvertDirectorySkipTracking(TestCase):
