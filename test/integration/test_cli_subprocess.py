@@ -534,6 +534,103 @@ class TestDiffMode(TestCase):
 # ---------------------------------------------------------------------------
 
 
+class TestSemanticDiffMode(TestCase):
+    def test_semantic_diff_no_changes_exits_0(self):
+        """Round-trip HCL→JSON should show no semantic differences."""
+        for suite in _get_suites():
+            with self.subTest(suite=suite):
+                hcl_path = str(HCL_DIR / f"{suite}.tf")
+                json_path = str(JSON_DIR / f"{suite}.json")
+                result = _run_jsontohcl2("--semantic-diff", hcl_path, json_path)
+                self.assertEqual(
+                    result.returncode,
+                    0,
+                    f"Unexpected diff for {suite}:\n{result.stdout}",
+                )
+                self.assertEqual(result.stdout, "")
+
+    def test_semantic_diff_detects_value_change(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "original.tf")
+            json_path = os.path.join(tmpdir, "modified.json")
+            _write_file(hcl_path, "x = 1\n")
+            _write_file(json_path, json.dumps({"x": 2}))
+
+            result = _run_jsontohcl2("--semantic-diff", hcl_path, json_path)
+            self.assertEqual(result.returncode, 5)
+            self.assertIn("x", result.stdout)
+            self.assertIn("~", result.stdout)
+
+    def test_semantic_diff_ignores_formatting(self):
+        """Text diff would show changes; semantic diff should show none."""
+        hcl = 'resource "aws_instance" "main" {\n  ami = "abc-123"\n}\n'
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "original.tf")
+            json_path = os.path.join(tmpdir, "modified.json")
+            _write_file(hcl_path, hcl)
+
+            # Convert to JSON first, then semantic-diff against original
+            step1 = _run_hcl2tojson(hcl_path)
+            self.assertEqual(step1.returncode, 0, f"step1 stderr: {step1.stderr}")
+            _write_file(json_path, step1.stdout)
+
+            # Text diff would show formatting noise; semantic diff should be clean
+            result = _run_jsontohcl2("--semantic-diff", hcl_path, json_path)
+            self.assertEqual(result.returncode, 0, f"stdout: {result.stdout}")
+            self.assertEqual(result.stdout, "")
+
+    def test_semantic_diff_json_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "original.tf")
+            json_path = os.path.join(tmpdir, "modified.json")
+            _write_file(hcl_path, "x = 1\n")
+            _write_file(json_path, json.dumps({"x": 2}))
+
+            result = _run_jsontohcl2(
+                "--semantic-diff", hcl_path, "--diff-json", json_path
+            )
+            self.assertEqual(result.returncode, 5)
+            entries = json.loads(result.stdout)
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]["kind"], "changed")
+            self.assertEqual(entries[0]["path"], "x")
+
+    def test_semantic_diff_from_stdin(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "original.tf")
+            _write_file(hcl_path, "x = 1\n")
+
+            result = _run_jsontohcl2(
+                "--semantic-diff", hcl_path, "-", stdin=json.dumps({"x": 99})
+            )
+            self.assertEqual(result.returncode, 5)
+            self.assertIn("x", result.stdout)
+
+    def test_semantic_diff_file_not_found_exits_4(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "test.json")
+            _write_file(json_path, '{"x": 1}')
+
+            result = _run_jsontohcl2("--semantic-diff", "/nonexistent.tf", json_path)
+            self.assertEqual(result.returncode, 4)
+            self.assertIn("Error:", result.stderr)
+
+    def test_semantic_diff_pipe_composition(self):
+        """hcl2tojson | modify | jsontohcl2 --semantic-diff — should detect changes."""
+        hcl_path = str(HCL_DIR / "nulls.tf")
+        step1 = _run_hcl2tojson(hcl_path)
+        self.assertEqual(step1.returncode, 0, f"step1 stderr: {step1.stderr}")
+
+        # Modify one value in the JSON
+        data = json.loads(step1.stdout)
+        data["x_injected_key"] = 42
+        modified_json = json.dumps(data)
+
+        result = _run_jsontohcl2("--semantic-diff", hcl_path, "-", stdin=modified_json)
+        self.assertEqual(result.returncode, 5)
+        self.assertIn("x_injected_key", result.stdout)
+
+
 class TestFragmentMode(TestCase):
     def test_fragment_from_stdin(self):
         result = _run_jsontohcl2(
@@ -558,6 +655,69 @@ class TestFragmentMode(TestCase):
 # ---------------------------------------------------------------------------
 # Stdout buffering with skip
 # ---------------------------------------------------------------------------
+
+
+class TestFieldsProjection(TestCase):
+    def test_fields_does_not_leak_leaf_lists(self):
+        """--fields should drop leaf list values not in the field set."""
+        hcl = (
+            'module "test" {\n'
+            '  source  = "../../modules/test/v1"\n'
+            "  cpu     = 1024\n"
+            "  memory  = 2048\n"
+            '  regions = ["us-east-1", "us-west-2"]\n'
+            '  tags    = { env = "prod" }\n'
+            "}\n"
+        )
+        result = _run_hcl2tojson(
+            "--only", "module", "--fields", "cpu,memory", stdin=hcl
+        )
+        self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
+        data = json.loads(result.stdout)
+        block = data["module"][0]['"test"']
+        self.assertIn("cpu", block)
+        self.assertIn("memory", block)
+        self.assertNotIn("regions", block)
+        self.assertNotIn("tags", block)
+        self.assertNotIn("source", block)
+
+    def test_fields_preserves_structural_lists(self):
+        """--fields should still recurse into block-wrapping lists."""
+        hcl = (
+            'resource "aws_instance" "main" {\n'
+            '  ami           = "abc-123"\n'
+            '  instance_type = "t2.micro"\n'
+            '  tags          = { env = "prod" }\n'
+            "}\n"
+        )
+        result = _run_hcl2tojson("--fields", "ami", stdin=hcl)
+        self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
+        data = json.loads(result.stdout)
+        block = data["resource"][0]['"aws_instance"']['"main"']
+        self.assertIn("ami", block)
+        self.assertNotIn("instance_type", block)
+        self.assertNotIn("tags", block)
+
+
+class TestNonDictJsonRejection(TestCase):
+    def test_dry_run_list_json_exits_2(self):
+        result = _run_jsontohcl2("--dry-run", "-", stdin='["a", "b"]')
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Error:", result.stderr)
+
+    def test_dry_run_scalar_json_exits_2(self):
+        result = _run_jsontohcl2("--dry-run", "-", stdin="42")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Error:", result.stderr)
+
+    def test_normal_mode_list_json_exits_2(self):
+        result = _run_jsontohcl2(stdin='["a", "b"]')
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Error:", result.stderr)
+
+    def test_fragment_still_rejects_non_dict(self):
+        result = _run_jsontohcl2("--fragment", "-", stdin="[1, 2, 3]")
+        self.assertEqual(result.returncode, 2)
 
 
 class TestStdoutBuffering(TestCase):

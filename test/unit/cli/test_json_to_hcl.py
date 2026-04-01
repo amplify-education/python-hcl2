@@ -504,6 +504,39 @@ class TestDryRun(TestCase):
             self.assertIn("x", output)
             self.assertIn("1", output)
 
+    def test_dry_run_list_json_exits_2(self):
+        """Non-dict JSON (list) should exit 2 with error to stderr."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "list.json")
+            _write_file(json_path, '["a", "b"]')
+
+            with patch("sys.argv", ["jsontohcl2", "--dry-run", json_path]):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+    def test_dry_run_scalar_json_exits_2(self):
+        """Non-dict JSON (scalar) should exit 2 with error to stderr."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "scalar.json")
+            _write_file(json_path, "42")
+
+            with patch("sys.argv", ["jsontohcl2", "--dry-run", json_path]):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+    def test_normal_mode_list_json_exits_2(self):
+        """Non-dict JSON in normal mode should also exit 2."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "list.json")
+            _write_file(json_path, '["a", "b"]')
+
+            with patch("sys.argv", ["jsontohcl2", json_path]):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
 
 class TestFragment(TestCase):
     def test_fragment_from_file(self):
@@ -568,6 +601,151 @@ class TestFragment(TestCase):
                 with self.assertRaises(SystemExit) as cm:
                     main()
                 self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+
+class TestSemanticDiff(TestCase):
+    def test_no_changes_exits_0(self):
+        """Round-trip HCL→JSON→semantic-diff shows no differences."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "original.tf")
+            json_path = os.path.join(tmpdir, "modified.json")
+            _write_file(hcl_path, "x = 1\ny = 2\n")
+            _write_file(json_path, json.dumps({"x": 1, "y": 2}))
+
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--semantic-diff", hcl_path, json_path],
+            ):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            # No output, no SystemExit (exit 0)
+            self.assertEqual(stdout.getvalue(), "")
+
+    def test_value_change_exits_5(self):
+        """Changing a value produces diff output and exit 5."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "original.tf")
+            json_path = os.path.join(tmpdir, "modified.json")
+            _write_file(hcl_path, "x = 1\n")
+            _write_file(json_path, json.dumps({"x": 2}))
+
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--semantic-diff", hcl_path, json_path],
+            ):
+                with patch("sys.stdout", stdout):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_DIFF)
+
+            output = stdout.getvalue()
+            self.assertIn("x", output)
+            self.assertIn("~", output)
+
+    def test_ignores_formatting_differences(self):
+        """Formatting-only differences (alignment, commas) should not appear."""
+        hcl = (
+            'resource "aws_instance" "main" {\n'
+            '  ami           = "abc-123"\n'
+            '  instance_type = "t2.micro"\n'
+            "}\n"
+        )
+        # JSON has same values (matching hcl2.load() output format)
+        json_data = {
+            "resource": [
+                {
+                    '"aws_instance"': {
+                        '"main"': {
+                            "ami": '"abc-123"',
+                            "instance_type": '"t2.micro"',
+                            "__is_block__": True,
+                        }
+                    }
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "original.tf")
+            json_path = os.path.join(tmpdir, "modified.json")
+            _write_file(hcl_path, hcl)
+            _write_file(json_path, json.dumps(json_data))
+
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--semantic-diff", hcl_path, json_path],
+            ):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            self.assertEqual(stdout.getvalue(), "")
+
+    def test_json_output(self):
+        """--diff-json produces valid JSON with correct structure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "original.tf")
+            json_path = os.path.join(tmpdir, "modified.json")
+            _write_file(hcl_path, "x = 1\n")
+            _write_file(json_path, json.dumps({"x": 2}))
+
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "jsontohcl2",
+                    "--semantic-diff",
+                    hcl_path,
+                    "--diff-json",
+                    json_path,
+                ],
+            ):
+                with patch("sys.stdout", stdout):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_DIFF)
+
+            entries = json.loads(stdout.getvalue())
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]["kind"], "changed")
+            self.assertEqual(entries[0]["path"], "x")
+
+    def test_file_not_found_exits_4(self):
+        """Missing original file should exit 4."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_path = os.path.join(tmpdir, "test.json")
+            _write_file(json_path, SIMPLE_JSON)
+
+            stderr = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--semantic-diff", "/nonexistent.tf", json_path],
+            ):
+                with patch("sys.stderr", stderr):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_IO_ERROR)
+
+    def test_from_stdin(self):
+        """Semantic diff with JSON from stdin."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hcl_path = os.path.join(tmpdir, "original.tf")
+            _write_file(hcl_path, "x = 1\n")
+
+            stdin = StringIO(json.dumps({"x": 99}))
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--semantic-diff", hcl_path, "-"],
+            ):
+                with patch("sys.stdin", stdin), patch("sys.stdout", stdout):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_DIFF)
+
+            self.assertIn("x", stdout.getvalue())
 
 
 class TestStructureError(TestCase):

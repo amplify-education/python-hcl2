@@ -12,7 +12,7 @@ from lark import UnexpectedCharacters, UnexpectedToken
 
 # Exit codes shared across CLIs
 EXIT_SUCCESS = 0
-EXIT_PARTIAL = 1  # hcl2tojson: some files skipped; jsontohcl2: JSON parse error
+EXIT_PARTIAL = 1  # hcl2tojson: some files skipped; jsontohcl2: JSON/encoding error
 EXIT_PARSE_ERROR = 2  # hcl2tojson: all unparsable; jsontohcl2: bad HCL structure
 EXIT_IO_ERROR = 4
 EXIT_DIFF = 5  # jsontohcl2 --diff: differences found

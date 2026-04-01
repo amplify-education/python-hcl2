@@ -8,11 +8,14 @@ import sys
 from io import StringIO
 from typing import TextIO
 
+import hcl2
 from hcl2 import dump
 from hcl2.deserializer import DeserializerOptions
 from hcl2.formatter import FormatterOptions
+from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
+from hcl2.utils import SerializationOptions
 from hcl2.version import __version__
-from .helpers import (
+from cli.helpers import (
     EXIT_DIFF,
     EXIT_IO_ERROR,
     EXIT_PARSE_ERROR,
@@ -81,19 +84,26 @@ def _strip_block_markers(data):
 
 _EXAMPLES = """\
 examples:
-  jsontohcl2 file.json                          # single file to stdout
-  jsontohcl2 a.json b.json -o out/             # multiple files to output dir
-  jsontohcl2 --diff original.tf modified.json  # preview changes
-  jsontohcl2 --dry-run file.json               # convert without writing
-  jsontohcl2 --fragment -                       # attribute snippet from stdin
-  echo '{"x": 1}' | jsontohcl2                 # stdin (no args needed)
+  jsontohcl2 file.json                                   # single file to stdout
+  jsontohcl2 a.json b.json -o out/                      # multiple files to output dir
+  jsontohcl2 --diff original.tf modified.json            # preview text changes
+  jsontohcl2 --semantic-diff original.tf modified.json   # semantic-only changes
+  jsontohcl2 --semantic-diff original.tf --diff-json m.json  # semantic diff as JSON
+  jsontohcl2 --dry-run file.json                         # convert without writing
+  jsontohcl2 --fragment -                                # attribute snippet from stdin
+  echo '{"x": 1}' | jsontohcl2                          # stdin (no args needed)
+
+fragment string format:
+  Strings use python-hcl2's inner-quote convention. To produce HCL "value",
+  the JSON string must be: "\\"value\\"". Unquoted strings become identifiers.
+  Example: {"name": "\\"test\\"", "count": 3}  =>  name = "test"  count = 3
 
 exit codes:
   0  Success
-  1  JSON parse error
+  1  JSON/encoding parse error
   2  Valid JSON but incompatible HCL structure
   4  I/O error (file not found)
-  5  Differences found (--diff mode only)
+  5  Differences found (--diff / --semantic-diff)
 """
 
 
@@ -137,9 +147,21 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
         help="Convert and print to stdout without writing files",
     )
     mode_group.add_argument(
+        "--semantic-diff",
+        metavar="ORIGINAL",
+        help="Show semantic-only diff against ORIGINAL (ignores formatting)",
+    )
+    mode_group.add_argument(
         "--fragment",
         action="store_true",
-        help="Treat input as a JSON fragment (attribute dict, not full HCL document)",
+        help="Treat input as a JSON fragment (attribute dict, not full HCL "
+        'document). Strings must use inner quotes: \'"\\"value\\""\' for HCL '
+        '"value", bare strings become identifiers',
+    )
+    parser.add_argument(
+        "--diff-json",
+        action="store_true",
+        help="Output diff results as JSON (works with --diff and --semantic-diff)",
     )
     parser.add_argument("--version", action="version", version=__version__)
 
@@ -258,7 +280,60 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                 )
             )
             if diff_output:
-                sys.stdout.writelines(diff_output)
+                if args.diff_json:
+                    print(
+                        json.dumps(
+                            {
+                                "from_file": original_path,
+                                "to_file": json_path,
+                                "diff": "".join(diff_output),
+                            },
+                            indent=2,
+                        )
+                    )
+                else:
+                    sys.stdout.writelines(diff_output)
+                sys.exit(EXIT_DIFF)
+            return
+
+        # --semantic-diff mode: compare semantic dicts (ignores formatting)
+        if args.semantic_diff:
+            if len(paths) != 1:
+                parser.error("--semantic-diff requires exactly one input file")
+            json_path = paths[0]
+            original_path = args.semantic_diff
+
+            if not os.path.isfile(original_path):
+                print(
+                    _error(
+                        f"File not found: {original_path}",
+                        error_type="io_error",
+                        file=original_path,
+                    ),
+                    file=sys.stderr,
+                )
+                sys.exit(EXIT_IO_ERROR)
+
+            # Parse original HCL → normalized dict
+            sem_opts = SerializationOptions(
+                with_comments=False, with_meta=False, explicit_blocks=True
+            )
+            with open(original_path, "r", encoding="utf-8") as f:
+                dict_original = hcl2.load(f, serialization_options=sem_opts)
+
+            # Load modified JSON → dict
+            if json_path == "-":
+                dict_modified = json.load(sys.stdin)
+            else:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    dict_modified = json.load(f)
+
+            entries = diff_dicts(dict_original, dict_modified)
+            if entries:
+                if args.diff_json:
+                    print(format_diff_json(entries))
+                else:
+                    print(format_diff_text(entries))
                 sys.exit(EXIT_DIFF)
             return
 
@@ -381,3 +456,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
             file=sys.stderr,
         )
         sys.exit(EXIT_IO_ERROR)
+
+
+if __name__ == "__main__":
+    main()

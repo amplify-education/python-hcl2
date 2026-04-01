@@ -9,7 +9,7 @@ from typing import IO, List, Optional, TextIO
 from hcl2 import load
 from hcl2.utils import SerializationOptions
 from hcl2.version import __version__
-from .helpers import (
+from cli.helpers import (
     EXIT_IO_ERROR,
     EXIT_PARSE_ERROR,
     EXIT_PARTIAL,
@@ -58,11 +58,15 @@ def _project_fields(data, field_set):
         for key, val in data.items():
             if key in field_set or key.startswith("__"):
                 result[key] = val
-            elif isinstance(val, (dict, list)):
+            elif isinstance(val, dict):
                 projected = _project_fields(val, field_set)
                 if projected:
                     result[key] = projected
-            # else: leaf value not in field_set — drop it
+            elif isinstance(val, list) and any(isinstance(item, dict) for item in val):
+                projected = _project_fields(val, field_set)
+                if projected:
+                    result[key] = projected
+            # else: leaf value (scalar or leaf list) not in field_set — drop it
         return result
     if isinstance(data, list):
         out = [_project_fields(item, field_set) for item in data]
@@ -172,6 +176,8 @@ examples:
   hcl2tojson --ndjson a.tf b.tf            # multiple files as NDJSON
   hcl2tojson --ndjson 'modules/**/*.tf'    # glob + NDJSON streaming
   hcl2tojson --only resource,module file.tf # block type filtering
+  hcl2tojson --exclude variable file.tf     # exclude block types
+  hcl2tojson --fields cpu,memory file.tf    # field projection
   hcl2tojson --compact file.tf             # single-line JSON
   echo 'x = 1' | hcl2tojson               # stdin (no args needed)
 
@@ -453,3 +459,7 @@ def _resolve_file_paths(paths: List[str], parser) -> List[str]:
     if not file_paths:
         parser.error("no HCL files found in the given paths")
     return file_paths
+
+
+if __name__ == "__main__":
+    main()

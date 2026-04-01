@@ -88,11 +88,11 @@ All CLIs use structured error output (plain text to stderr) and distinct exit co
 | Code | `hcl2tojson` | `jsontohcl2` | `hq` |
 |------|---|---|---|
 | 0 | Success | Success | Success |
-| 1 | Partial (some skipped) | JSON parse error | No results |
+| 1 | Partial (some skipped) | JSON/encoding parse error | No results |
 | 2 | All unparsable | Bad HCL structure | Parse error |
 | 3 | — | — | Query error |
 | 4 | I/O error | I/O error | I/O error |
-| 5 | — | Differences found (`--diff`) | — |
+| 5 | — | Differences found (`--diff` / `--semantic-diff`) | — |
 
 ### `hcl2tojson`
 
@@ -109,19 +109,21 @@ hcl2tojson -q dir/ -o out/                 # quiet (no stderr progress)
 echo 'x = 1' | hcl2tojson                 # stdin (no args needed)
 ```
 
-Key flags: `--ndjson`, `--compact`, `--only`/`--exclude`, `--fields`, `-q`/`--quiet`, `--json-indent N`, `--with-meta`, `--with-comments`, `--strip-string-quotes` (breaks round-trip).
+Key flags: `--ndjson`, `--compact`, `--only`/`--exclude`, `--fields`, `-q`/`--quiet`, `--json-indent N`, `--with-meta`, `--with-comments`, `--strip-string-quotes` (breaks round-trip). Multi-file NDJSON adds a `__file__` provenance key to each object.
 
 ### `jsontohcl2`
 
 ```
-jsontohcl2 file.json                          # single file to stdout
-jsontohcl2 --diff original.tf modified.json  # preview changes
-jsontohcl2 --dry-run file.json               # convert without writing
-jsontohcl2 --fragment -                       # attribute snippets from stdin
+jsontohcl2 file.json                                       # single file to stdout
+jsontohcl2 --diff original.tf modified.json                # preview text changes
+jsontohcl2 --semantic-diff original.tf modified.json       # semantic-only changes
+jsontohcl2 --semantic-diff original.tf --diff-json m.json  # semantic diff as JSON
+jsontohcl2 --dry-run file.json                             # convert without writing
+jsontohcl2 --fragment -                                    # attribute snippets from stdin
 jsontohcl2 --indent 4 --no-align file.json
 ```
 
-Key flags: `--diff ORIGINAL`, `--dry-run`, `--fragment`, `-q`/`--quiet`, `--indent N`, `--no-align`, `--colon-separator`.
+Key flags: `--diff ORIGINAL`, `--semantic-diff ORIGINAL`, `--diff-json`, `--dry-run`, `--fragment`, `-q`/`--quiet`, `--indent N`, `--no-align`, `--colon-separator`.
 
 Add new options as `parser.add_argument()` calls in the relevant entry point module.
 

@@ -177,7 +177,7 @@ echo 'x = 1' | hcl2tojson                  # stdin (no args needed)
 | `-o`, `--output` | Output path (file for single input, directory for multiple) |
 | `-s` | Skip un-parsable files |
 | `-q`, `--quiet` | Suppress progress output on stderr |
-| `--ndjson` | One JSON object per line (newline-delimited JSON) |
+| `--ndjson` | One JSON object per line (newline-delimited JSON). Multi-file adds `__file__` provenance key. |
 | `--compact` | Compact JSON output (no whitespace) |
 | `--json-indent N` | JSON indentation width (default: 2 for TTY, compact otherwise) |
 | `--only TYPES` | Comma-separated block types to include |
@@ -201,16 +201,18 @@ echo 'x = 1' | hcl2tojson                  # stdin (no args needed)
 Convert JSON files to HCL2. Accepts files, directories, glob patterns, or stdin (default when no args given).
 
 ```sh
-jsontohcl2 output.json                       # single file to stdout
-jsontohcl2 output.json -o main.tf            # single file to output file
-jsontohcl2 output/ -o terraform/             # directory conversion
-jsontohcl2 --diff original.tf modified.json  # preview changes as unified diff
-jsontohcl2 --dry-run file.json               # convert without writing
-jsontohcl2 --fragment -                       # attribute snippets from stdin
-echo '{"x": 1}' | jsontohcl2                 # stdin (no args needed)
+jsontohcl2 output.json                                    # single file to stdout
+jsontohcl2 output.json -o main.tf                        # single file to output file
+jsontohcl2 output/ -o terraform/                         # directory conversion
+jsontohcl2 --diff original.tf modified.json              # preview changes as unified diff
+jsontohcl2 --semantic-diff original.tf modified.json     # semantic-only diff (ignores formatting)
+jsontohcl2 --semantic-diff original.tf --diff-json m.json  # semantic diff as JSON
+jsontohcl2 --dry-run file.json                           # convert without writing
+jsontohcl2 --fragment -                                  # attribute snippets from stdin
+echo '{"x": 1}' | jsontohcl2                            # stdin (no args needed)
 ```
 
-**Exit codes:** 0 = success, 1 = JSON parse error, 2 = bad HCL structure, 4 = I/O error, 5 = differences found (`--diff`).
+**Exit codes:** 0 = success, 1 = JSON/encoding parse error, 2 = bad HCL structure, 4 = I/O error, 5 = differences found (`--diff` / `--semantic-diff`).
 
 **Flags:**
 
@@ -220,8 +222,10 @@ echo '{"x": 1}' | jsontohcl2                 # stdin (no args needed)
 | `-s` | Skip un-parsable files |
 | `-q`, `--quiet` | Suppress progress output on stderr |
 | `--diff ORIGINAL` | Show unified diff against ORIGINAL file (exit 0 = identical, 5 = differs) |
+| `--semantic-diff ORIGINAL` | Show semantic-only diff against ORIGINAL (ignores formatting differences) |
+| `--diff-json` | Output diff results as JSON (works with `--diff` and `--semantic-diff`) |
 | `--dry-run` | Convert and print to stdout without writing files |
-| `--fragment` | Treat input as attribute dict, not full HCL document |
+| `--fragment` | Treat input as attribute dict, not full HCL document (see note below) |
 | `--indent N` | Indentation width (default: 2) |
 | `--colon-separator` | Use `:` instead of `=` in object elements |
 | `--no-trailing-comma` | Omit trailing commas in object elements |
@@ -232,6 +236,8 @@ echo '{"x": 1}' | jsontohcl2                 # stdin (no args needed)
 | `--open-empty-tuples` | Expand empty tuples across multiple lines |
 | `--no-align` | Disable vertical alignment of attributes and object elements |
 | `--version` | Show version and exit |
+
+> **Note on `--fragment` string format:** `--fragment` uses python-hcl2's standard JSON format, where HCL string values carry inner quotes. To produce the HCL attribute `name = "test"`, the JSON value must be `"\"test\""` (escaped inner quotes). A plain JSON string like `"test"` becomes the bare identifier `test`. This is the same convention used by `hcl2tojson` output — so piping `hcl2tojson` output into `jsontohcl2 --fragment` works correctly. Numbers, booleans, and expressions (`var.foo`, `local.name`) do not need quoting.
 
 ### hq
 

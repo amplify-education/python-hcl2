@@ -815,6 +815,37 @@ class TestFieldProjection(TestCase):
             self.assertIn("y", data)
             self.assertNotIn("z", data)
 
+    def test_fields_does_not_leak_leaf_lists(self):
+        """Leaf list values whose key is not in --fields must be dropped."""
+        hcl = (
+            'module "test" {\n'
+            '  source  = "../../modules/test/v1"\n'
+            "  cpu     = 1024\n"
+            "  memory  = 2048\n"
+            '  regions = ["us-east-1", "us-west-2"]\n'
+            '  tags    = { env = "prod" }\n'
+            "}\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.tf")
+            _write_file(path, hcl)
+
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                ["hcl2tojson", "--only", "module", "--fields", "cpu,memory", path],
+            ):
+                with patch("sys.stdout", stdout):
+                    main()
+
+            data = json.loads(stdout.getvalue())
+            block = data["module"][0]['"test"']
+            self.assertIn("cpu", block)
+            self.assertIn("memory", block)
+            self.assertNotIn("regions", block)
+            self.assertNotIn("tags", block)
+            self.assertNotIn("source", block)
+
 
 class TestNdjsonStdin(TestCase):
     def test_ndjson_from_stdin(self):

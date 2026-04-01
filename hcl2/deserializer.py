@@ -101,13 +101,13 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
     def load_python(self, value: Any) -> StartRule:
         """Deserialize a Python object into a StartRule tree."""
-        if isinstance(value, dict):
-            # Top-level dict is always a body (attributes + blocks), not an object
-            children = self._deserialize_block_elements(value)
-            result = StartRule([BodyRule(children)])
-        else:
-            result = StartRule([self._deserialize(value)])
-        return result
+        if not isinstance(value, dict):
+            raise TypeError(
+                f"Expected dict for top-level HCL body, got {type(value).__name__}"
+            )
+        # Top-level dict is always a body (attributes + blocks), not an object
+        children = self._deserialize_block_elements(value)
+        return StartRule([BodyRule(children)])
 
     def loads(self, value: str) -> LarkElement:
         """Deserialize a JSON string into a LarkElement tree."""
