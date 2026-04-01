@@ -210,7 +210,7 @@ jsontohcl2 --fragment -                       # attribute snippets from stdin
 echo '{"x": 1}' | jsontohcl2                 # stdin (no args needed)
 ```
 
-**Exit codes:** 0 = success, 1 = JSON parse error, 2 = bad HCL structure, 4 = I/O error.
+**Exit codes:** 0 = success, 1 = JSON parse error, 2 = bad HCL structure, 4 = I/O error, 5 = differences found (`--diff`).
 
 **Flags:**
 
@@ -219,7 +219,7 @@ echo '{"x": 1}' | jsontohcl2                 # stdin (no args needed)
 | `-o`, `--output` | Output path (file for single input, directory for multiple) |
 | `-s` | Skip un-parsable files |
 | `-q`, `--quiet` | Suppress progress output on stderr |
-| `--diff ORIGINAL` | Show unified diff against ORIGINAL file (exit 0 = identical, 1 = differs) |
+| `--diff ORIGINAL` | Show unified diff against ORIGINAL file (exit 0 = identical, 5 = differs) |
 | `--dry-run` | Convert and print to stdout without writing files |
 | `--fragment` | Treat input as attribute dict, not full HCL document |
 | `--indent N` | Indentation width (default: 2) |

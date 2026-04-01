@@ -66,7 +66,7 @@ def _project_fields(data, field_set):
         return result
     if isinstance(data, list):
         out = [_project_fields(item, field_set) for item in data]
-        return [item for item in out if item]
+        return [item for item in out if not isinstance(item, (dict, list)) or item]
     return data
 
 
@@ -114,13 +114,18 @@ def _stream_ndjson(  # pylint: disable=too-many-arguments,too-many-positional-ar
     worst_exit = EXIT_SUCCESS
     any_success = False
     for file_path in file_paths:
-        if not quiet:
+        if not quiet and file_path != "-":
             print(file_path, file=sys.stderr, flush=True)
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            if file_path == "-":
                 data = _load_to_dict(
-                    f, options, only=only, exclude=exclude, fields=fields
+                    sys.stdin, options, only=only, exclude=exclude, fields=fields
                 )
+            else:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = _load_to_dict(
+                        f, options, only=only, exclude=exclude, fields=fields
+                    )
         except HCL_SKIPPABLE as exc:
             if skip:
                 worst_exit = max(worst_exit, EXIT_PARTIAL)
@@ -262,7 +267,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
     parser.add_argument(
         "--compact",
         action="store_true",
-        help="Compact JSON output (alias for --json-indent 0)",
+        help="Compact single-line JSON output (no indentation or newlines)",
     )
 
     # Filtering

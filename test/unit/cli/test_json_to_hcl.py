@@ -6,7 +6,7 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from cli.helpers import EXIT_IO_ERROR, EXIT_PARTIAL
+from cli.helpers import EXIT_DIFF, EXIT_IO_ERROR, EXIT_PARTIAL
 from cli.json_to_hcl import main
 
 
@@ -322,8 +322,8 @@ class TestDiffMode(TestCase):
                 with patch("sys.stdout", stdout):
                     with self.assertRaises(SystemExit) as cm:
                         main()
-                    # Exit code 1 = there are differences
-                    self.assertEqual(cm.exception.code, 1)
+                    # Exit code 5 = differences found
+                    self.assertEqual(cm.exception.code, EXIT_DIFF)
 
             diff_output = stdout.getvalue()
             self.assertIn("---", diff_output)

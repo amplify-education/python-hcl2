@@ -13,6 +13,7 @@ from hcl2.deserializer import DeserializerOptions
 from hcl2.formatter import FormatterOptions
 from hcl2.version import __version__
 from .helpers import (
+    EXIT_DIFF,
     EXIT_IO_ERROR,
     EXIT_PARSE_ERROR,
     EXIT_PARTIAL,
@@ -52,12 +53,28 @@ def _json_to_hcl_fragment(
     d_opts: DeserializerOptions,
     f_opts: FormatterOptions,
 ) -> str:
-    """Convert a JSON fragment to HCL attribute assignments."""
+    """Convert a JSON fragment to HCL attribute assignments.
+
+    Unlike normal conversion, this strips ``__is_block__`` markers so the
+    input is always treated as flat attributes — even if it came from
+    ``hcl2tojson`` output.
+    """
     data = json.load(in_file)
-    # Wrap flat attributes in a top-level body, convert, return
+    data = _strip_block_markers(data)
     buf = StringIO()
     dump(data, buf, deserializer_options=d_opts, formatter_options=f_opts)
     return buf.getvalue()
+
+
+def _strip_block_markers(data):
+    """Recursively remove ``__is_block__`` keys from nested dicts."""
+    if isinstance(data, dict):
+        return {
+            k: _strip_block_markers(v) for k, v in data.items() if k != "__is_block__"
+        }
+    if isinstance(data, list):
+        return [_strip_block_markers(item) for item in data]
+    return data
 
 
 _EXAMPLES = """\
@@ -74,6 +91,7 @@ exit codes:
   1  JSON parse error
   2  Valid JSON but incompatible HCL structure
   4  I/O error (file not found)
+  5  Differences found (--diff mode only)
 """
 
 
@@ -237,7 +255,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
             )
             if diff_output:
                 sys.stdout.writelines(diff_output)
-                sys.exit(1)
+                sys.exit(EXIT_DIFF)
             return
 
         # --dry-run mode: convert to stdout without writing

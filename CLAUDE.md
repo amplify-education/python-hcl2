@@ -92,6 +92,7 @@ All CLIs use structured error output (plain text to stderr) and distinct exit co
 | 2 | All unparsable | Bad HCL structure | Parse error |
 | 3 | — | — | Query error |
 | 4 | I/O error | I/O error | I/O error |
+| 5 | — | Differences found (`--diff`) | — |
 
 ### `hcl2tojson`
 

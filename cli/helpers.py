@@ -13,6 +13,7 @@ EXIT_SUCCESS = 0
 EXIT_PARTIAL = 1  # hcl2tojson: some files skipped; jsontohcl2: JSON parse error
 EXIT_PARSE_ERROR = 2  # hcl2tojson: all unparsable; jsontohcl2: bad HCL structure
 EXIT_IO_ERROR = 4
+EXIT_DIFF = 5  # jsontohcl2 --diff: differences found
 
 # Exceptions that can be skipped when -s is passed
 HCL_SKIPPABLE = (UnexpectedToken, UnexpectedCharacters, UnicodeDecodeError)
@@ -172,12 +173,24 @@ def _convert_multiple_files(  # pylint: disable=too-many-positional-arguments
     out_extension: str,
     quiet: bool = False,
 ) -> None:
-    """Convert multiple files into an output directory."""
+    """Convert multiple files into an output directory.
+
+    Preserves relative path structure to avoid basename collisions when
+    files from different directories share the same name.
+    """
     if not os.path.exists(out_path):
         os.makedirs(out_path)
+    common = os.path.commonpath(in_paths) if len(in_paths) > 1 else ""
     for in_path in in_paths:
-        base = os.path.splitext(os.path.basename(in_path))[0] + out_extension
-        file_out = os.path.join(out_path, base)
+        if common:
+            rel = os.path.relpath(in_path, common)
+        else:
+            rel = os.path.basename(in_path)
+        dest = os.path.splitext(rel)[0] + out_extension
+        file_out = os.path.join(out_path, dest)
+        file_out_dir = os.path.dirname(file_out)
+        if file_out_dir and not os.path.exists(file_out_dir):
+            os.makedirs(file_out_dir)
         _convert_single_file(
             in_path, file_out, convert_fn, skip, skippable, quiet=quiet
         )
