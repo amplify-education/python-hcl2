@@ -4,6 +4,7 @@ import glob as glob_mod
 import json
 import os
 import sys
+from io import StringIO
 from typing import Callable, IO, List, Optional, Set, Tuple, Type
 
 from lark import UnexpectedCharacters, UnexpectedToken
@@ -87,7 +88,8 @@ def _convert_single_file(  # pylint: disable=too-many-positional-arguments
     skip: bool,
     skippable: Tuple[Type[BaseException], ...],
     quiet: bool = False,
-) -> None:
+) -> bool:
+    """Convert a single file.  Returns ``True`` on success, ``False`` if skipped."""
     with open(in_path, "r", encoding="utf-8") as in_file:
         if not quiet:
             print(in_path, file=sys.stderr, flush=True)
@@ -99,16 +101,20 @@ def _convert_single_file(  # pylint: disable=too-many-positional-arguments
                 if skip:
                     if os.path.exists(out_path):
                         os.remove(out_path)
-                    return
+                    return False
                 raise
-        else:
+        elif skip:
+            buf = StringIO()
             try:
-                convert_fn(in_file, sys.stdout)
-                sys.stdout.write("\n")
+                convert_fn(in_file, buf)
             except skippable:
-                if skip:
-                    return
-                raise
+                return False
+            sys.stdout.write(buf.getvalue())
+            sys.stdout.write("\n")
+        else:
+            convert_fn(in_file, sys.stdout)
+            sys.stdout.write("\n")
+    return True
 
 
 def _convert_directory(  # pylint: disable=too-many-positional-arguments,too-many-locals
@@ -120,12 +126,14 @@ def _convert_directory(  # pylint: disable=too-many-positional-arguments,too-man
     in_extensions: Set[str],
     out_extension: str,
     quiet: bool = False,
-) -> None:
+) -> bool:
+    """Convert all matching files in a directory.  Returns ``True`` if any were skipped."""
     if out_path is None:
         raise RuntimeError("Output path is required for directory conversion (use -o)")
     if not os.path.exists(out_path):
-        os.mkdir(out_path)
+        os.makedirs(out_path)
 
+    any_skipped = False
     processed_files: set = set()
     for current_dir, _, files in os.walk(in_path):
         dir_prefix = os.path.commonpath([in_path, current_dir])
@@ -158,10 +166,12 @@ def _convert_directory(  # pylint: disable=too-many-positional-arguments,too-man
                         convert_fn(in_file, out_file)
                 except skippable:
                     if skip:
+                        any_skipped = True
                         if os.path.exists(out_file_path):
                             os.remove(out_file_path)
                         continue
                     raise
+    return any_skipped
 
 
 def _convert_multiple_files(  # pylint: disable=too-many-positional-arguments
@@ -172,18 +182,21 @@ def _convert_multiple_files(  # pylint: disable=too-many-positional-arguments
     skippable: Tuple[Type[BaseException], ...],
     out_extension: str,
     quiet: bool = False,
-) -> None:
+) -> bool:
     """Convert multiple files into an output directory.
 
     Preserves relative path structure to avoid basename collisions when
-    files from different directories share the same name.
+    files from different directories share the same name.  Returns ``True``
+    if any files were skipped.
     """
     if not os.path.exists(out_path):
         os.makedirs(out_path)
-    common = os.path.commonpath(in_paths) if len(in_paths) > 1 else ""
-    for in_path in in_paths:
+    abs_paths = [os.path.abspath(p) for p in in_paths]
+    common = os.path.commonpath(abs_paths) if len(abs_paths) > 1 else ""
+    any_skipped = False
+    for in_path, abs_path in zip(in_paths, abs_paths):
         if common:
-            rel = os.path.relpath(in_path, common)
+            rel = os.path.relpath(abs_path, common)
         else:
             rel = os.path.basename(in_path)
         dest = os.path.splitext(rel)[0] + out_extension
@@ -191,9 +204,11 @@ def _convert_multiple_files(  # pylint: disable=too-many-positional-arguments
         file_out_dir = os.path.dirname(file_out)
         if file_out_dir and not os.path.exists(file_out_dir):
             os.makedirs(file_out_dir)
-        _convert_single_file(
+        if not _convert_single_file(
             in_path, file_out, convert_fn, skip, skippable, quiet=quiet
-        )
+        ):
+            any_skipped = True
+    return any_skipped
 
 
 def _convert_stdin(convert_fn: Callable[[IO, IO], None]) -> None:

@@ -362,6 +362,228 @@ class TestCollectFiles(TestCase):
         self.assertEqual(_collect_files("/no/such/path", {".tf"}), ["/no/such/path"])
 
 
+class TestConvertSingleFileStdoutBuffering(TestCase):
+    def test_skip_no_partial_stdout(self):
+        """Fix #7: partial output must not leak to stdout when skipped."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.txt")
+            _write_file(path, "data")
+
+            stdout = StringIO()
+
+            def convert(_in_f, out_f):
+                out_f.write("partial")
+                raise ValueError("boom mid-write")
+
+            with patch("sys.stdout", stdout):
+                result = _convert_single_file(path, None, convert, True, (ValueError,))
+
+            self.assertFalse(result)
+            self.assertEqual(stdout.getvalue(), "")
+
+    def test_success_writes_to_stdout(self):
+        """Buffered path still writes on success."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.txt")
+            _write_file(path, "hello")
+
+            stdout = StringIO()
+
+            def convert(in_f, out_f):
+                out_f.write(in_f.read())
+
+            with patch("sys.stdout", stdout):
+                result = _convert_single_file(path, None, convert, True, (ValueError,))
+
+            self.assertTrue(result)
+            self.assertIn("hello", stdout.getvalue())
+
+
+class TestConvertSingleFileReturnValue(TestCase):
+    def test_returns_true_on_success(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.txt")
+            _write_file(path, "hello")
+
+            stdout = StringIO()
+
+            def convert(in_f, out_f):
+                out_f.write(in_f.read())
+
+            with patch("sys.stdout", stdout):
+                result = _convert_single_file(path, None, convert, False, (Exception,))
+
+            self.assertTrue(result)
+
+    def test_returns_false_on_skip(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.txt")
+            _write_file(path, "hello")
+
+            stdout = StringIO()
+
+            def convert(in_f, out_f):
+                raise ValueError("boom")
+
+            with patch("sys.stdout", stdout):
+                result = _convert_single_file(path, None, convert, True, (ValueError,))
+
+            self.assertFalse(result)
+
+
+class TestConvertDirectorySkipTracking(TestCase):
+    def test_returns_false_when_no_skips(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            in_dir = os.path.join(tmpdir, "input")
+            out_dir = os.path.join(tmpdir, "output")
+            os.mkdir(in_dir)
+
+            _write_file(os.path.join(in_dir, "a.tf"), "content")
+
+            def convert(in_f, out_f):
+                out_f.write(in_f.read())
+
+            result = _convert_directory(
+                in_dir,
+                out_dir,
+                convert,
+                True,
+                (ValueError,),
+                in_extensions={".tf"},
+                out_extension=".json",
+            )
+
+            self.assertFalse(result)
+
+    def test_returns_true_when_some_skipped(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            in_dir = os.path.join(tmpdir, "input")
+            out_dir = os.path.join(tmpdir, "output")
+            os.mkdir(in_dir)
+
+            _write_file(os.path.join(in_dir, "good.tf"), "good")
+            _write_file(os.path.join(in_dir, "bad.tf"), "bad")
+
+            def convert(in_f, out_f):
+                data = in_f.read()
+                if "bad" in data:
+                    raise ValueError("boom")
+                out_f.write(data)
+
+            result = _convert_directory(
+                in_dir,
+                out_dir,
+                convert,
+                True,
+                (ValueError,),
+                in_extensions={".tf"},
+                out_extension=".json",
+            )
+
+            self.assertTrue(result)
+
+
+class TestConvertDirectoryNestedOutput(TestCase):
+    def test_nested_output_path_created(self):
+        """Fix #4: -o deep/nested/dir should work via os.makedirs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            in_dir = os.path.join(tmpdir, "input")
+            out_dir = os.path.join(tmpdir, "deep", "nested", "output")
+            os.mkdir(in_dir)
+
+            _write_file(os.path.join(in_dir, "a.tf"), "content")
+
+            def convert(in_f, out_f):
+                out_f.write(in_f.read())
+
+            _convert_directory(
+                in_dir,
+                out_dir,
+                convert,
+                False,
+                (Exception,),
+                in_extensions={".tf"},
+                out_extension=".json",
+            )
+
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "a.json")))
+
+
+class TestConvertMultipleFilesMixedPaths(TestCase):
+    def test_mixed_absolute_and_relative_paths(self):
+        """Fix #2: mixed abs/relative paths should not crash."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            abs_path = os.path.join(tmpdir, "a.tf")
+            _write_file(abs_path, "aaa")
+
+            # Create a relative path by joining cwd-relative components
+            rel_dir = os.path.join(tmpdir, "sub")
+            os.mkdir(rel_dir)
+            rel_path = os.path.join(rel_dir, "b.tf")
+            _write_file(rel_path, "bbb")
+
+            out_dir = os.path.join(tmpdir, "out")
+
+            def convert(_in_f, out_f):
+                out_f.write("ok")
+
+            # Use one absolute and one relative path — should not raise ValueError
+            _convert_multiple_files(
+                [abs_path, rel_path],
+                out_dir,
+                convert,
+                False,
+                (Exception,),
+                out_extension=".json",
+            )
+
+            self.assertTrue(os.path.isdir(out_dir))
+
+    def test_returns_true_when_some_skipped(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.tf"), "good")
+            _write_file(os.path.join(tmpdir, "b.tf"), "bad")
+
+            out_dir = os.path.join(tmpdir, "out")
+
+            def convert(in_f, out_f):
+                data = in_f.read()
+                if "bad" in data:
+                    raise ValueError("boom")
+                out_f.write("ok")
+
+            result = _convert_multiple_files(
+                [os.path.join(tmpdir, "a.tf"), os.path.join(tmpdir, "b.tf")],
+                out_dir,
+                convert,
+                True,
+                (ValueError,),
+                out_extension=".json",
+            )
+
+            self.assertTrue(result)
+
+    def test_returns_false_when_no_skips(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _write_file(os.path.join(tmpdir, "a.tf"), "aaa")
+
+            out_dir = os.path.join(tmpdir, "out")
+
+            def convert(_in_f, out_f):
+                out_f.write("ok")
+
+            result = _convert_multiple_files(
+                [os.path.join(tmpdir, "a.tf")],
+                out_dir,
+                convert,
+                False,
+                (Exception,),
+                out_extension=".json",
+            )
+
+            self.assertFalse(result)
+
+
 class TestQuietMode(TestCase):
     def test_quiet_suppresses_stderr(self):
         with tempfile.TemporaryDirectory() as tmpdir:

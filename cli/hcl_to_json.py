@@ -131,7 +131,9 @@ def _stream_ndjson(  # pylint: disable=too-many-arguments,too-many-positional-ar
                 worst_exit = max(worst_exit, EXIT_PARTIAL)
                 continue
             print(
-                _error(str(exc), error_type="parse_error", file=file_path),
+                _error(
+                    str(exc), use_json=True, error_type="parse_error", file=file_path
+                ),
                 file=sys.stderr,
             )
             return EXIT_PARSE_ERROR
@@ -140,7 +142,7 @@ def _stream_ndjson(  # pylint: disable=too-many-arguments,too-many-positional-ar
                 worst_exit = max(worst_exit, EXIT_PARTIAL)
                 continue
             print(
-                _error(str(exc), error_type="io_error", file=file_path),
+                _error(str(exc), use_json=True, error_type="io_error", file=file_path),
                 file=sys.stderr,
             )
             return EXIT_IO_ERROR
@@ -367,7 +369,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
             elif os.path.isdir(path):
                 if output is None:
                     parser.error("directory to stdout requires --ndjson or -o <dir>")
-                _convert_directory(
+                if _convert_directory(
                     path,
                     output,
                     convert,
@@ -376,7 +378,8 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                     in_extensions=_HCL_EXTENSIONS,
                     out_extension=".json",
                     quiet=quiet,
-                )
+                ):
+                    sys.exit(EXIT_PARTIAL)
             else:
                 print(
                     _error(
@@ -402,7 +405,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                     sys.exit(EXIT_IO_ERROR)
             if output is None:
                 parser.error("multiple files to stdout requires --ndjson or -o <dir>")
-            _convert_multiple_files(
+            if _convert_multiple_files(
                 paths,
                 output,
                 convert,
@@ -410,7 +413,8 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                 HCL_SKIPPABLE,
                 out_extension=".json",
                 quiet=quiet,
-            )
+            ):
+                sys.exit(EXIT_PARTIAL)
     except HCL_SKIPPABLE as exc:
         print(
             _error(str(exc), error_type="parse_error"),

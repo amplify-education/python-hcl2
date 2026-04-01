@@ -135,7 +135,9 @@ class TestJsonToHcl(TestCase):
             _write_file(os.path.join(in_dir, "bad.json"), "{not valid json")
 
             with patch("sys.argv", ["jsontohcl2", "-s", in_dir, "-o", out_dir]):
-                main()
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARTIAL)
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "good.tf")))
 
@@ -186,6 +188,117 @@ class TestJsonToHcl(TestCase):
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "a.tf")))
             self.assertTrue(os.path.exists(os.path.join(out_dir, "b.tf")))
+
+
+class TestMutuallyExclusiveModes(TestCase):
+    def test_diff_and_dry_run_rejected(self):
+        """Fix #5: --diff and --dry-run cannot be combined."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.json")
+            _write_file(path, SIMPLE_JSON)
+
+            stderr = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--diff", path, "--dry-run", path],
+            ):
+                with patch("sys.stderr", stderr):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, 2)
+
+    def test_diff_and_fragment_rejected(self):
+        """Fix #5: --diff and --fragment cannot be combined."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.json")
+            _write_file(path, SIMPLE_JSON)
+
+            stderr = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--diff", path, "--fragment", path],
+            ):
+                with patch("sys.stderr", stderr):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, 2)
+
+    def test_dry_run_and_fragment_rejected(self):
+        """Fix #5: --dry-run and --fragment cannot be combined."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test.json")
+            _write_file(path, SIMPLE_JSON)
+
+            stderr = StringIO()
+            with patch(
+                "sys.argv",
+                ["jsontohcl2", "--dry-run", "--fragment", path],
+            ):
+                with patch("sys.stderr", stderr):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, 2)
+
+
+class TestDirectoryWithoutOutput(TestCase):
+    def test_directory_without_output_errors(self):
+        """Fix #1: jsontohcl2 dir/ without -o should error, not crash."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            in_dir = os.path.join(tmpdir, "input")
+            os.mkdir(in_dir)
+            _write_file(os.path.join(in_dir, "a.json"), SIMPLE_JSON)
+
+            with patch("sys.argv", ["jsontohcl2", in_dir]):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                # argparse parser.error() exits with code 2
+                self.assertEqual(cm.exception.code, 2)
+
+
+class TestPartialFailureExitCode(TestCase):
+    def test_directory_skip_exits_1(self):
+        """Fix #3: directory mode with -s and partial failures should exit 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            in_dir = os.path.join(tmpdir, "input")
+            out_dir = os.path.join(tmpdir, "output")
+            os.mkdir(in_dir)
+
+            _write_file(os.path.join(in_dir, "good.json"), SIMPLE_JSON)
+            _write_file(os.path.join(in_dir, "bad.json"), "{not valid json")
+
+            with patch("sys.argv", ["jsontohcl2", "-s", in_dir, "-o", out_dir]):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARTIAL)
+
+    def test_multiple_files_skip_exits_1(self):
+        """Fix #3: multi-file with -s and partial failures should exit 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            good = os.path.join(tmpdir, "good.json")
+            bad = os.path.join(tmpdir, "bad.json")
+            out_dir = os.path.join(tmpdir, "out")
+            _write_file(good, SIMPLE_JSON)
+            _write_file(bad, "{not valid json")
+
+            with patch("sys.argv", ["jsontohcl2", "-s", good, bad, "-o", out_dir]):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARTIAL)
+
+    def test_multiple_files_to_stdout_skip_exits_1(self):
+        """Fix #3: multi-file to stdout with -s and partial failures should exit 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            good = os.path.join(tmpdir, "good.json")
+            bad = os.path.join(tmpdir, "bad.json")
+            _write_file(good, SIMPLE_JSON)
+            _write_file(bad, "{not valid json")
+
+            stdout = StringIO()
+            with patch("sys.argv", ["jsontohcl2", "-s", good, bad]):
+                with patch("sys.stdout", stdout):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_PARTIAL)
 
 
 class TestJsonToHclFlags(TestCase):

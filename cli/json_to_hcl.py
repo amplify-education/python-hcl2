@@ -122,17 +122,18 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
         action="store_true",
         help="Suppress progress output on stderr (errors still shown)",
     )
-    parser.add_argument(
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
         "--diff",
         metavar="ORIGINAL",
         help="Show unified diff against ORIGINAL file instead of writing output",
     )
-    parser.add_argument(
+    mode_group.add_argument(
         "--dry-run",
         action="store_true",
         help="Convert and print to stdout without writing files",
     )
-    parser.add_argument(
+    mode_group.add_argument(
         "--fragment",
         action="store_true",
         help="Treat input as a JSON fragment (attribute dict, not full HCL document)",
@@ -293,7 +294,9 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                     path, output, convert, args.skip, JSON_SKIPPABLE, quiet=quiet
                 )
             elif os.path.isdir(path):
-                _convert_directory(
+                if output is None:
+                    parser.error("directory conversion requires -o <dir>")
+                if _convert_directory(
                     path,
                     output,
                     convert,
@@ -302,7 +305,8 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                     in_extensions={".json"},
                     out_extension=".tf",
                     quiet=quiet,
-                )
+                ):
+                    sys.exit(EXIT_PARTIAL)
             else:
                 print(
                     _error(
@@ -325,18 +329,20 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                         file=sys.stderr,
                     )
                     sys.exit(EXIT_IO_ERROR)
+            any_skipped = False
             if output is None:
                 for file_path in paths:
-                    _convert_single_file(
+                    if not _convert_single_file(
                         file_path,
                         None,
                         convert,
                         args.skip,
                         JSON_SKIPPABLE,
                         quiet=quiet,
-                    )
+                    ):
+                        any_skipped = True
             else:
-                _convert_multiple_files(
+                any_skipped = _convert_multiple_files(
                     paths,
                     output,
                     convert,
@@ -345,6 +351,8 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                     out_extension=".tf",
                     quiet=quiet,
                 )
+            if any_skipped:
+                sys.exit(EXIT_PARTIAL)
     except json.JSONDecodeError as exc:
         print(
             _error(str(exc), error_type="json_parse_error"),

@@ -186,7 +186,9 @@ class TestHclToJson(TestCase):
             _write_file(os.path.join(in_dir, "bad.tf"), "this is {{{{ not valid hcl")
 
             with patch("sys.argv", ["hcl2tojson", "-s", in_dir, "-o", out_dir]):
-                main()
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARTIAL)
 
             self.assertTrue(os.path.exists(os.path.join(out_dir, "good.json")))
 
@@ -416,6 +418,99 @@ class TestHclToJsonFlags(TestCase):
             output = stdout.getvalue().strip()
             # Compact = single line
             self.assertEqual(output.count("\n"), 0)
+
+
+class TestNdjsonStructuredErrors(TestCase):
+    def test_ndjson_parse_error_is_json(self):
+        """Fix #6: NDJSON mode emits structured JSON errors to stderr."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "bad.tf")
+            _write_file(path, "this is {{{{ not valid hcl")
+
+            stderr = StringIO()
+            with patch("sys.argv", ["hcl2tojson", "--ndjson", path]):
+                with patch("sys.stderr", stderr):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+            # stderr may contain progress line (filename) before the JSON error
+            lines = [
+                ln
+                for ln in stderr.getvalue().strip().splitlines()
+                if ln.startswith("{")
+            ]
+            self.assertEqual(len(lines), 1)
+            data = json.loads(lines[0])
+            self.assertEqual(data["error"], "parse_error")
+            self.assertIn("message", data)
+            self.assertIn("file", data)
+
+    def test_non_ndjson_error_is_plain_text(self):
+        """Non-NDJSON mode still uses plain text errors."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "bad.tf")
+            _write_file(path, "this is {{{{ not valid hcl")
+
+            stderr = StringIO()
+            with patch("sys.argv", ["hcl2tojson", path]):
+                with patch("sys.stderr", stderr):
+                    with self.assertRaises(SystemExit) as cm:
+                        main()
+                    self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
+
+            output = stderr.getvalue()
+            self.assertIn("Error:", output)
+            # Should NOT be JSON
+            json_lines = [ln for ln in output.splitlines() if ln.startswith("{")]
+            self.assertEqual(len(json_lines), 0)
+
+
+class TestPartialFailureExitCode(TestCase):
+    def test_directory_skip_exits_1(self):
+        """Fix #3: directory mode with -s and partial failures should exit 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            in_dir = os.path.join(tmpdir, "input")
+            out_dir = os.path.join(tmpdir, "output")
+            os.mkdir(in_dir)
+
+            _write_file(os.path.join(in_dir, "good.tf"), SIMPLE_HCL)
+            _write_file(os.path.join(in_dir, "bad.tf"), "this is {{{{ not valid")
+
+            with patch("sys.argv", ["hcl2tojson", "-s", in_dir, "-o", out_dir]):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARTIAL)
+
+            # Good file was still converted
+            self.assertTrue(os.path.exists(os.path.join(out_dir, "good.json")))
+
+    def test_multiple_files_skip_exits_1(self):
+        """Fix #3: multi-file with -s and partial failures should exit 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            good = os.path.join(tmpdir, "good.tf")
+            bad = os.path.join(tmpdir, "bad.tf")
+            out_dir = os.path.join(tmpdir, "out")
+            _write_file(good, SIMPLE_HCL)
+            _write_file(bad, "this is {{{{ not valid")
+
+            with patch("sys.argv", ["hcl2tojson", "-s", good, bad, "-o", out_dir]):
+                with self.assertRaises(SystemExit) as cm:
+                    main()
+                self.assertEqual(cm.exception.code, EXIT_PARTIAL)
+
+    def test_all_success_exits_0(self):
+        """No skips means exit 0."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            in_dir = os.path.join(tmpdir, "input")
+            out_dir = os.path.join(tmpdir, "output")
+            os.mkdir(in_dir)
+
+            _write_file(os.path.join(in_dir, "a.tf"), SIMPLE_HCL)
+            _write_file(os.path.join(in_dir, "b.tf"), "y = 2\n")
+
+            with patch("sys.argv", ["hcl2tojson", "-s", in_dir, "-o", out_dir]):
+                main()  # should not raise SystemExit
 
 
 class TestDirectoryEdgeCases(TestCase):
