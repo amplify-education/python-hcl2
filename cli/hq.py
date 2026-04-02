@@ -1,7 +1,6 @@
 """``hq`` CLI entry point — query HCL2 files."""
 
 import argparse
-import glob as glob_mod
 import json
 import multiprocessing
 import os
@@ -21,6 +20,7 @@ from hcl2.query.safe_eval import (
     safe_eval,
 )
 from hcl2.version import __version__
+from .helpers import _expand_file_args  # noqa: F401 — re-exported for tests
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -385,28 +385,7 @@ def _collect_files(path: str) -> List[str]:
     return [path]
 
 
-def _expand_file_args(file_args: List[str]) -> List[str]:
-    """Expand glob patterns in file arguments.
-
-    For each arg containing glob metacharacters (``*``, ``?``, ``[``),
-    expand via :func:`glob.glob` with ``recursive=True``.  Literal paths
-    and ``-`` (stdin) pass through unchanged.  If a glob matches nothing,
-    the literal pattern is kept so the caller produces an IO error.
-    """
-    expanded: List[str] = []
-    for arg in file_args:
-        if arg == "-":
-            expanded.append(arg)
-            continue
-        if any(c in arg for c in "*?["):
-            matches = sorted(glob_mod.glob(arg, recursive=True))
-            if matches:
-                expanded.extend(matches)
-            else:
-                expanded.append(arg)  # keep literal — will produce IO error
-        else:
-            expanded.append(arg)
-    return expanded
+# _expand_file_args is imported from .helpers and re-exported at module level.
 
 
 def _run_query_on_file(

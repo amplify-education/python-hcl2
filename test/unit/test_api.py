@@ -273,9 +273,9 @@ class TestErrorPaths(TestCase):
         with self.assertRaises(Exception):
             loads("this is {{{{ not valid hcl")
 
-    def test_dumps_on_non_dict_returns_empty(self):
-        result = dumps("not a dict")
-        self.assertEqual(result, "")
+    def test_dumps_on_non_dict_raises_type_error(self):
+        with self.assertRaises(TypeError):
+            dumps("not a dict")
 
     def test_from_json_raises_on_invalid_json(self):
         with self.assertRaises(Exception):
