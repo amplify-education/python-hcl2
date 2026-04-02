@@ -64,21 +64,23 @@ class TestBaseDeserializerLoadPython(TestCase):
         self.assertEqual(len(body.children), 1)
         self.assertIsInstance(body.children[0], AttributeRule)
 
-    def test_list_input_produces_start_wrapping_tuple(self):
+    def test_list_input_raises_type_error(self):
         d = _deser()
-        result = d.load_python([1, 2])
-        self.assertIsInstance(result, StartRule)
-        # The child should be a TupleRule (via _deserialize)
-        child = result.children[0]
-        self.assertIsInstance(child, TupleRule)
+        with self.assertRaises(TypeError) as cm:
+            d.load_python([1, 2])
+        self.assertIn("list", str(cm.exception))
 
-    def test_scalar_string_input(self):
+    def test_scalar_string_input_raises_type_error(self):
         d = _deser()
-        result = d.load_python("hello")
-        self.assertIsInstance(result, StartRule)
-        child = result.children[0]
-        self.assertIsInstance(child, IdentifierRule)
-        self.assertEqual(child.token.value, "hello")
+        with self.assertRaises(TypeError) as cm:
+            d.load_python("hello")
+        self.assertIn("str", str(cm.exception))
+
+    def test_scalar_int_input_raises_type_error(self):
+        d = _deser()
+        with self.assertRaises(TypeError) as cm:
+            d.load_python(42)
+        self.assertIn("int", str(cm.exception))
 
     def test_loads_parses_json(self):
         d = _deser()

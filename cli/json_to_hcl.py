@@ -1,18 +1,32 @@
 """``jsontohcl2`` CLI entry point — convert JSON files to HCL2."""
+
 import argparse
+import difflib
 import json
 import os
+import sys
+from io import StringIO
 from typing import TextIO
 
+import hcl2
 from hcl2 import dump
 from hcl2.deserializer import DeserializerOptions
 from hcl2.formatter import FormatterOptions
+from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
+from hcl2.utils import SerializationOptions
 from hcl2.version import __version__
-from .helpers import (
-    JSON_SKIPPABLE,
-    _convert_single_file,
+from cli.helpers import (
+    EXIT_DIFF,
+    EXIT_IO_ERROR,
+    EXIT_PARSE_ERROR,
+    EXIT_PARTIAL,
+    JSON_SKIPPABLE,  # used in _convert_* calls for skip handling
     _convert_directory,
-    _convert_stdin,
+    _convert_multiple_files,
+    _convert_single_file,
+    _error,
+    _expand_file_args,
+    _install_sigpipe_handler,
 )
 
 
@@ -26,22 +40,128 @@ def _json_to_hcl(
     dump(data, out_file, deserializer_options=d_opts, formatter_options=f_opts)
 
 
-def main():
+def _json_to_hcl_string(
+    in_file: TextIO,
+    d_opts: DeserializerOptions,
+    f_opts: FormatterOptions,
+) -> str:
+    """Convert JSON input to an HCL string (for --diff / --dry-run)."""
+    buf = StringIO()
+    _json_to_hcl(in_file, buf, d_opts, f_opts)
+    return buf.getvalue()
+
+
+def _json_to_hcl_fragment(
+    in_file: TextIO,
+    d_opts: DeserializerOptions,
+    f_opts: FormatterOptions,
+) -> str:
+    """Convert a JSON fragment to HCL attribute assignments.
+
+    Unlike normal conversion, this strips ``__is_block__`` markers so the
+    input is always treated as flat attributes — even if it came from
+    ``hcl2tojson`` output.
+    """
+    data = json.load(in_file)
+    if not isinstance(data, dict):
+        raise TypeError(f"--fragment expects a JSON object, got {type(data).__name__}")
+    data = _strip_block_markers(data)
+    buf = StringIO()
+    dump(data, buf, deserializer_options=d_opts, formatter_options=f_opts)
+    return buf.getvalue()
+
+
+def _strip_block_markers(data):
+    """Recursively remove ``__is_block__`` keys from nested dicts."""
+    if isinstance(data, dict):
+        return {
+            k: _strip_block_markers(v) for k, v in data.items() if k != "__is_block__"
+        }
+    if isinstance(data, list):
+        return [_strip_block_markers(item) for item in data]
+    return data
+
+
+_EXAMPLES = """\
+examples:
+  jsontohcl2 file.json                                   # single file to stdout
+  jsontohcl2 a.json b.json -o out/                      # multiple files to output dir
+  jsontohcl2 --diff original.tf modified.json            # preview text changes
+  jsontohcl2 --semantic-diff original.tf modified.json   # semantic-only changes
+  jsontohcl2 --semantic-diff original.tf --diff-json m.json  # semantic diff as JSON
+  jsontohcl2 --dry-run file.json                         # convert without writing
+  jsontohcl2 --fragment -                                # attribute snippet from stdin
+  echo '{"x": 1}' | jsontohcl2                          # stdin (no args needed)
+
+fragment string format:
+  Strings use python-hcl2's inner-quote convention. To produce HCL "value",
+  the JSON string must be: "\\"value\\"". Unquoted strings become identifiers.
+  Example: {"name": "\\"test\\"", "count": 3}  =>  name = "test"  count = 3
+
+exit codes:
+  0  Success
+  1  JSON/encoding parse error
+  2  Valid JSON but incompatible HCL structure
+  4  I/O error (file not found)
+  5  Differences found (--diff / --semantic-diff)
+"""
+
+
+def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-locals
     """The ``jsontohcl2`` console_scripts entry point."""
+    _install_sigpipe_handler()
     parser = argparse.ArgumentParser(
         description="Convert JSON files to HCL2",
+        epilog=_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "-s", dest="skip", action="store_true", help="Skip un-parsable files"
     )
     parser.add_argument(
         "PATH",
-        help='The file or directory to convert (use "-" for stdin)',
+        nargs="*",
+        help="Files, directories, or glob patterns to convert (default: stdin)",
     )
     parser.add_argument(
-        "OUT_PATH",
-        nargs="?",
-        help="The path to write output to. Optional for single file (defaults to stdout)",
+        "-o",
+        "--output",
+        dest="output",
+        help="Output path (file for single input, directory for multiple inputs)",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Suppress progress output on stderr (errors still shown)",
+    )
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--diff",
+        metavar="ORIGINAL",
+        help="Show unified diff against ORIGINAL file instead of writing output",
+    )
+    mode_group.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Convert and print to stdout without writing files",
+    )
+    mode_group.add_argument(
+        "--semantic-diff",
+        metavar="ORIGINAL",
+        help="Show semantic-only diff against ORIGINAL (ignores formatting)",
+    )
+    mode_group.add_argument(
+        "--fragment",
+        action="store_true",
+        help="Treat input as a JSON fragment (attribute dict, not full HCL "
+        'document). Strings must use inner quotes: \'"\\"value\\""\' for HCL '
+        '"value", bare strings become identifiers',
+    )
+    parser.add_argument(
+        "--diff-json",
+        action="store_true",
+        help="Output diff results as JSON (works with --diff and --semantic-diff)",
     )
     parser.add_argument("--version", action="version", version=__version__)
 
@@ -112,25 +232,231 @@ def main():
         vertically_align_attributes=not args.no_align,
         vertically_align_object_elements=not args.no_align,
     )
+    quiet = args.quiet
 
     def convert(in_file, out_file):
         _json_to_hcl(in_file, out_file, d_opts, f_opts)
 
-    if args.PATH == "-":
-        _convert_stdin(convert)
-    elif os.path.isfile(args.PATH):
-        _convert_single_file(
-            args.PATH, args.OUT_PATH, convert, args.skip, JSON_SKIPPABLE
+    # Default to stdin when no paths given
+    paths = args.PATH if args.PATH else ["-"]
+    paths = _expand_file_args(paths)
+    output = args.output
+
+    try:
+        # --diff mode: convert JSON, diff against original file
+        if args.diff:
+            if len(paths) != 1:
+                parser.error("--diff requires exactly one input file")
+            json_path = paths[0]
+            original_path = args.diff
+
+            if not os.path.isfile(original_path):
+                print(
+                    _error(
+                        f"File not found: {original_path}",
+                        error_type="io_error",
+                        file=original_path,
+                    ),
+                    file=sys.stderr,
+                )
+                sys.exit(EXIT_IO_ERROR)
+
+            if json_path == "-":
+                hcl_output = _json_to_hcl_string(sys.stdin, d_opts, f_opts)
+            else:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    hcl_output = _json_to_hcl_string(f, d_opts, f_opts)
+
+            with open(original_path, "r", encoding="utf-8") as f:
+                original_lines = f.readlines()
+
+            converted_lines = hcl_output.splitlines(keepends=True)
+            diff_output = list(
+                difflib.unified_diff(
+                    original_lines,
+                    converted_lines,
+                    fromfile=original_path,
+                    tofile=f"(from {json_path})",
+                )
+            )
+            if diff_output:
+                if args.diff_json:
+                    print(
+                        json.dumps(
+                            {
+                                "from_file": original_path,
+                                "to_file": json_path,
+                                "diff": "".join(diff_output),
+                            },
+                            indent=2,
+                        )
+                    )
+                else:
+                    sys.stdout.writelines(diff_output)
+                sys.exit(EXIT_DIFF)
+            return
+
+        # --semantic-diff mode: compare semantic dicts (ignores formatting)
+        if args.semantic_diff:
+            if len(paths) != 1:
+                parser.error("--semantic-diff requires exactly one input file")
+            json_path = paths[0]
+            original_path = args.semantic_diff
+
+            if not os.path.isfile(original_path):
+                print(
+                    _error(
+                        f"File not found: {original_path}",
+                        error_type="io_error",
+                        file=original_path,
+                    ),
+                    file=sys.stderr,
+                )
+                sys.exit(EXIT_IO_ERROR)
+
+            # Parse original HCL → normalized dict
+            sem_opts = SerializationOptions(
+                with_comments=False, with_meta=False, explicit_blocks=True
+            )
+            with open(original_path, "r", encoding="utf-8") as f:
+                dict_original = hcl2.load(f, serialization_options=sem_opts)
+
+            # Load modified JSON → dict
+            if json_path == "-":
+                dict_modified = json.load(sys.stdin)
+            else:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    dict_modified = json.load(f)
+
+            entries = diff_dicts(dict_original, dict_modified)
+            if entries:
+                if args.diff_json:
+                    print(format_diff_json(entries))
+                else:
+                    print(format_diff_text(entries))
+                sys.exit(EXIT_DIFF)
+            return
+
+        # --dry-run mode: convert to stdout without writing
+        if args.dry_run:
+            if len(paths) != 1:
+                parser.error("--dry-run requires exactly one input file")
+            json_path = paths[0]
+            if json_path == "-":
+                hcl_output = _json_to_hcl_string(sys.stdin, d_opts, f_opts)
+            else:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    hcl_output = _json_to_hcl_string(f, d_opts, f_opts)
+            sys.stdout.write(hcl_output)
+            return
+
+        # --fragment mode: convert JSON fragment to HCL attributes
+        if args.fragment:
+            if len(paths) != 1:
+                parser.error("--fragment requires exactly one input file")
+            json_path = paths[0]
+            if json_path == "-":
+                hcl_output = _json_to_hcl_fragment(sys.stdin, d_opts, f_opts)
+            else:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    hcl_output = _json_to_hcl_fragment(f, d_opts, f_opts)
+            sys.stdout.write(hcl_output)
+            return
+
+        if len(paths) == 1:
+            path = paths[0]
+            if path == "-" or os.path.isfile(path):
+                if not _convert_single_file(
+                    path, output, convert, args.skip, JSON_SKIPPABLE, quiet=quiet
+                ):
+                    sys.exit(EXIT_PARTIAL)
+            elif os.path.isdir(path):
+                if output is None:
+                    parser.error("directory conversion requires -o <dir>")
+                if _convert_directory(
+                    path,
+                    output,
+                    convert,
+                    args.skip,
+                    JSON_SKIPPABLE,
+                    in_extensions={".json"},
+                    out_extension=".tf",
+                    quiet=quiet,
+                ):
+                    sys.exit(EXIT_PARTIAL)
+            else:
+                print(
+                    _error(
+                        f"File not found: {path}",
+                        error_type="io_error",
+                        file=path,
+                    ),
+                    file=sys.stderr,
+                )
+                sys.exit(EXIT_IO_ERROR)
+        else:
+            for file_path in paths:
+                if file_path == "-":
+                    parser.error("stdin (-) cannot be combined with other files")
+                if not os.path.isfile(file_path):
+                    print(
+                        _error(
+                            f"File not found: {file_path}",
+                            error_type="io_error",
+                            file=file_path,
+                        ),
+                        file=sys.stderr,
+                    )
+                    sys.exit(EXIT_IO_ERROR)
+            any_skipped = False
+            if output is None:
+                for file_path in paths:
+                    if not _convert_single_file(
+                        file_path,
+                        None,
+                        convert,
+                        args.skip,
+                        JSON_SKIPPABLE,
+                        quiet=quiet,
+                    ):
+                        any_skipped = True
+            else:
+                any_skipped = _convert_multiple_files(
+                    paths,
+                    output,
+                    convert,
+                    args.skip,
+                    JSON_SKIPPABLE,
+                    out_extension=".tf",
+                    quiet=quiet,
+                )
+            if any_skipped:
+                sys.exit(EXIT_PARTIAL)
+    except json.JSONDecodeError as exc:
+        print(
+            _error(str(exc), error_type="json_parse_error"),
+            file=sys.stderr,
         )
-    elif os.path.isdir(args.PATH):
-        _convert_directory(
-            args.PATH,
-            args.OUT_PATH,
-            convert,
-            args.skip,
-            JSON_SKIPPABLE,
-            in_extensions={".json"},
-            out_extension=".tf",
+        sys.exit(EXIT_PARTIAL)
+    except UnicodeDecodeError as exc:
+        print(
+            _error(str(exc), error_type="parse_error"),
+            file=sys.stderr,
         )
-    else:
-        raise RuntimeError(f"Invalid Path: {args.PATH}")
+        sys.exit(EXIT_PARTIAL)
+    except (KeyError, TypeError, ValueError) as exc:
+        print(
+            _error(str(exc), error_type="structure_error"),
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_PARSE_ERROR)
+    except (OSError, IOError) as exc:
+        print(
+            _error(str(exc), error_type="io_error"),
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_IO_ERROR)
+
+
+if __name__ == "__main__":
+    main()
