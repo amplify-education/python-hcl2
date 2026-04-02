@@ -150,6 +150,86 @@ class TestTemplateDirectives(TestCase):
         self.assertEqual(reserialized, serialized)
 
 
+class TestCommentSerialization(TestCase):
+    """Test that comments are correctly classified during HCL → JSON serialization.
+
+    Covers:
+    - Standalone comments (// and #) at body level → __comments__
+    - Standalone comments absorbed by binary_op grammar → __comments__
+    - Comments inside expressions (objects) → __inline_comments__
+    - Multi-line block comments → __comments__
+    - Comments in nested blocks
+    - Top-level comments
+    """
+
+    maxDiff = None
+    _OPTIONS = SerializationOptions(with_comments=True)
+
+    def test_comment_classification(self):
+        hcl_path = SPECIAL_DIR / "comments.tf"
+        json_path = SPECIAL_DIR / "comments.json"
+
+        actual = _parse_and_serialize(hcl_path.read_text(), options=self._OPTIONS)
+        expected = json.loads(json_path.read_text())
+
+        self.assertEqual(actual, expected)
+
+    def test_top_level_comments(self):
+        actual = _parse_and_serialize("// file header\nx = 1\n", options=self._OPTIONS)
+        self.assertEqual(actual["__comments__"], [{"value": "file header"}])
+
+    def test_standalone_in_body(self):
+        actual = _parse_and_serialize(
+            'resource "a" "b" {\n  # standalone\n  x = 1\n}\n',
+            options=self._OPTIONS,
+        )
+        block = actual["resource"][0]['"a"']['"b"']
+        self.assertEqual(block["__comments__"], [{"value": "standalone"}])
+        self.assertNotIn("__inline_comments__", block)
+
+    def test_absorbed_after_binary_op(self):
+        actual = _parse_and_serialize(
+            "x {\n  a = 1 + 2\n  # absorbed\n  b = 3\n}\n",
+            options=self._OPTIONS,
+        )
+        block = actual["x"][0]
+        self.assertIn({"value": "absorbed"}, block["__comments__"])
+        self.assertNotIn("__inline_comments__", block)
+
+    def test_inline_after_binary_op(self):
+        actual = _parse_and_serialize(
+            "x {\n  a = 1 + 2 # inline\n  b = 3\n}\n",
+            options=self._OPTIONS,
+        )
+        block = actual["x"][0]
+        self.assertEqual(block["__inline_comments__"], [{"value": "inline"}])
+
+    def test_comment_inside_object(self):
+        actual = _parse_and_serialize(
+            "x {\n  m = {\n    # inside\n    k = 1\n  }\n}\n",
+            options=self._OPTIONS,
+        )
+        block = actual["x"][0]
+        self.assertEqual(block["__inline_comments__"], [{"value": "inside"}])
+        self.assertNotIn("__comments__", block)
+
+    def test_multiline_block_comment(self):
+        actual = _parse_and_serialize(
+            "x {\n  /*\n  multi\n  line\n  */\n  a = 1\n}\n",
+            options=self._OPTIONS,
+        )
+        block = actual["x"][0]
+        self.assertEqual(block["__comments__"], [{"value": "multi\n  line"}])
+
+    def test_no_comments_without_option(self):
+        actual = _parse_and_serialize(
+            "// comment\nx = 1\n",
+            options=SerializationOptions(with_comments=False),
+        )
+        self.assertNotIn("__comments__", actual)
+        self.assertNotIn("__inline_comments__", actual)
+
+
 class TestHeredocs(TestCase):
     """Test heredoc serialization, flattening, restoration, and round-trips.
 

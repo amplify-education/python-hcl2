@@ -26,7 +26,17 @@ class NewLineOrCommentRule(TokenRule):
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
         """Serialize to the raw comment/newline string."""
-        return self.token.serialize()
+        return "".join(child.serialize() for child in self._children)
+
+    @property
+    def is_inline(self) -> bool:
+        """True if this comment is on the same line as preceding code.
+
+        A raw string starting with ``\\n`` means the comment sits on its own
+        line (standalone).  One starting with ``#``, ``//``, or ``/*`` is
+        inline — it follows code on the same line.
+        """
+        return not self.serialize().startswith("\n")
 
     def to_list(
         self, options: SerializationOptions = SerializationOptions()
@@ -91,3 +101,11 @@ class InlineCommentMixIn(LarkRule, ABC):
                 result.extend(child.inline_comments())
 
         return result
+
+    def absorbed_comments(self):
+        """Return body-level comments absorbed by grammar into this expression.
+
+        Default: empty.  ``BinaryOpRule`` overrides this because its trailing
+        ``new_line_or_comment?`` can swallow the next body-level comment.
+        """
+        return []

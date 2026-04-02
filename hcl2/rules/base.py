@@ -85,8 +85,8 @@ class BodyRule(LarkRule):
                 attribute_names.add(child.identifier.serialize(options))
                 result.update(child.serialize(options))
                 if options.with_comments:
-                    # collect in-line comments from attribute assignments, expressions etc
                     inline_comments.extend(child.expression.inline_comments())
+                    comments.extend(child.expression.absorbed_comments())
 
             if isinstance(child, NewLineOrCommentRule) and options.with_comments:
                 child_comments = child.to_list()
