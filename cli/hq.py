@@ -667,12 +667,6 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
     serialization_options = None
     if args.with_comments:
         serialization_options = SerializationOptions(with_comments=True)
-        print(
-            "Warning: --with-comments only includes comments for top-level body "
-            "queries (e.g. 'resource[*]' on a single file). Comments adjacent to "
-            "individual blocks are not yet captured by sub-block queries.",
-            file=sys.stderr,
-        )
 
     # --schema: dump schema and exit
     if args.schema:

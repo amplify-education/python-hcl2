@@ -2,6 +2,7 @@
 from unittest import TestCase
 
 from hcl2.query.body import DocumentView
+from hcl2.utils import SerializationOptions
 
 
 class TestAttributeView(TestCase):
@@ -38,3 +39,27 @@ class TestAttributeView(TestCase):
         attr = doc.attribute("x")
         result = attr.to_dict()
         self.assertEqual(result, {"x": 42})
+
+
+class TestAttributeViewAdjacentComments(TestCase):
+    """Tests for adjacent comment merging in AttributeView.to_dict()."""
+
+    _OPTS = SerializationOptions(with_comments=True)
+
+    def test_adjacent_comment(self):
+        doc = DocumentView.parse("# about x\nx = 1\n")
+        attr = doc.body.attributes("x")[0]
+        result = attr.to_dict(options=self._OPTS)
+        self.assertEqual(result["__comments__"], [{"value": "about x"}])
+
+    def test_no_comments_without_option(self):
+        doc = DocumentView.parse("# about x\nx = 1\n")
+        attr = doc.body.attributes("x")[0]
+        result = attr.to_dict()
+        self.assertNotIn("__comments__", result)
+
+    def test_no_adjacent_comments(self):
+        doc = DocumentView.parse("x = 1\n")
+        attr = doc.body.attributes("x")[0]
+        result = attr.to_dict(options=self._OPTS)
+        self.assertNotIn("__comments__", result)

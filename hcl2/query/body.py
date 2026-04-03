@@ -4,6 +4,32 @@ from typing import List, Optional
 
 from hcl2.query._base import NodeView, register_view
 from hcl2.rules.base import AttributeRule, BlockRule, BodyRule, StartRule
+from hcl2.rules.whitespace import NewLineOrCommentRule
+
+
+def _collect_leading_comments(body: BodyRule, child_index: int) -> List[dict]:
+    """Collect comments from NewLineOrCommentRule siblings preceding *child_index*.
+
+    Walks backward through ``body.children`` from ``child_index - 1``,
+    collecting comment dicts via ``to_list()``, stopping at the first
+    ``BlockRule`` or ``AttributeRule`` (the previous semantic sibling) or
+    the start of the children list.
+    """
+    chunks: List[List[dict]] = []
+    for i in range(child_index - 1, -1, -1):
+        sibling = body.children[i]
+        if isinstance(sibling, (BlockRule, AttributeRule)):
+            break
+        if isinstance(sibling, NewLineOrCommentRule):
+            comments = sibling.to_list()
+            if comments:
+                chunks.append(comments)
+    # Reverse node order (walked backward) but keep each node's comments in order
+    chunks.reverse()
+    result: List[dict] = []
+    for chunk in chunks:
+        result.extend(chunk)
+    return result
 
 
 @register_view(StartRule)
@@ -63,7 +89,8 @@ class BodyView(NodeView):
         for child in node.children:
             if not isinstance(child, BlockRule):
                 continue
-            block_view = BlockView(child)
+            adjacent = _collect_leading_comments(node, child.index) or None
+            block_view = BlockView(child, adjacent_comments=adjacent)
             if block_type is not None and block_view.block_type != block_type:
                 continue
             if labels:
@@ -84,7 +111,8 @@ class BodyView(NodeView):
         for child in node.children:
             if not isinstance(child, AttributeRule):
                 continue
-            attr_view = AttributeView(child)
+            adjacent = _collect_leading_comments(node, child.index) or None
+            attr_view = AttributeView(child, adjacent_comments=adjacent)
             if name is not None and attr_view.name != name:
                 continue
             results.append(attr_view)
