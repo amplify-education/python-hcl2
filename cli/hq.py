@@ -1,6 +1,7 @@
 """``hq`` CLI entry point — query HCL2 files."""
 
 import argparse
+import dataclasses
 import json
 import multiprocessing
 import os
@@ -166,92 +167,6 @@ def _rawify(value: Any) -> Any:
     return value
 
 
-def _format_result(
-    result: Any,
-    output_json: bool,
-    output_value: bool,
-    json_indent: Optional[int],
-    output_raw: bool = False,
-    serialization_options: Optional[SerializationOptions] = None,
-) -> str:
-    """Format a single result for output."""
-    if output_json:
-        return json.dumps(
-            _convert_for_json(result, options=serialization_options),
-            indent=json_indent,
-            default=str,
-        )
-
-    if output_raw:
-        if isinstance(result, NodeView):
-            val = result.to_dict()
-            if isinstance(val, str):
-                return _strip_dollar_wrap(_strip_quotes(val))
-            # For dicts with a single key (e.g. attribute), extract the value
-            if isinstance(val, dict) and len(val) == 1:
-                inner = next(iter(val.values()))
-                if isinstance(inner, str):
-                    return _strip_dollar_wrap(_strip_quotes(inner))
-                return str(inner)
-            return json.dumps(_rawify(val), default=str)
-        if isinstance(result, dict):
-            return json.dumps(_rawify(result), default=str)
-        if isinstance(result, str):
-            return _strip_dollar_wrap(_strip_quotes(result))
-        return str(result)
-
-    if output_value:
-        if isinstance(result, NodeView):
-            val = result.to_dict()
-            # Auto-unwrap single-key dicts (e.g. AttributeView → inner value)
-            if isinstance(val, dict) and len(val) == 1:
-                inner = next(iter(val.values()))
-                return _strip_dollar_wrap(str(inner))
-            return _strip_dollar_wrap(str(val))
-        if isinstance(result, str):
-            return _strip_dollar_wrap(result)
-        return str(result)
-
-    # Default: HCL output
-    if isinstance(result, NodeView):
-        return result.to_hcl()
-    if isinstance(result, list):
-        return _format_list(
-            result,
-            output_json,
-            output_value,
-            json_indent,
-            output_raw,
-            serialization_options,
-        )
-    if isinstance(result, str):
-        return _strip_dollar_wrap(result)
-    return str(result)
-
-
-def _format_list(
-    items: list,
-    output_json: bool,
-    output_value: bool,
-    json_indent: Optional[int],
-    output_raw: bool = False,
-    serialization_options: Optional[SerializationOptions] = None,
-) -> str:
-    """Format a list result (e.g. from hybrid mode returning a list property)."""
-    if output_json:
-        converted = [
-            _convert_for_json(item, options=serialization_options) for item in items
-        ]
-        return json.dumps(converted, indent=json_indent, default=str)
-    parts = []
-    for item in items:
-        if isinstance(item, NodeView):
-            parts.append(item.to_hcl() if not output_value else str(item.to_dict()))
-        else:
-            parts.append(str(item))
-    return "[" + ", ".join(parts) + "]" if not output_value else "\n".join(parts)
-
-
 def _convert_for_json(
     value: Any,
     options: Optional[SerializationOptions] = None,
@@ -264,34 +179,105 @@ def _convert_for_json(
     return value
 
 
-def _format_output(
-    results: List[Any],
-    output_json: bool,
-    output_value: bool,
-    json_indent: Optional[int],
-    output_raw: bool = False,
-    serialization_options: Optional[SerializationOptions] = None,
-) -> str:
-    """Format results for final output."""
-    if output_json and len(results) > 1:
-        items = [
-            _convert_for_json(item, options=serialization_options) for item in results
-        ]
-        return json.dumps(items, indent=json_indent, default=str)
+@dataclasses.dataclass
+class OutputConfig:
+    """Output mode configuration for hq results.
 
-    parts = []
-    for result in results:
-        parts.append(
-            _format_result(
-                result,
-                output_json,
-                output_value,
-                json_indent,
-                output_raw,
-                serialization_options,
+    All fields are primitives or dataclasses, ensuring picklability
+    for ``multiprocessing.Pool`` workers.
+    """
+
+    output_json: bool = False
+    output_value: bool = False
+    output_raw: bool = False
+    json_indent: Optional[int] = None
+    ndjson: bool = False
+    with_location: bool = False
+    with_comments: bool = False
+    no_filename: bool = False
+    serialization_options: Optional[SerializationOptions] = None
+
+    def format_result(self, result: Any) -> str:
+        """Format a single result for output."""
+        if self.output_json:
+            return json.dumps(
+                _convert_for_json(result, options=self.serialization_options),
+                indent=self.json_indent,
+                default=str,
             )
-        )
-    return "\n".join(parts)
+
+        if self.output_raw:
+            if isinstance(result, NodeView):
+                val = result.to_dict()
+                if isinstance(val, str):
+                    return _strip_dollar_wrap(_strip_quotes(val))
+                # For dicts with a single key (e.g. attribute), extract the value
+                if isinstance(val, dict) and len(val) == 1:
+                    inner = next(iter(val.values()))
+                    if isinstance(inner, str):
+                        return _strip_dollar_wrap(_strip_quotes(inner))
+                    return str(inner)
+                return json.dumps(_rawify(val), default=str)
+            if isinstance(result, dict):
+                return json.dumps(_rawify(result), default=str)
+            if isinstance(result, str):
+                return _strip_dollar_wrap(_strip_quotes(result))
+            return str(result)
+
+        if self.output_value:
+            if isinstance(result, NodeView):
+                val = result.to_dict()
+                # Auto-unwrap single-key dicts (e.g. AttributeView → inner value)
+                if isinstance(val, dict) and len(val) == 1:
+                    inner = next(iter(val.values()))
+                    return _strip_dollar_wrap(str(inner))
+                return _strip_dollar_wrap(str(val))
+            if isinstance(result, str):
+                return _strip_dollar_wrap(result)
+            return str(result)
+
+        # Default: HCL output
+        if isinstance(result, NodeView):
+            return result.to_hcl()
+        if isinstance(result, list):
+            return self.format_list(result)
+        if isinstance(result, str):
+            return _strip_dollar_wrap(result)
+        return str(result)
+
+    def format_list(self, items: list) -> str:
+        """Format a list result (e.g. from hybrid mode returning a list)."""
+        if self.output_json:
+            converted = [
+                _convert_for_json(item, options=self.serialization_options)
+                for item in items
+            ]
+            return json.dumps(converted, indent=self.json_indent, default=str)
+        parts = []
+        for item in items:
+            if isinstance(item, NodeView):
+                parts.append(
+                    item.to_hcl() if not self.output_value else str(item.to_dict())
+                )
+            else:
+                parts.append(str(item))
+        if not self.output_value:
+            return "[" + ", ".join(parts) + "]"
+        return "\n".join(parts)
+
+    def format_output(self, results: List[Any]) -> str:
+        """Format results for final output."""
+        if self.output_json and len(results) > 1:
+            items = [
+                _convert_for_json(item, options=self.serialization_options)
+                for item in results
+            ]
+            return json.dumps(items, indent=self.json_indent, default=str)
+
+        parts = []
+        for result in results:
+            parts.append(self.format_result(result))
+        return "\n".join(parts)
 
 
 _EXIT_TO_ERROR_TYPE = {
@@ -485,44 +471,29 @@ def _merge_location(converted: Any, location: dict) -> Any:
 def _convert_results(
     results: List[Any],
     file_path: str,
-    with_location: bool,
     multi: bool,
-    no_filename: bool,
-    serialization_options: Optional[SerializationOptions],
+    output_config: OutputConfig,
 ) -> List[Any]:
     """Convert query results for JSON output with location/provenance metadata."""
     converted = []
     for result in results:
-        item = _convert_for_json(result, options=serialization_options)
-        if with_location:
+        item = _convert_for_json(result, options=output_config.serialization_options)
+        if output_config.with_location:
             loc = _extract_location(result, file_path)
             item = _merge_location(item, loc)
-        elif multi and not no_filename:
+        elif multi and not output_config.no_filename:
             item = _inject_provenance(item, file_path)
         converted.append(item)
     return converted
 
 
-def _process_file(args_tuple):  # pylint: disable=too-many-locals
+def _process_file(args_tuple):
     """Worker: parse, query, and convert results for one file.
 
     Returns ``(file_path, exit_code, converted_results, error_msg)``.
     All return values are picklable plain Python objects.
     """
-    (
-        file_path,
-        query,
-        is_eval,
-        raw_query,
-        with_location,
-        with_comments,
-        no_filename,
-        multi,
-        output_json,
-        ndjson,
-    ) = args_tuple
-
-    ser_opts = SerializationOptions(with_comments=True) if with_comments else None
+    file_path, query, is_eval, raw_query, multi, output_config = args_tuple
 
     try:
         with open(file_path, encoding="utf-8") as f:
@@ -545,9 +516,7 @@ def _process_file(args_tuple):  # pylint: disable=too-many-locals
     if not results:
         return (file_path, EXIT_SUCCESS, [], None)
 
-    converted = _convert_results(
-        results, file_path, with_location, multi, no_filename, ser_opts
-    )
+    converted = _convert_results(results, file_path, multi, output_config)
 
     return (file_path, EXIT_SUCCESS, converted, None)
 
@@ -683,6 +652,18 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
     if args.with_comments:
         serialization_options = SerializationOptions(with_comments=True)
 
+    output_config = OutputConfig(
+        output_json=args.json,
+        output_value=args.value,
+        output_raw=output_raw,
+        json_indent=json_indent,
+        ndjson=args.ndjson,
+        with_location=args.with_location,
+        with_comments=args.with_comments,
+        no_filename=args.no_filename,
+        serialization_options=serialization_options,
+    )
+
     # --schema: dump schema and exit
     if args.schema:
         print(json.dumps(build_schema(), indent=2))
@@ -747,19 +728,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
     if use_parallel:
         n_workers = args.jobs or min(os.cpu_count() or 1, len(file_paths))
         worker_args = [
-            (
-                fp,
-                query,
-                False,  # is_eval
-                args.QUERY,
-                args.with_location,
-                args.with_comments,
-                args.no_filename,
-                multi,
-                args.json,
-                args.ndjson,
-            )
-            for fp in file_paths
+            (fp, query, False, args.QUERY, multi, output_config) for fp in file_paths
         ]
 
         with multiprocessing.Pool(n_workers) as pool:
@@ -801,14 +770,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
 
             # NDJSON mode: one JSON object per line (streaming, no accumulation)
             if args.ndjson:
-                items = _convert_results(
-                    results,
-                    file_path,
-                    args.with_location,
-                    multi,
-                    args.no_filename,
-                    serialization_options,
-                )
+                items = _convert_results(results, file_path, multi, output_config)
                 for item in items:
                     line = json.dumps(item, default=str)
                     if multi and not args.no_filename and not args.with_location:
@@ -822,40 +784,19 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
             # JSON mode with multiple files: accumulate for merged output
             if args.json and multi:
                 json_accumulator.extend(
-                    _convert_results(
-                        results,
-                        file_path,
-                        args.with_location,
-                        multi,
-                        args.no_filename,
-                        serialization_options,
-                    )
+                    _convert_results(results, file_path, multi, output_config)
                 )
                 continue
 
             # Single-file JSON with location
             if args.with_location:
-                items = _convert_results(
-                    results,
-                    file_path,
-                    True,
-                    multi,
-                    args.no_filename,
-                    serialization_options,
-                )
+                items = _convert_results(results, file_path, multi, output_config)
                 if len(items) == 1:
                     output = json.dumps(items[0], indent=json_indent, default=str)
                 else:
                     output = json.dumps(items, indent=json_indent, default=str)
             else:
-                output = _format_output(
-                    results,
-                    args.json,
-                    args.value,
-                    json_indent,
-                    output_raw,
-                    serialization_options,
-                )
+                output = output_config.format_output(results)
 
             if multi and not args.no_filename and not args.with_location:
                 prefix = f"{file_path}:"
