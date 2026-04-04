@@ -521,8 +521,8 @@ def _process_file(args_tuple):
     return (file_path, EXIT_SUCCESS, converted, None)
 
 
-def main():  # pylint: disable=too-many-branches,too-many-statements
-    """The ``hq`` console_scripts entry point."""
+def _build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for ``hq``."""
     parser = argparse.ArgumentParser(
         prog="hq",
         description=(
@@ -618,10 +618,14 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
         metavar="N",
         help="Parallel workers (default: auto for large file sets, 0 or 1 = serial)",
     )
+    return parser
 
-    args = parser.parse_args()
 
-    # Validate --ndjson compatibility
+def _validate_and_configure(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> Tuple[bool, OutputConfig]:
+    """Validate argument combinations and build output configuration."""
     if args.ndjson:
         if args.value:
             parser.error("--ndjson cannot be combined with --value")
@@ -639,15 +643,11 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
     else:
         json_indent = None
 
-    # Validate --with-location
     if args.with_location and not use_json:
         parser.error("--with-location requires --json or --ndjson")
-
-    # Validate --with-comments
     if args.with_comments and not use_json:
         parser.error("--with-comments requires --json or --ndjson")
 
-    # Build serialization options
     serialization_options = None
     if args.with_comments:
         serialization_options = SerializationOptions(with_comments=True)
@@ -663,29 +663,38 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
         no_filename=args.no_filename,
         serialization_options=serialization_options,
     )
+    return use_json, output_config
 
+
+def _resolve_query(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+    use_json: bool,
+    output_config: OutputConfig,
+) -> Tuple[str, bool]:
+    """Handle early exits and resolve the query string.
+
+    May call ``sys.exit`` for ``--schema``/``--diff`` or ``parser.error``
+    for invalid arguments and never return.  Otherwise returns
+    ``(query, optional)``.
+    """
     # --schema: dump schema and exit
     if args.schema:
         print(json.dumps(build_schema(), indent=2))
         sys.exit(EXIT_SUCCESS)
 
     # --diff: structural diff mode
-    # Usage: hq FILE1 --diff FILE2  (FILE1 is the first positional arg)
     if args.diff:
         file1 = args.QUERY
         if file1 is None:
             parser.error("--diff requires two files: hq FILE1 --diff FILE2")
-        sys.exit(_run_diff(file1, args.diff, use_json, json_indent))
+        sys.exit(_run_diff(file1, args.diff, use_json, output_config.json_indent))
 
     # QUERY is required unless --schema or --diff
     if args.QUERY is None:
         parser.error("the following arguments are required: QUERY")
 
     # Detect common mistake: user passed a file path but no query.
-    # When only one positional arg is given, argparse puts it in QUERY
-    # and FILE defaults to ["-"].  If stdin is a TTY (not piped) and
-    # QUERY looks like a file/directory path, give a helpful error
-    # instead of hanging on stdin.
     if (
         args.FILE == ["-"]
         and sys.stdin.isatty()
@@ -700,7 +709,17 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
     if optional:
         query = query.rstrip()[:-1].rstrip()
 
-    # Expand globs and collect input files
+    return query, optional
+
+
+def _execute_and_emit(  # pylint: disable=too-many-branches,too-many-statements
+    args: argparse.Namespace,
+    query: str,
+    optional: bool,
+    use_json: bool,
+    output_config: OutputConfig,
+) -> int:
+    """Execute queries across files and emit results. Returns an exit code."""
     expanded_args = _expand_file_args(args.FILE)
     file_paths: List[str] = []
     for file_arg in expanded_args:
@@ -708,7 +727,6 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
 
     any_results = False
     worst_exit = EXIT_SUCCESS
-    # Collect JSON results across files for a single merged array
     json_accumulator: List[Any] = []
     multi = len(file_paths) > 1
 
@@ -792,9 +810,13 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
             if args.with_location:
                 items = _convert_results(results, file_path, multi, output_config)
                 if len(items) == 1:
-                    output = json.dumps(items[0], indent=json_indent, default=str)
+                    output = json.dumps(
+                        items[0], indent=output_config.json_indent, default=str
+                    )
                 else:
-                    output = json.dumps(items, indent=json_indent, default=str)
+                    output = json.dumps(
+                        items, indent=output_config.json_indent, default=str
+                    )
             else:
                 output = output_config.format_output(results)
 
@@ -810,11 +832,22 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
         json_accumulator.sort(
             key=lambda x: x.get("__file__", "") if isinstance(x, dict) else ""
         )
-        print(json.dumps(json_accumulator, indent=json_indent, default=str))
+        print(
+            json.dumps(json_accumulator, indent=output_config.json_indent, default=str)
+        )
 
     if any_results:
-        sys.exit(EXIT_SUCCESS)
-    sys.exit(EXIT_SUCCESS if optional else worst_exit or EXIT_NO_RESULTS)
+        return EXIT_SUCCESS
+    return EXIT_SUCCESS if optional else worst_exit or EXIT_NO_RESULTS
+
+
+def main():
+    """The ``hq`` console_scripts entry point."""
+    parser = _build_parser()
+    args = parser.parse_args()
+    use_json, output_config = _validate_and_configure(parser, args)
+    query, optional = _resolve_query(args, parser, use_json, output_config)
+    sys.exit(_execute_and_emit(args, query, optional, use_json, output_config))
 
 
 if __name__ == "__main__":
