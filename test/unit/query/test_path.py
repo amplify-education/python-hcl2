@@ -189,3 +189,25 @@ class TestParsePath(TestCase):
         segments = parse_path('*[select(.name == "a\\"b")]')
         self.assertEqual(len(segments), 1)
         self.assertIsNotNone(segments[0].predicate)
+
+    # jq compat: .[] as alias for [*]
+
+    def test_jq_iterate_alias(self):
+        """resource.[] is equivalent to resource[*]"""
+        segments = parse_path("resource.[]")
+        expected = parse_path("resource[*]")
+        self.assertEqual(segments, expected)
+
+    def test_jq_iterate_alias_chained(self):
+        """a.b.[] normalizes to a.b[*]"""
+        segments = parse_path("a.b.[]")
+        self.assertEqual(len(segments), 2)
+        self.assertEqual(segments[0].name, "a")
+        self.assertEqual(segments[1].name, "b")
+        self.assertTrue(segments[1].select_all)
+
+    def test_jq_iterate_alias_with_continuation(self):
+        """resource.[].tags normalizes to resource[*].tags"""
+        segments = parse_path("resource.[].tags")
+        expected = parse_path("resource[*].tags")
+        self.assertEqual(segments, expected)
