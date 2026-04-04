@@ -482,6 +482,27 @@ def _merge_location(converted: Any, location: dict) -> Any:
     return {"__value__": converted, **location}
 
 
+def _convert_results(
+    results: List[Any],
+    file_path: str,
+    with_location: bool,
+    multi: bool,
+    no_filename: bool,
+    serialization_options: Optional[SerializationOptions],
+) -> List[Any]:
+    """Convert query results for JSON output with location/provenance metadata."""
+    converted = []
+    for result in results:
+        item = _convert_for_json(result, options=serialization_options)
+        if with_location:
+            loc = _extract_location(result, file_path)
+            item = _merge_location(item, loc)
+        elif multi and not no_filename:
+            item = _inject_provenance(item, file_path)
+        converted.append(item)
+    return converted
+
+
 def _process_file(args_tuple):  # pylint: disable=too-many-locals
     """Worker: parse, query, and convert results for one file.
 
@@ -524,15 +545,9 @@ def _process_file(args_tuple):  # pylint: disable=too-many-locals
     if not results:
         return (file_path, EXIT_SUCCESS, [], None)
 
-    converted = []
-    for result in results:
-        item = _convert_for_json(result, options=ser_opts)
-        if with_location:
-            loc = _extract_location(result, file_path)
-            item = _merge_location(item, loc)
-        elif multi and not no_filename:
-            item = _inject_provenance(item, file_path)
-        converted.append(item)
+    converted = _convert_results(
+        results, file_path, with_location, multi, no_filename, ser_opts
+    )
 
     return (file_path, EXIT_SUCCESS, converted, None)
 
@@ -786,41 +801,48 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
 
             # NDJSON mode: one JSON object per line (streaming, no accumulation)
             if args.ndjson:
-                for result in results:
-                    converted = _convert_for_json(result, options=serialization_options)
-                    if args.with_location:
-                        loc = _extract_location(result, file_path)
-                        converted = _merge_location(converted, loc)
-                    elif multi and not args.no_filename:
-                        converted = _inject_provenance(converted, file_path)
-                    line = json.dumps(converted, default=str)
+                items = _convert_results(
+                    results,
+                    file_path,
+                    args.with_location,
+                    multi,
+                    args.no_filename,
+                    serialization_options,
+                )
+                for item in items:
+                    line = json.dumps(item, default=str)
                     if multi and not args.no_filename and not args.with_location:
                         # provenance already injected into dict; for non-dicts
                         # prefix with filename
-                        if not isinstance(converted, dict):
+                        if not isinstance(item, dict):
                             line = f"{file_path}:{line}"
                     print(line, flush=True)
                 continue
 
             # JSON mode with multiple files: accumulate for merged output
             if args.json and multi:
-                for result in results:
-                    converted = _convert_for_json(result, options=serialization_options)
-                    if args.with_location:
-                        loc = _extract_location(result, file_path)
-                        converted = _merge_location(converted, loc)
-                    elif not args.no_filename:
-                        converted = _inject_provenance(converted, file_path)
-                    json_accumulator.append(converted)
+                json_accumulator.extend(
+                    _convert_results(
+                        results,
+                        file_path,
+                        args.with_location,
+                        multi,
+                        args.no_filename,
+                        serialization_options,
+                    )
+                )
                 continue
 
             # Single-file JSON with location
             if args.with_location:
-                items = []
-                for result in results:
-                    converted = _convert_for_json(result, options=serialization_options)
-                    loc = _extract_location(result, file_path)
-                    items.append(_merge_location(converted, loc))
+                items = _convert_results(
+                    results,
+                    file_path,
+                    True,
+                    multi,
+                    args.no_filename,
+                    serialization_options,
+                )
                 if len(items) == 1:
                     output = json.dumps(items[0], indent=json_indent, default=str)
                 else:
