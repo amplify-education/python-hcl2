@@ -712,7 +712,54 @@ def _resolve_query(
     return query, optional
 
 
-def _execute_and_emit(  # pylint: disable=too-many-branches,too-many-statements
+def _emit_file_results(
+    results: List[Any],
+    file_path: str,
+    multi: bool,
+    output_config: OutputConfig,
+    json_accumulator: List[Any],
+) -> None:
+    """Format and emit query results for one file."""
+    # NDJSON mode: one JSON object per line (streaming, no accumulation)
+    if output_config.ndjson:
+        items = _convert_results(results, file_path, multi, output_config)
+        for item in items:
+            line = json.dumps(item, default=str)
+            if (
+                multi
+                and not output_config.no_filename
+                and not output_config.with_location
+            ):
+                # provenance already injected into dict; for non-dicts
+                # prefix with filename
+                if not isinstance(item, dict):
+                    line = f"{file_path}:{line}"
+            print(line, flush=True)
+        return
+
+    # JSON mode with multiple files: accumulate for merged output
+    if output_config.output_json and multi:
+        json_accumulator.extend(
+            _convert_results(results, file_path, multi, output_config)
+        )
+        return
+
+    # Single-file JSON with location
+    if output_config.with_location:
+        items = _convert_results(results, file_path, multi, output_config)
+        data = items[0] if len(items) == 1 else items
+        output = json.dumps(data, indent=output_config.json_indent, default=str)
+    else:
+        output = output_config.format_output(results)
+
+    if multi and not output_config.no_filename and not output_config.with_location:
+        prefix = f"{file_path}:"
+        print("\n".join(prefix + line for line in output.splitlines()))
+    else:
+        print(output)
+
+
+def _execute_and_emit(  # pylint: disable=too-many-branches
     args: argparse.Namespace,
     query: str,
     optional: bool,
@@ -786,45 +833,9 @@ def _execute_and_emit(  # pylint: disable=too-many-branches,too-many-statements
                 print(json.dumps(describe_results(results), indent=2))
                 continue
 
-            # NDJSON mode: one JSON object per line (streaming, no accumulation)
-            if args.ndjson:
-                items = _convert_results(results, file_path, multi, output_config)
-                for item in items:
-                    line = json.dumps(item, default=str)
-                    if multi and not args.no_filename and not args.with_location:
-                        # provenance already injected into dict; for non-dicts
-                        # prefix with filename
-                        if not isinstance(item, dict):
-                            line = f"{file_path}:{line}"
-                    print(line, flush=True)
-                continue
-
-            # JSON mode with multiple files: accumulate for merged output
-            if args.json and multi:
-                json_accumulator.extend(
-                    _convert_results(results, file_path, multi, output_config)
-                )
-                continue
-
-            # Single-file JSON with location
-            if args.with_location:
-                items = _convert_results(results, file_path, multi, output_config)
-                if len(items) == 1:
-                    output = json.dumps(
-                        items[0], indent=output_config.json_indent, default=str
-                    )
-                else:
-                    output = json.dumps(
-                        items, indent=output_config.json_indent, default=str
-                    )
-            else:
-                output = output_config.format_output(results)
-
-            if multi and not args.no_filename and not args.with_location:
-                prefix = f"{file_path}:"
-                print("\n".join(prefix + line for line in output.splitlines()))
-            else:
-                print(output)
+            _emit_file_results(
+                results, file_path, multi, output_config, json_accumulator
+            )
 
     # Emit accumulated JSON results as a single merged array
     if json_accumulator:
