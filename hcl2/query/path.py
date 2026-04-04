@@ -41,6 +41,9 @@ def parse_path(path_str: str) -> List[PathSegment]:  # pylint: disable=too-many-
     if not path_str or not path_str.strip():
         raise QuerySyntaxError("Empty path")
 
+    # jq compat: .[] is an alias for [*]
+    path_str = path_str.replace(".[]", "[*]")
+
     segments: List[PathSegment] = []
     parts = _split_path(path_str)
 
