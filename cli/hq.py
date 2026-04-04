@@ -23,12 +23,25 @@ from hcl2.query.safe_eval import (
 from hcl2.version import __version__
 from .helpers import _expand_file_args  # noqa: F401 — re-exported for tests
 
-# Exit codes
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
 EXIT_SUCCESS = 0
 EXIT_NO_RESULTS = 1
 EXIT_PARSE_ERROR = 2
 EXIT_QUERY_ERROR = 3
 EXIT_IO_ERROR = 4
+
+_EXIT_TO_ERROR_TYPE = {
+    EXIT_IO_ERROR: "io_error",
+    EXIT_PARSE_ERROR: "parse_error",
+    EXIT_QUERY_ERROR: "query_error",
+}
+
+_HCL_EXTENSIONS = {".tf", ".hcl", ".tfvars"}
+
+_EVAL_PREFIXES = tuple(f"{name}(" for name in sorted(_SAFE_CALLABLE_NAMES)) + ("doc",)
 
 EXAMPLES_TEXT = """\
 examples:
@@ -95,8 +108,126 @@ examples:
 docs: https://github.com/amplify-education/python-hcl2/tree/main/docs
 """
 
+# ---------------------------------------------------------------------------
+# Helpers: strings
+# ---------------------------------------------------------------------------
 
-_EVAL_PREFIXES = tuple(f"{name}(" for name in sorted(_SAFE_CALLABLE_NAMES)) + ("doc",)
+
+def _strip_dollar_wrap(text: str) -> str:
+    """Strip ``${...}`` wrapping from a serialized expression string."""
+    if text.startswith("${") and text.endswith("}"):
+        return text[2:-1]
+    return text
+
+
+def _strip_quotes(text: str) -> str:
+    """Strip surrounding quotes from a string value."""
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        return text[1:-1]
+    return text
+
+
+def _rawify(value: Any) -> Any:
+    """Recursively strip quotes and ${} wrapping from all string values."""
+    if isinstance(value, str):
+        return _strip_dollar_wrap(_strip_quotes(value))
+    if isinstance(value, dict):
+        return {k: _rawify(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_rawify(v) for v in value]
+    return value
+
+
+# ---------------------------------------------------------------------------
+# Helpers: I/O & errors
+# ---------------------------------------------------------------------------
+
+
+def _read_input(path: str) -> str:
+    """Read from a file path, or stdin if path is ``-``."""
+    if path == "-":
+        return sys.stdin.read()
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+def _collect_files(path: str) -> List[str]:
+    """Return a list of HCL file paths from a file path, directory, or stdin marker."""
+    if path == "-":
+        return ["-"]
+    if os.path.isdir(path):
+        return sorted(
+            os.path.join(dp, fn)
+            for dp, _, fnames in os.walk(path)
+            for fn in fnames
+            if os.path.splitext(fn)[1] in _HCL_EXTENSIONS
+        )
+    return [path]
+
+
+# _expand_file_args is imported from .helpers and re-exported at module level.
+
+
+def _error(msg: str, use_json: bool, **extra) -> str:
+    """Format an error message."""
+    if use_json:
+        return json.dumps(
+            {"error": extra.get("error_type", "error"), "message": msg, **extra}
+        )
+    return f"Error: {msg}"
+
+
+# ---------------------------------------------------------------------------
+# Helpers: JSON conversion & result metadata
+# ---------------------------------------------------------------------------
+
+
+def _convert_for_json(
+    value: Any,
+    options: Optional[SerializationOptions] = None,
+) -> Any:
+    """Recursively convert NodeViews to dicts for JSON serialization."""
+    if isinstance(value, NodeView):
+        return value.to_dict(options=options)
+    if isinstance(value, list):
+        return [_convert_for_json(item, options=options) for item in value]
+    return value
+
+
+def _inject_provenance(converted: Any, file_path: str) -> Any:
+    """Add ``__file__`` key to dict results for multi-file provenance."""
+    if isinstance(converted, dict):
+        return {"__file__": file_path, **converted}
+    return converted
+
+
+def _extract_location(result: Any, file_path: str) -> dict:
+    """Extract source location metadata from a result."""
+    from hcl2.query.pipeline import _LocatedDict
+
+    loc: dict = {"__file__": file_path}
+    meta = None
+    if isinstance(result, NodeView):
+        meta = getattr(result.raw, "_meta", None)
+    elif isinstance(result, _LocatedDict):
+        meta = result._source_meta
+    if meta is not None:
+        for attr in ("line", "end_line", "column", "end_column"):
+            if hasattr(meta, attr):
+                loc[f"__{attr}__"] = getattr(meta, attr)
+    return loc
+
+
+def _merge_location(converted: Any, location: dict) -> Any:
+    """Merge location metadata into a converted JSON value."""
+    if isinstance(converted, dict):
+        return {**location, **converted}
+    return {"__value__": converted, **location}
+
+
+# ---------------------------------------------------------------------------
+# Query dispatch
+# ---------------------------------------------------------------------------
 
 
 def _normalize_eval_expr(expr_part: str) -> str:
@@ -142,41 +273,9 @@ def _dispatch_query(
     return execute_pipeline(doc_view, stages, file_path=file_path)
 
 
-def _strip_dollar_wrap(text: str) -> str:
-    """Strip ``${...}`` wrapping from a serialized expression string."""
-    if text.startswith("${") and text.endswith("}"):
-        return text[2:-1]
-    return text
-
-
-def _strip_quotes(text: str) -> str:
-    """Strip surrounding quotes from a string value."""
-    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
-        return text[1:-1]
-    return text
-
-
-def _rawify(value: Any) -> Any:
-    """Recursively strip quotes and ${} wrapping from all string values."""
-    if isinstance(value, str):
-        return _strip_dollar_wrap(_strip_quotes(value))
-    if isinstance(value, dict):
-        return {k: _rawify(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_rawify(v) for v in value]
-    return value
-
-
-def _convert_for_json(
-    value: Any,
-    options: Optional[SerializationOptions] = None,
-) -> Any:
-    """Recursively convert NodeViews to dicts for JSON serialization."""
-    if isinstance(value, NodeView):
-        return value.to_dict(options=options)
-    if isinstance(value, list):
-        return [_convert_for_json(item, options=options) for item in value]
-    return value
+# ---------------------------------------------------------------------------
+# Output: formatting & lifecycle
+# ---------------------------------------------------------------------------
 
 
 @dataclasses.dataclass
@@ -273,27 +372,175 @@ class OutputConfig:
                 for item in results
             ]
             return json.dumps(items, indent=self.json_indent, default=str)
-
-        parts = []
-        for result in results:
-            parts.append(self.format_result(result))
-        return "\n".join(parts)
+        return "\n".join(self.format_result(r) for r in results)
 
 
-_EXIT_TO_ERROR_TYPE = {
-    EXIT_IO_ERROR: "io_error",
-    EXIT_PARSE_ERROR: "parse_error",
-    EXIT_QUERY_ERROR: "query_error",
-}
+def _convert_results(
+    results: List[Any],
+    file_path: str,
+    multi: bool,
+    output_config: OutputConfig,
+) -> List[Any]:
+    """Convert query results for JSON output with location/provenance metadata."""
+    converted = []
+    for result in results:
+        item = _convert_for_json(result, options=output_config.serialization_options)
+        if output_config.with_location:
+            loc = _extract_location(result, file_path)
+            item = _merge_location(item, loc)
+        elif multi and not output_config.no_filename:
+            item = _inject_provenance(item, file_path)
+        converted.append(item)
+    return converted
 
 
-def _error(msg: str, use_json: bool, **extra) -> str:
-    """Format an error message."""
-    if use_json:
-        data = {"error": extra.get("error_type", "error"), "message": msg}
-        data.update(extra)
-        return json.dumps(data)
-    return f"Error: {msg}"
+class OutputSink:
+    """Owns the result output lifecycle: stream or accumulate, then flush."""
+
+    def __init__(self, output_config: OutputConfig, multi: bool):
+        self.config = output_config
+        self.multi = multi
+        self._accumulator: List[Any] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.flush()
+        return False
+
+    def emit(self, results: List[Any], file_path: str) -> None:
+        """Emit raw query results for one file (serial path)."""
+        # NDJSON — stream immediately
+        if self.config.ndjson:
+            for item in _convert_results(results, file_path, self.multi, self.config):
+                line = json.dumps(item, default=str)
+                if (
+                    self.multi
+                    and not self.config.no_filename
+                    and not self.config.with_location
+                    and not isinstance(item, dict)
+                ):
+                    line = f"{file_path}:{line}"
+                print(line, flush=True)
+            return
+
+        # JSON + multi — accumulate for merged output
+        if self.config.output_json and self.multi:
+            self._accumulator.extend(
+                _convert_results(results, file_path, self.multi, self.config)
+            )
+            return
+
+        # Single-file output (with_location or default)
+        if self.config.with_location:
+            items = _convert_results(results, file_path, self.multi, self.config)
+            data = items[0] if len(items) == 1 else items
+            output = json.dumps(data, indent=self.config.json_indent, default=str)
+        else:
+            output = self.config.format_output(results)
+
+        if self.multi and not self.config.no_filename and not self.config.with_location:
+            prefix = f"{file_path}:"
+            print("\n".join(prefix + ln for ln in output.splitlines()))
+        else:
+            print(output)
+
+    def emit_converted(self, converted: List[Any]) -> None:
+        """Emit pre-converted results (parallel path)."""
+        if self.config.ndjson:
+            for item in converted:
+                print(json.dumps(item, default=str), flush=True)
+        elif self.config.output_json and self.multi:
+            self._accumulator.extend(converted)
+
+    def flush(self) -> None:
+        """Sort and emit accumulated JSON results."""
+        if not self._accumulator:
+            return
+        self._accumulator.sort(
+            key=lambda x: x.get("__file__", "") if isinstance(x, dict) else ""
+        )
+        print(
+            json.dumps(self._accumulator, indent=self.config.json_indent, default=str)
+        )
+        self._accumulator.clear()
+
+
+# ---------------------------------------------------------------------------
+# File-level query execution
+# ---------------------------------------------------------------------------
+
+
+def _run_query_on_file(
+    file_path: str,
+    query: str,
+    is_eval: bool,
+    use_json: bool,
+    raw_query: str,
+) -> Tuple[Optional[List[Any]], int]:
+    """Parse a file and run a query.
+
+    Returns ``(results, exit_code)``.  On error, results is ``None`` and
+    exit_code is one of the ``EXIT_*`` constants.
+    """
+    try:
+        text = _read_input(file_path)
+    except (OSError, IOError) as exc:
+        print(_error(str(exc), use_json, error_type="io_error"), file=sys.stderr)
+        return None, EXIT_IO_ERROR
+
+    try:
+        doc = DocumentView.parse(text)
+    except Exception as exc:  # pylint: disable=broad-except
+        print(
+            _error(str(exc), use_json, error_type="parse_error", file=file_path),
+            file=sys.stderr,
+        )
+        return None, EXIT_PARSE_ERROR
+
+    try:
+        return _dispatch_query(query, is_eval, doc, file_path=file_path), EXIT_SUCCESS
+    except Exception as exc:  # pylint: disable=broad-except
+        if isinstance(exc, QuerySyntaxError):
+            extra = {"error_type": "query_syntax", "query": raw_query}
+        elif isinstance(exc, UnsafeExpressionError):
+            extra = {"error_type": "unsafe_expression", "expression": raw_query}
+        else:
+            extra = {"error_type": "eval_error", "query": raw_query}
+        print(_error(str(exc), use_json, **extra), file=sys.stderr)
+        return None, EXIT_QUERY_ERROR
+
+
+def _process_file(args_tuple):
+    """Worker: parse, query, and convert results for one file.
+
+    Returns ``(file_path, exit_code, converted_results, error_msg)``.
+    All return values are picklable plain Python objects.
+    """
+    file_path, query, is_eval, raw_query, multi, output_config = args_tuple
+
+    try:
+        text = _read_input(file_path)
+    except (OSError, IOError) as exc:
+        return (file_path, EXIT_IO_ERROR, None, str(exc))
+
+    try:
+        doc = DocumentView.parse(text)
+    except Exception as exc:  # pylint: disable=broad-except
+        return (file_path, EXIT_PARSE_ERROR, None, str(exc))
+
+    try:
+        results = _dispatch_query(query, is_eval, doc, file_path=file_path)
+    except Exception as exc:  # pylint: disable=broad-except
+        return (file_path, EXIT_QUERY_ERROR, None, str(exc))
+
+    if not results:
+        return (file_path, EXIT_SUCCESS, [], None)
+
+    converted = _convert_results(results, file_path, multi, output_config)
+
+    return (file_path, EXIT_SUCCESS, converted, None)
 
 
 def _run_diff(
@@ -321,16 +568,8 @@ def _run_diff(
             sys.exit(EXIT_IO_ERROR)
 
     try:
-        if file1 == "-":
-            text1 = sys.stdin.read()
-        else:
-            with open(file1, encoding="utf-8") as f:
-                text1 = f.read()
-        if file2 == "-":
-            text2 = sys.stdin.read()
-        else:
-            with open(file2, encoding="utf-8") as f:
-                text2 = f.read()
+        text1 = _read_input(file1)
+        text2 = _read_input(file2)
     except (OSError, IOError) as exc:
         print(_error(str(exc), use_json, error_type="io_error"), file=sys.stderr)
         sys.exit(EXIT_IO_ERROR)
@@ -353,172 +592,9 @@ def _run_diff(
     return EXIT_NO_RESULTS
 
 
-_HCL_EXTENSIONS = {".tf", ".hcl", ".tfvars"}
-
-
-def _collect_files(path: str) -> List[str]:
-    """Return a list of HCL file paths from a file path, directory, or stdin marker."""
-    if path == "-":
-        return ["-"]
-    if os.path.isdir(path):
-        files = []
-        for dirpath, _, filenames in os.walk(path):
-            for fname in sorted(filenames):
-                if os.path.splitext(fname)[1] in _HCL_EXTENSIONS:
-                    files.append(os.path.join(dirpath, fname))
-        files.sort()
-        return files
-    return [path]
-
-
-# _expand_file_args is imported from .helpers and re-exported at module level.
-
-
-def _run_query_on_file(
-    file_path: str,
-    query: str,
-    is_eval: bool,
-    use_json: bool,
-    raw_query: str,
-) -> Tuple[Optional[List[Any]], int]:
-    """Parse a file and run a query.
-
-    Returns ``(results, exit_code)``.  On error, results is ``None`` and
-    exit_code is one of the ``EXIT_*`` constants.
-    """
-    try:
-        if file_path == "-":
-            text = sys.stdin.read()
-        else:
-            with open(file_path, encoding="utf-8") as f:
-                text = f.read()
-    except (OSError, IOError) as exc:
-        print(_error(str(exc), use_json, error_type="io_error"), file=sys.stderr)
-        return None, EXIT_IO_ERROR
-
-    try:
-        doc = DocumentView.parse(text)
-    except Exception as exc:  # pylint: disable=broad-except
-        print(
-            _error(str(exc), use_json, error_type="parse_error", file=file_path),
-            file=sys.stderr,
-        )
-        return None, EXIT_PARSE_ERROR
-
-    try:
-        return _dispatch_query(query, is_eval, doc, file_path=file_path), EXIT_SUCCESS
-    except QuerySyntaxError as exc:
-        print(
-            _error(str(exc), use_json, error_type="query_syntax", query=raw_query),
-            file=sys.stderr,
-        )
-        return None, EXIT_QUERY_ERROR
-    except UnsafeExpressionError as exc:
-        print(
-            _error(
-                str(exc),
-                use_json,
-                error_type="unsafe_expression",
-                expression=raw_query,
-            ),
-            file=sys.stderr,
-        )
-        return None, EXIT_QUERY_ERROR
-    except Exception as exc:  # pylint: disable=broad-except
-        print(
-            _error(str(exc), use_json, error_type="eval_error", query=raw_query),
-            file=sys.stderr,
-        )
-        return None, EXIT_QUERY_ERROR
-
-
-def _inject_provenance(converted: Any, file_path: str) -> Any:
-    """Add ``__file__`` key to dict results for multi-file provenance."""
-    if isinstance(converted, dict):
-        return {"__file__": file_path, **converted}
-    return converted
-
-
-def _extract_location(result: Any, file_path: str) -> dict:
-    """Extract source location metadata from a result."""
-    from hcl2.query.pipeline import _LocatedDict
-
-    loc: dict = {"__file__": file_path}
-    meta = None
-    if isinstance(result, NodeView):
-        meta = getattr(result.raw, "_meta", None)
-    elif isinstance(result, _LocatedDict):
-        meta = result._source_meta
-    if meta is not None:
-        if hasattr(meta, "line"):
-            loc["__line__"] = meta.line
-        if hasattr(meta, "end_line"):
-            loc["__end_line__"] = meta.end_line
-        if hasattr(meta, "column"):
-            loc["__column__"] = meta.column
-        if hasattr(meta, "end_column"):
-            loc["__end_column__"] = meta.end_column
-    return loc
-
-
-def _merge_location(converted: Any, location: dict) -> Any:
-    """Merge location metadata into a converted JSON value."""
-    if isinstance(converted, dict):
-        return {**location, **converted}
-    return {"__value__": converted, **location}
-
-
-def _convert_results(
-    results: List[Any],
-    file_path: str,
-    multi: bool,
-    output_config: OutputConfig,
-) -> List[Any]:
-    """Convert query results for JSON output with location/provenance metadata."""
-    converted = []
-    for result in results:
-        item = _convert_for_json(result, options=output_config.serialization_options)
-        if output_config.with_location:
-            loc = _extract_location(result, file_path)
-            item = _merge_location(item, loc)
-        elif multi and not output_config.no_filename:
-            item = _inject_provenance(item, file_path)
-        converted.append(item)
-    return converted
-
-
-def _process_file(args_tuple):
-    """Worker: parse, query, and convert results for one file.
-
-    Returns ``(file_path, exit_code, converted_results, error_msg)``.
-    All return values are picklable plain Python objects.
-    """
-    file_path, query, is_eval, raw_query, multi, output_config = args_tuple
-
-    try:
-        with open(file_path, encoding="utf-8") as f:
-            text = f.read()
-    except (OSError, IOError) as exc:
-        return (file_path, EXIT_IO_ERROR, None, str(exc))
-
-    try:
-        doc = DocumentView.parse(text)
-    except Exception as exc:  # pylint: disable=broad-except
-        return (file_path, EXIT_PARSE_ERROR, None, str(exc))
-
-    try:
-        results = _dispatch_query(query, is_eval, doc, file_path=file_path)
-    except (QuerySyntaxError, UnsafeExpressionError) as exc:
-        return (file_path, EXIT_QUERY_ERROR, None, str(exc))
-    except Exception as exc:  # pylint: disable=broad-except
-        return (file_path, EXIT_QUERY_ERROR, None, str(exc))
-
-    if not results:
-        return (file_path, EXIT_SUCCESS, [], None)
-
-    converted = _convert_results(results, file_path, multi, output_config)
-
-    return (file_path, EXIT_SUCCESS, converted, None)
+# ---------------------------------------------------------------------------
+# CLI: argument parsing & orchestration
+# ---------------------------------------------------------------------------
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -712,54 +788,7 @@ def _resolve_query(
     return query, optional
 
 
-def _emit_file_results(
-    results: List[Any],
-    file_path: str,
-    multi: bool,
-    output_config: OutputConfig,
-    json_accumulator: List[Any],
-) -> None:
-    """Format and emit query results for one file."""
-    # NDJSON mode: one JSON object per line (streaming, no accumulation)
-    if output_config.ndjson:
-        items = _convert_results(results, file_path, multi, output_config)
-        for item in items:
-            line = json.dumps(item, default=str)
-            if (
-                multi
-                and not output_config.no_filename
-                and not output_config.with_location
-            ):
-                # provenance already injected into dict; for non-dicts
-                # prefix with filename
-                if not isinstance(item, dict):
-                    line = f"{file_path}:{line}"
-            print(line, flush=True)
-        return
-
-    # JSON mode with multiple files: accumulate for merged output
-    if output_config.output_json and multi:
-        json_accumulator.extend(
-            _convert_results(results, file_path, multi, output_config)
-        )
-        return
-
-    # Single-file JSON with location
-    if output_config.with_location:
-        items = _convert_results(results, file_path, multi, output_config)
-        data = items[0] if len(items) == 1 else items
-        output = json.dumps(data, indent=output_config.json_indent, default=str)
-    else:
-        output = output_config.format_output(results)
-
-    if multi and not output_config.no_filename and not output_config.with_location:
-        prefix = f"{file_path}:"
-        print("\n".join(prefix + line for line in output.splitlines()))
-    else:
-        print(output)
-
-
-def _execute_and_emit(  # pylint: disable=too-many-branches
+def _execute_and_emit(
     args: argparse.Namespace,
     query: str,
     optional: bool,
@@ -767,17 +796,13 @@ def _execute_and_emit(  # pylint: disable=too-many-branches
     output_config: OutputConfig,
 ) -> int:
     """Execute queries across files and emit results. Returns an exit code."""
-    expanded_args = _expand_file_args(args.FILE)
-    file_paths: List[str] = []
-    for file_arg in expanded_args:
-        file_paths.extend(_collect_files(file_arg))
-
+    file_paths = [
+        fp for fa in _expand_file_args(args.FILE) for fp in _collect_files(fa)
+    ]
     any_results = False
     worst_exit = EXIT_SUCCESS
-    json_accumulator: List[Any] = []
     multi = len(file_paths) > 1
 
-    # Decide whether to use parallel processing
     use_parallel = (
         multi
         and len(file_paths) >= 20
@@ -787,65 +812,45 @@ def _execute_and_emit(  # pylint: disable=too-many-branches
         and (args.json or args.ndjson)
         and (args.jobs is None or args.jobs > 1)
     )
-    if args.jobs is not None and args.jobs <= 1:
-        use_parallel = False
 
-    if use_parallel:
-        n_workers = args.jobs or min(os.cpu_count() or 1, len(file_paths))
-        worker_args = [
-            (fp, query, False, args.QUERY, multi, output_config) for fp in file_paths
-        ]
-
-        with multiprocessing.Pool(n_workers) as pool:
-            for file_path, exit_code, converted, error_msg in pool.imap_unordered(
-                _process_file, worker_args
-            ):
-                if error_msg:
-                    etype = _EXIT_TO_ERROR_TYPE.get(exit_code, "error")
-                    print(
-                        _error(error_msg, use_json, error_type=etype),
-                        file=sys.stderr,
-                    )
+    with OutputSink(output_config, multi) as sink:
+        if use_parallel:
+            n_workers = args.jobs or min(os.cpu_count() or 1, len(file_paths))
+            worker_args = [
+                (fp, query, False, args.QUERY, multi, output_config)
+                for fp in file_paths
+            ]
+            with multiprocessing.Pool(n_workers) as pool:
+                for fp, exit_code, converted, error_msg in pool.imap_unordered(
+                    _process_file, worker_args
+                ):
+                    if error_msg:
+                        etype = _EXIT_TO_ERROR_TYPE.get(exit_code, "error")
+                        print(
+                            _error(error_msg, use_json, error_type=etype),
+                            file=sys.stderr,
+                        )
+                        worst_exit = max(worst_exit, exit_code)
+                        continue
+                    if not converted:
+                        continue
+                    any_results = True
+                    sink.emit_converted(converted)
+        else:
+            for file_path in file_paths:
+                results, exit_code = _run_query_on_file(
+                    file_path, query, args.eval, use_json, args.QUERY
+                )
+                if results is None:
                     worst_exit = max(worst_exit, exit_code)
                     continue
-                if not converted:
+                if not results:
                     continue
                 any_results = True
-
-                if args.ndjson:
-                    for item in converted:
-                        print(json.dumps(item, default=str), flush=True)
-                elif args.json and multi:
-                    json_accumulator.extend(converted)
-    else:
-        for file_path in file_paths:
-            results, exit_code = _run_query_on_file(
-                file_path, query, args.eval, use_json, args.QUERY
-            )
-            if results is None:
-                worst_exit = max(worst_exit, exit_code)
-                continue  # parse/query error already printed
-            if not results:
-                continue
-            any_results = True
-
-            if args.describe:
-                print(json.dumps(describe_results(results), indent=2))
-                continue
-
-            _emit_file_results(
-                results, file_path, multi, output_config, json_accumulator
-            )
-
-    # Emit accumulated JSON results as a single merged array
-    if json_accumulator:
-        # Sort by __file__ for deterministic output (parallel uses imap_unordered)
-        json_accumulator.sort(
-            key=lambda x: x.get("__file__", "") if isinstance(x, dict) else ""
-        )
-        print(
-            json.dumps(json_accumulator, indent=output_config.json_indent, default=str)
-        )
+                if args.describe:
+                    print(json.dumps(describe_results(results), indent=2))
+                    continue
+                sink.emit(results, file_path)
 
     if any_results:
         return EXIT_SUCCESS
