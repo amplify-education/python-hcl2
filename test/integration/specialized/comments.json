@@ -1,0 +1,57 @@
+{
+  "resource": [
+    {
+      "\"aws_instance\"": {
+        "\"web\"": {
+          "ami": "\"abc-123\"",
+          "instance_type": "\"t2.micro\"",
+          "count": "${1 + 2}",
+          "tags": {
+            "Name": "\"web\"",
+            "Env": "\"prod\""
+          },
+          "enabled": "true",
+          "nested": [
+            {
+              "key": "\"value\"",
+              "__comments__": [
+                {
+                  "value": "comment inside nested block"
+                }
+              ],
+              "__is_block__": true
+            }
+          ],
+          "__comments__": [
+            {
+              "value": "standalone comment inside block"
+            },
+            {
+              "value": "hash standalone comment"
+            },
+            {
+              "value": "absorbed standalone after binary_op"
+            },
+            {
+              "value": "multi-line\n  block comment"
+            }
+          ],
+          "__inline_comments__": [
+            {
+              "value": "comment inside object"
+            },
+            {
+              "value": "inline after value"
+            }
+          ],
+          "__is_block__": true
+        }
+      }
+    }
+  ],
+  "__comments__": [
+    {
+      "value": "top-level standalone comment"
+    }
+  ]
+}

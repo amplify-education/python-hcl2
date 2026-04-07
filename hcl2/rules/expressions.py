@@ -242,6 +242,38 @@ class BinaryOpRule(ExpressionRule):
         """Return the binary term (operator + right-hand operand)."""
         return self._children[1]
 
+    @property
+    def _trailing_nl(self) -> Optional[NewLineOrCommentRule]:
+        """Return the trailing new_line_or_comment child, if present."""
+        child = self._children[2]
+        if isinstance(child, NewLineOrCommentRule):
+            return child
+        return None
+
+    def inline_comments(self):
+        """Collect inline comments, excluding absorbed body-level comments."""
+        trailing = self._trailing_nl
+        result = []
+        for child in self._children:
+            if isinstance(child, NewLineOrCommentRule):
+                # Trailing NL_OR_COMMENT with a leading newline contains
+                # body-level comments absorbed by the grammar, not inline ones.
+                if child is trailing and not child.is_inline:
+                    continue
+                comments = child.to_list()
+                if comments is not None:
+                    result.extend(comments)
+            elif isinstance(child, InlineCommentMixIn):
+                result.extend(child.inline_comments())
+        return result
+
+    def absorbed_comments(self):
+        """Return body-level comments absorbed into the trailing NL_OR_COMMENT."""
+        trailing = self._trailing_nl
+        if trailing is not None and not trailing.is_inline:
+            return trailing.to_list() or []
+        return []
+
     def serialize(
         self, options=SerializationOptions(), context=SerializationContext()
     ) -> Any:
