@@ -23,6 +23,7 @@ The **Direct** pipeline (`parse_to_tree` → `transform` → `to_lark` → `reco
 | `hcl2/formatter.py` | Whitespace alignment and spacing on LarkElement trees |
 | `hcl2/reconstructor.py` | LarkElement tree → HCL2 text via Lark |
 | `hcl2/builder.py` | Programmatic HCL document construction |
+| `hcl2/walk.py` | Generic tree-walking primitives for the LarkElement IR tree |
 | `hcl2/utils.py` | `SerializationOptions`, `SerializationContext`, string helpers |
 | `hcl2/const.py` | Constants: `IS_BLOCK`, `COMMENTS_KEY`, `INLINE_COMMENTS_KEY` |
 | `cli/helpers.py` | File/directory/stdin conversion helpers |
@@ -31,8 +32,15 @@ The **Direct** pipeline (`parse_to_tree` → `transform` → `to_lark` → `reco
 | `cli/hq.py` | `hq` CLI entry point — query dispatch, formatting, optional operator |
 | `hcl2/query/__init__.py` | Public query API exports |
 | `hcl2/query/_base.py` | `NodeView` base class, view registry, `view_for()` factory |
+| `hcl2/query/body.py` | `DocumentView`, `BodyView` facades for top-level and body queries |
+| `hcl2/query/blocks.py` | `BlockView` facade for block queries |
+| `hcl2/query/attributes.py` | `AttributeView` facade for attribute queries |
+| `hcl2/query/containers.py` | `TupleView`, `ObjectView` facades for container queries |
+| `hcl2/query/expressions.py` | `ConditionalView` facade for conditional expressions |
+| `hcl2/query/functions.py` | `FunctionCallView` facade for function call queries |
+| `hcl2/query/for_exprs.py` | `ForTupleView`, `ForObjectView` facades for for-expressions |
 | `hcl2/query/path.py` | Structural path parser (`PathSegment`, `parse_path`, `[select()]`, `type:name`) |
-| `hcl2/query/resolver.py` | Path resolver — segment-by-segment with label depth, type filter, FunctionCallView |
+| `hcl2/query/resolver.py` | Path resolver — segment-by-segment with label depth, type filter |
 | `hcl2/query/pipeline.py` | Pipe operator — `split_pipeline`, `classify_stage`, `execute_pipeline` |
 | `hcl2/query/builtins.py` | Built-in transforms: `keys`, `values`, `length` |
 | `hcl2/query/diff.py` | Structural diff between two HCL documents |
@@ -65,12 +73,13 @@ Follows the `json` module convention. All option parameters are keyword-only.
 
 - `load/loads` — HCL2 text → Python dict
 - `dump/dumps` — Python dict → HCL2 text
+- `query` — HCL2 text/file → `DocumentView` for structured queries
 - Intermediate stages: `parse/parses`, `parse_to_tree/parses_to_tree`, `transform`, `serialize`, `from_dict`, `from_json`, `reconstruct`
 
 ### Option Dataclasses
 
 **`SerializationOptions`** (LarkElement → dict):
-`with_comments`, `with_meta`, `wrap_objects`, `wrap_tuples`, `explicit_blocks`, `preserve_heredocs`, `force_operation_parentheses`, `preserve_scientific_notation`
+`with_comments`, `with_meta`, `wrap_objects`, `wrap_tuples`, `explicit_blocks`, `preserve_heredocs`, `force_operation_parentheses`, `preserve_scientific_notation`, `strip_string_quotes`
 
 **`DeserializerOptions`** (dict → LarkElement):
 `heredocs_to_strings`, `strings_to_heredocs`, `object_elements_colon`, `object_elements_trailing_comma`

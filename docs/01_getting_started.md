@@ -10,6 +10,12 @@ python-hcl2 requires Python 3.8 or higher.
 pip install python-hcl2
 ```
 
+For the CLI tools only (`hcl2tojson`, `jsontohcl2`, `hq`), [pipx](https://pipx.pypa.io/) installs them globally in an isolated environment:
+
+```sh
+pipx install python-hcl2
+```
+
 ## Quick Reference
 
 | Function | Description |
