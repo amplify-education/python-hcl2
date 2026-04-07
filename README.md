@@ -7,8 +7,9 @@
 # Python HCL2
 
 A parser for [HCL2](https://github.com/hashicorp/hcl/blob/hcl2/hclsyntax/spec.md) written in Python using
-[Lark](https://github.com/lark-parser/lark). This parser only supports HCL2 and isn't backwards compatible
-with HCL v1. It can be used to parse any HCL2 config file such as Terraform.
+[Lark](https://github.com/lark-parser/lark). It can be used as a Python library or through its CLI tools:
+`hcl2tojson`, `jsontohcl2`, and `hq` — a jq-like query tool for HCL files.
+Supports HCL2 only (not backwards compatible with HCL v1) and works with any HCL2 config file such as Terraform.
 
 ## About Amplify
 
@@ -31,6 +32,12 @@ This package can be installed using `pip`
 
 ```sh
 pip3 install python-hcl2
+```
+
+To install the CLI tools (`hcl2tojson`, `jsontohcl2`, `hq`) globally without affecting your project environments, use [pipx](https://pipx.pypa.io/):
+
+```sh
+pipx install python-hcl2
 ```
 
 ### Usage
@@ -75,6 +82,7 @@ hcl_string = hcl2.dumps(doc.build())
 | [Querying HCL (Python)](docs/02_querying.md) | DocumentView, BlockView, tree walking, view hierarchy |
 | [Advanced API](docs/03_advanced_api.md) | Pipeline stages, Builder |
 | [hq Reference](docs/04_hq.md) | `hq` CLI — structural queries, hybrid/eval, introspection |
+| [hq Examples](docs/05_hq_examples.md) | Real-world queries for discovery, compliance, extraction |
 
 ### CLI Tools
 
@@ -123,13 +131,10 @@ Github actions will take care of publishing it to PyPi.
 
 Planned features, roughly in priority order:
 
-- **Agent-friendly CLIs** — structured errors, NDJSON streaming, and filtering for `hcl2tojson`/`jsontohcl2`
-- **Comment deserialization** — preserve comments through JSON round-trip (issue #134)
-- **jq syntax compatibility** — `.[]` as alias for `[*]`; canonical `hq --json | jq` patterns for data transforms
 - **MCP server** — expose parsing, querying, and formatting as MCP tools for AI agents
-- **Canonical formatting** — predictable whitespace output, closer to `terraform fmt`
+- **Predictable formatting** — source-derived formatting heuristics and stable whitespace defaults
 - **In-place tree edits** — `hq set`, `hq delete` for programmatic HCL modification
-- **Comment reserialization** — comments survive tree edits, not just JSON round-trips
+- **Comment deserialization** — comments survive JSON round-trips and tree edits
 - **Expression intelligence** — variable reference tracking, unused variable detection, cross-file analysis
 - **Refactoring operations** — `hq rename`, `hq extract-module`, `hq sort` for high-level code transforms
 
