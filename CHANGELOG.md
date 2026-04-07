@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Added
+
+- v7-to-v8 migration guide and absolute GitHub links in README docs table. ([#287](https://github.com/amplify-education/python-hcl2/pull/287))
 
 ## \[8.1.0\] - 2026-04-07
 

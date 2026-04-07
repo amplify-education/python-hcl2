@@ -78,11 +78,12 @@ hcl_string = hcl2.dumps(doc.build())
 
 | Guide | Contents |
 |---|---|
-| [Getting Started](docs/01_getting_started.md) | Installation, load/dump, options, CLI converters |
-| [Querying HCL (Python)](docs/02_querying.md) | DocumentView, BlockView, tree walking, view hierarchy |
-| [Advanced API](docs/03_advanced_api.md) | Pipeline stages, Builder |
-| [hq Reference](docs/04_hq.md) | `hq` CLI — structural queries, hybrid/eval, introspection |
-| [hq Examples](docs/05_hq_examples.md) | Real-world queries for discovery, compliance, extraction |
+| [Getting Started](https://github.com/amplify-education/python-hcl2/blob/main/docs/01_getting_started.md) | Installation, load/dump, options, CLI converters |
+| [Querying HCL (Python)](https://github.com/amplify-education/python-hcl2/blob/main/docs/02_querying.md) | DocumentView, BlockView, tree walking, view hierarchy |
+| [Advanced API](https://github.com/amplify-education/python-hcl2/blob/main/docs/03_advanced_api.md) | Pipeline stages, Builder |
+| [hq Reference](https://github.com/amplify-education/python-hcl2/blob/main/docs/04_hq.md) | `hq` CLI — structural queries, hybrid/eval, introspection |
+| [hq Examples](https://github.com/amplify-education/python-hcl2/blob/main/docs/05_hq_examples.md) | Real-world queries for discovery, compliance, extraction |
+| [Migrating to v8](https://github.com/amplify-education/python-hcl2/blob/main/docs/06_migrating_to_v8.md) | Breaking changes, updated API patterns, v7-compat options |
 
 ### CLI Tools
 
