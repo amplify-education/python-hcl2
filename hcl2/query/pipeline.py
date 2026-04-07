@@ -149,6 +149,8 @@ def classify_stage(stage_str: str) -> Any:
 
     # Allow jq-style leading dot (e.g. ".foo" in a pipe stage)
     path_str = stripped
+    if path_str == ".":
+        return PathStage(segments=[])
     if path_str.startswith(".") and len(path_str) > 1 and path_str[1] != ".":
         path_str = path_str[1:]
 
