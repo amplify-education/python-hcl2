@@ -12,6 +12,7 @@ from cli.hq import (
     EXIT_PARSE_ERROR,
     EXIT_QUERY_ERROR,
     EXIT_SUCCESS,
+    OutputConfig,
     _dispatch_query,
     _expand_file_args,
     _normalize_eval_expr,
@@ -904,7 +905,7 @@ class TestProcessFile(TestCase):
             f.write("x = 1\n")
             f.flush()
             try:
-                args = (f.name, "x", False, "x", False, False, False, True, True, False)
+                args = (f.name, "x", False, "x", True, OutputConfig(output_json=True))
                 _fp, code, converted, err = _process_file(args)
                 self.assertEqual(code, EXIT_SUCCESS)
                 self.assertIsNone(err)
@@ -919,12 +920,8 @@ class TestProcessFile(TestCase):
             "x",
             False,
             "x",
-            False,
-            False,
-            False,
             True,
-            True,
-            False,
+            OutputConfig(output_json=True),
         )
         _fp, code, _converted, err = _process_file(args)
         self.assertEqual(code, EXIT_IO_ERROR)
@@ -936,18 +933,7 @@ class TestProcessFile(TestCase):
             f.write("{invalid\n")
             f.flush()
             try:
-                args = (
-                    f.name,
-                    "x",
-                    False,
-                    "x",
-                    False,
-                    False,
-                    False,
-                    True,
-                    True,
-                    False,
-                )
+                args = (f.name, "x", False, "x", True, OutputConfig(output_json=True))
                 _fp, code, _converted, err = _process_file(args)
                 self.assertEqual(code, EXIT_PARSE_ERROR)
                 self.assertIsNotNone(err)
@@ -964,12 +950,8 @@ class TestProcessFile(TestCase):
                     "nonexistent",
                     False,
                     "nonexistent",
-                    False,
-                    False,
-                    False,
                     True,
-                    True,
-                    False,
+                    OutputConfig(output_json=True),
                 )
                 _fp, code, converted, err = _process_file(args)
                 self.assertEqual(code, EXIT_SUCCESS)
