@@ -1,11 +1,14 @@
 """BlockView facade."""
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
+from hcl2.const import COMMENTS_KEY
 from hcl2.query._base import NodeView, register_view
+from hcl2.rules.abstract import LarkElement
 from hcl2.rules.base import BlockRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.strings import StringRule
+from hcl2.utils import SerializationOptions
 
 
 def _label_to_str(label) -> str:
@@ -24,6 +27,14 @@ def _label_to_str(label) -> str:
 @register_view(BlockRule)
 class BlockView(NodeView):
     """View over an HCL2 block (BlockRule)."""
+
+    def __init__(
+        self,
+        node: LarkElement,
+        adjacent_comments: Optional[List[dict]] = None,
+    ):
+        super().__init__(node)
+        self._adjacent_comments = adjacent_comments
 
     @property
     def block_type(self) -> str:
@@ -49,6 +60,21 @@ class BlockView(NodeView):
 
         node: BlockRule = self._node  # type: ignore[assignment]
         return BodyView(node.body)
+
+    def to_dict(self, options: Optional[SerializationOptions] = None) -> Any:
+        """Serialize, merging adjacent comments from the parent body."""
+        result = super().to_dict(options=options)
+        if (
+            self._adjacent_comments
+            and options is not None
+            and options.with_comments
+            and isinstance(result, dict)
+        ):
+            # Place adjacent comments at the outer level of the block dict,
+            # alongside the label keys — not drilled into the body dict.
+            existing = result.get(COMMENTS_KEY, [])
+            result[COMMENTS_KEY] = self._adjacent_comments + existing
+        return result
 
     def blocks(
         self, block_type: Optional[str] = None, *labels: str
