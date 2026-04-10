@@ -14,6 +14,10 @@ ELSE : "else"
 ENDIF : "endif"
 ENDFOR : "endfor"
 
+// Literal value keywords
+NULL : "null"
+TRUE : "true"
+FALSE : "false"
 
 // Literals
 NAME : /[a-zA-Z_][a-zA-Z0-9_-]*/
@@ -94,7 +98,7 @@ start : body
 // Body and basic constructs
 body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
 attribute : _attribute_name EQ expression
-_attribute_name : identifier | keyword
+_attribute_name : identifier | keyword | literal_value
 block : identifier (identifier | string)* new_line_or_comment? LBRACE body RBRACE
 
 // Whitespace and comments
@@ -103,6 +107,7 @@ new_line_or_comment: ( NL_OR_COMMENT )+
 // Basic literals and identifiers
 identifier : NAME
 keyword: IN | FOR | IF | FOR_EACH | ELSE | ENDIF | ENDFOR
+literal_value: TRUE | FALSE | NULL
 int_lit: INT_LITERAL
 float_lit: FLOAT_LITERAL
 string: DBLQUOTE string_part* DBLQUOTE
@@ -189,6 +194,7 @@ expr_term : LPAR new_line_or_comment? expression new_line_or_comment? RPAR
             | tuple
             | object
             | identifier
+            | literal_value
             | function_call
             | heredoc_template
             | heredoc_template_trim
@@ -223,7 +229,7 @@ full_splat_expr_term : expr_term full_splat
 ?index : braces_index | short_index
 braces_index : LSQB new_line_or_comment? expression new_line_or_comment? RSQB
 short_index : DOT INT_LITERAL
-get_attr : DOT identifier
+get_attr : DOT (identifier | literal_value)
 attr_splat : ATTR_SPLAT (get_attr | index)*
 full_splat : FULL_SPLAT_START (get_attr | index)*
 

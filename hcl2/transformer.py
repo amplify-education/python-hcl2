@@ -48,6 +48,7 @@ from hcl2.rules.literal_rules import (
     IdentifierRule,
     BinaryOperatorRule,
     KeywordRule,
+    LiteralValueRule,
 )
 from hcl2.rules.strings import (
     InterpolationRule,
@@ -133,8 +134,9 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def attribute(self, meta: Meta, args) -> AttributeRule:
-        # _attribute_name is flattened, so args[0] may be KeywordRule or IdentifierRule
-        if isinstance(args[0], KeywordRule):
+        # _attribute_name is flattened, so args[0] may be KeywordRule,
+        # LiteralValueRule, or IdentifierRule
+        if isinstance(args[0], (KeywordRule, LiteralValueRule)):
             args[0] = IdentifierRule([NAME(args[0].token.value)], meta)
         return AttributeRule(args, meta)
 
@@ -153,6 +155,10 @@ class RuleTransformer(Transformer):
     @v_args(meta=True)
     def keyword(self, meta: Meta, args) -> KeywordRule:
         return KeywordRule(args, meta)
+
+    @v_args(meta=True)
+    def literal_value(self, meta: Meta, args) -> LiteralValueRule:
+        return LiteralValueRule(args, meta)
 
     @v_args(meta=True)
     def int_lit(self, meta: Meta, args) -> IntLitRule:
@@ -333,8 +339,18 @@ class RuleTransformer(Transformer):
         if isinstance(expr, ExprTermRule) and len(expr.children) == 5:
             inner = expr.children[2]  # position 2 in [None, None, inner, None, None]
             if isinstance(
-                inner, (IdentifierRule, StringRule, IntLitRule, FloatLitRule)
+                inner,
+                (
+                    IdentifierRule,
+                    StringRule,
+                    IntLitRule,
+                    FloatLitRule,
+                    LiteralValueRule,
+                ),
             ):
+                # Convert literal_value to identifier for dict key compatibility
+                if isinstance(inner, LiteralValueRule):
+                    inner = IdentifierRule([NAME(inner.token.value)], meta)
                 return ObjectElemKeyRule([inner], meta)
         # Any other expression (parenthesized or bare)
         return ObjectElemKeyExpressionRule([expr], meta)
@@ -361,6 +377,10 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def get_attr(self, meta: Meta, args) -> GetAttrRule:
+        # Convert literal_value (true/false/null) to identifier in attr access
+        if len(args) >= 2 and isinstance(args[1], LiteralValueRule):
+            args = list(args)
+            args[1] = IdentifierRule([NAME(args[1].token.value)], meta)
         return GetAttrRule(args, meta)
 
     @v_args(meta=True)

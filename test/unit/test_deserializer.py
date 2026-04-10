@@ -11,7 +11,12 @@ from hcl2.rules.containers import (
     ObjectElemKeyExpressionRule,
 )
 from hcl2.rules.expressions import ExprTermRule
-from hcl2.rules.literal_rules import IdentifierRule, IntLitRule, FloatLitRule
+from hcl2.rules.literal_rules import (
+    IdentifierRule,
+    IntLitRule,
+    FloatLitRule,
+    LiteralValueRule,
+)
 from hcl2.rules.strings import (
     StringRule,
     StringPartRule,
@@ -98,13 +103,13 @@ class TestDeserializeText(TestCase):
     def test_bool_true(self):
         d = _deser()
         result = d._deserialize_text(True)
-        self.assertIsInstance(result, IdentifierRule)
+        self.assertIsInstance(result, LiteralValueRule)
         self.assertEqual(result.token.value, "true")
 
     def test_bool_false(self):
         d = _deser()
         result = d._deserialize_text(False)
-        self.assertIsInstance(result, IdentifierRule)
+        self.assertIsInstance(result, LiteralValueRule)
         self.assertEqual(result.token.value, "false")
 
     def test_bool_before_int(self):
@@ -112,7 +117,13 @@ class TestDeserializeText(TestCase):
         d = _deser()
         result = d._deserialize_text(True)
         self.assertNotIsInstance(result, IntLitRule)
-        self.assertIsInstance(result, IdentifierRule)
+        self.assertIsInstance(result, LiteralValueRule)
+
+    def test_none_value(self):
+        d = _deser()
+        result = d._deserialize_text(None)
+        self.assertIsInstance(result, LiteralValueRule)
+        self.assertEqual(result.token.value, "null")
 
     def test_int_value(self):
         d = _deser()
@@ -145,9 +156,8 @@ class TestDeserializeText(TestCase):
     def test_non_string_non_numeric_fallback(self):
         """Non-string, non-numeric values get str()-converted to identifier."""
         d = _deser()
-        result = d._deserialize_text(None)
+        result = d._deserialize_text(object())
         self.assertIsInstance(result, IdentifierRule)
-        self.assertEqual(result.token.value, "None")
 
     def test_zero_int(self):
         d = _deser()

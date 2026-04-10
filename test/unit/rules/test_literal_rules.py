@@ -7,8 +7,17 @@ from hcl2.rules.literal_rules import (
     IntLitRule,
     FloatLitRule,
     BinaryOperatorRule,
+    LiteralValueRule,
 )
-from hcl2.rules.tokens import NAME, BINARY_OP, IntLiteral, FloatLiteral
+from hcl2.rules.tokens import (
+    NAME,
+    BINARY_OP,
+    IntLiteral,
+    FloatLiteral,
+    TRUE,
+    FALSE,
+    NULL,
+)
 from hcl2.utils import SerializationContext, SerializationOptions
 
 
@@ -24,6 +33,38 @@ class TestKeywordRule(TestCase):
     def test_serialize(self):
         rule = KeywordRule([NAME("true")])
         self.assertEqual(rule.serialize(), "true")
+
+
+class TestLiteralValueRule(TestCase):
+    def test_lark_name(self):
+        self.assertEqual(LiteralValueRule.lark_name(), "literal_value")
+
+    def test_serialize_true(self):
+        rule = LiteralValueRule([TRUE()])
+        self.assertIs(rule.serialize(), True)
+
+    def test_serialize_false(self):
+        rule = LiteralValueRule([FALSE()])
+        self.assertIs(rule.serialize(), False)
+
+    def test_serialize_null(self):
+        rule = LiteralValueRule([NULL()])
+        self.assertIs(rule.serialize(), None)
+
+    def test_serialize_inside_dollar_string(self):
+        rule = LiteralValueRule([NULL()])
+        ctx = SerializationContext(inside_dollar_string=True)
+        self.assertEqual(rule.serialize(context=ctx), "null")
+
+    def test_serialize_true_inside_dollar_string(self):
+        rule = LiteralValueRule([TRUE()])
+        ctx = SerializationContext(inside_dollar_string=True)
+        self.assertEqual(rule.serialize(context=ctx), "true")
+
+    def test_token_property(self):
+        token = TRUE()
+        rule = LiteralValueRule([token])
+        self.assertIs(rule.token, token)
 
 
 class TestIdentifierRule(TestCase):

@@ -30,6 +30,7 @@ from hcl2.rules.literal_rules import (
     IdentifierRule,
     IntLitRule,
     FloatLitRule,
+    LiteralValueRule,
 )
 from hcl2.rules.strings import (
     StringRule,
@@ -55,6 +56,9 @@ from hcl2.rules.tokens import (
     HEREDOC_TRIM_TEMPLATE,
     HEREDOC_TEMPLATE,
     COLON,
+    TRUE,
+    FALSE,
+    NULL,
 )
 from hcl2.transformer import RuleTransformer
 from hcl2.utils import HEREDOC_TRIM_PATTERN, HEREDOC_PATTERN
@@ -152,7 +156,12 @@ class BaseDeserializer(LarkElementTreeDeserializer):
     def _deserialize_text(self, value: Any) -> LarkRule:
         # bool must be checked before int since bool is a subclass of int
         if isinstance(value, bool):
-            return self._deserialize_identifier(str(value).lower())
+            if value:
+                return LiteralValueRule([TRUE()])
+            return LiteralValueRule([FALSE()])
+
+        if value is None:
+            return LiteralValueRule([NULL()])
 
         if isinstance(value, float):
             return FloatLitRule([FloatLiteral(value)])
