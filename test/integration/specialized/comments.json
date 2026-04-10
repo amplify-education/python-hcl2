@@ -10,7 +10,7 @@
             "Name": "\"web\"",
             "Env": "\"prod\""
           },
-          "enabled": "true",
+          "enabled": true,
           "nested": [
             {
               "key": "\"value\"",

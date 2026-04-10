@@ -56,7 +56,7 @@
   "locals": [
     {
       "port": 8080,
-      "enabled": "true",
+      "enabled": true,
       "name": "\"my-app\"",
       "__is_block__": true
     }

@@ -16,7 +16,7 @@ from hcl2.rules.directives import (
     TemplateEndforRule,
 )
 from hcl2.rules.for_expressions import ForIntroRule, ForTupleExprRule, ForObjectExprRule
-from hcl2.rules.literal_rules import IdentifierRule
+from hcl2.rules.literal_rules import IdentifierRule, LiteralValueRule
 from hcl2.rules.strings import StringRule
 from hcl2.rules.expressions import (
     ExprTermRule,
@@ -228,9 +228,11 @@ class HCLReconstructor:
                 if rule_name in [
                     StringRule.lark_name(),
                     IdentifierRule.lark_name(),
+                    LiteralValueRule.lark_name(),
                 ] and self._last_rule_name in [
                     StringRule.lark_name(),
                     IdentifierRule.lark_name(),
+                    LiteralValueRule.lark_name(),
                 ]:
                     return True
 

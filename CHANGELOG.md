@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Fixed
+
+- `true`, `false`, and `null` now serialize to native JSON types instead of strings. ([#293](https://github.com/amplify-education/python-hcl2/issues/293))
 
 ## \[8.1.1\] - 2026-04-07
 

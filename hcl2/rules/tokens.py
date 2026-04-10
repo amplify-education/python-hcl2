@@ -125,6 +125,9 @@ FOR_OBJECT_ARROW = StaticStringToken[("FOR_OBJECT_ARROW", "=>")]  # type: ignore
 ELSE = StaticStringToken[("ELSE", "else")]  # type: ignore
 ENDIF = StaticStringToken[("ENDIF", "endif")]  # type: ignore
 ENDFOR = StaticStringToken[("ENDFOR", "endfor")]  # type: ignore
+TRUE = StaticStringToken[("TRUE", "true")]  # type: ignore
+FALSE = StaticStringToken[("FALSE", "false")]  # type: ignore
+NULL = StaticStringToken[("NULL", "null")]  # type: ignore
 
 # pylint: enable=invalid-name
 

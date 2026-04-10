@@ -33,6 +33,26 @@ class KeywordRule(TokenRule):
         return "keyword"
 
 
+class LiteralValueRule(TokenRule):
+    """Rule for HCL2 literal value keywords (true, false, null)."""
+
+    _SERIALIZE_MAP = {"true": True, "false": False, "null": None}
+
+    @staticmethod
+    def lark_name() -> str:
+        """Return the grammar rule name."""
+        return "literal_value"
+
+    def serialize(
+        self, options=SerializationOptions(), context=SerializationContext()
+    ) -> Any:
+        """Serialize to Python True, False, or None."""
+        value = self.token.value
+        if context.inside_dollar_string:
+            return str(value)
+        return self._SERIALIZE_MAP.get(str(value), str(value))
+
+
 class IdentifierRule(TokenRule):
     """Rule for HCL2 identifiers."""
 

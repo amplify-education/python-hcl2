@@ -32,6 +32,18 @@ block label1 label2 {
   k = a.b.5
   l = a.*.b
   m = a[*][c].a.*.1
+  n = [
+    null,
+    "null",
+  ]
+  o = [
+    true,
+    "true",
+  ]
+  p = [
+    false,
+    "false",
+  ]
   
   block b1 {
     a = 1
