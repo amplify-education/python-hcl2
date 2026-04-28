@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Fixed
+
+- Restore `py.typed` marker so type checkers recognize `hcl2` (and `cli`) as typed packages. ([#298](https://github.com/amplify-education/python-hcl2/issues/298))
 
 ## \[8.1.2\] - 2026-04-10
 
