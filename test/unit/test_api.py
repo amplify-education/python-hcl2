@@ -5,26 +5,25 @@ from unittest import TestCase
 from lark.tree import Tree
 
 from hcl2.api import (
-    load,
-    loads,
     dump,
     dumps,
-    parse,
-    parses,
-    parse_to_tree,
-    parses_to_tree,
     from_dict,
     from_json,
-    reconstruct,
-    transform,
-    serialize,
+    load,
+    loads,
+    parse,
+    parse_to_tree,
+    parses,
+    parses_to_tree,
     query,
+    reconstruct,
+    serialize,
+    transform,
 )
 from hcl2.deserializer import DeserializerOptions
 from hcl2.formatter import FormatterOptions
 from hcl2.rules.base import StartRule
 from hcl2.utils import SerializationOptions
-
 
 SIMPLE_HCL = "x = 5\n"
 SIMPLE_DICT = {"x": 5}
@@ -42,16 +41,12 @@ class TestLoads(TestCase):
         self.assertIsInstance(result, dict)
 
     def test_with_serialization_options(self):
-        result = loads(
-            SIMPLE_HCL, serialization_options=SerializationOptions(with_comments=False)
-        )
+        result = loads(SIMPLE_HCL, serialization_options=SerializationOptions(with_comments=False))
         self.assertIsInstance(result, dict)
         self.assertEqual(result["x"], 5)
 
     def test_with_meta_option(self):
-        result = loads(
-            BLOCK_HCL, serialization_options=SerializationOptions(with_meta=True)
-        )
+        result = loads(BLOCK_HCL, serialization_options=SerializationOptions(with_meta=True))
         self.assertIn("resource", result)
         # Verify the option is accepted and produces a dict with expected content
         self.assertIsInstance(result, dict)
@@ -63,9 +58,7 @@ class TestLoads(TestCase):
     def test_strip_string_quotes(self):
         result = loads(
             BLOCK_HCL,
-            serialization_options=SerializationOptions(
-                strip_string_quotes=True, explicit_blocks=False
-            ),
+            serialization_options=SerializationOptions(strip_string_quotes=True, explicit_blocks=False),
         )
         resource_list = result["resource"]
         self.assertEqual(len(resource_list), 1)
@@ -89,9 +82,7 @@ class TestLoad(TestCase):
 
     def test_with_serialization_options(self):
         f = StringIO(SIMPLE_HCL)
-        result = load(
-            f, serialization_options=SerializationOptions(with_comments=False)
-        )
+        result = load(f, serialization_options=SerializationOptions(with_comments=False))
         self.assertEqual(result["x"], 5)
 
 
@@ -199,9 +190,7 @@ class TestSerialize(TestCase):
 
     def test_with_options(self):
         tree = parses(SIMPLE_HCL)
-        result = serialize(
-            tree, serialization_options=SerializationOptions(with_comments=False)
-        )
+        result = serialize(tree, serialization_options=SerializationOptions(with_comments=False))
         self.assertIsInstance(result, dict)
 
     def test_none_options_uses_defaults(self):

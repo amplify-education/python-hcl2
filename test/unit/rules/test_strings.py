@@ -3,23 +3,22 @@ from unittest import TestCase
 
 from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.strings import (
+    HeredocTemplateRule,
+    HeredocTrimTemplateRule,
     InterpolationRule,
     StringPartRule,
     StringRule,
-    HeredocTemplateRule,
-    HeredocTrimTemplateRule,
 )
 from hcl2.rules.tokens import (
-    INTERP_START,
-    RBRACE,
     DBLQUOTE,
-    STRING_CHARS,
     ESCAPED_INTERPOLATION,
     HEREDOC_TEMPLATE,
     HEREDOC_TRIM_TEMPLATE,
+    INTERP_START,
+    RBRACE,
+    STRING_CHARS,
 )
-from hcl2.utils import SerializationOptions, SerializationContext
-
+from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Stubs ---
 

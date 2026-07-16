@@ -1,7 +1,5 @@
 -r requirements.txt
 # Linting tools
-pylint
-pycodestyle
 mypy
 # Testing tools
 nose2[coverage_plugin]>=0.12,<1

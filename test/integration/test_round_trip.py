@@ -55,9 +55,7 @@ def _get_suites() -> List[str]:
 
     Override SUITES to run a specific subset, e.g. SUITES = ["config"]
     """
-    return SUITES or sorted(
-        file.stem for file in HCL2_ORIGINAL_DIR.iterdir() if file.is_file()
-    )
+    return SUITES or sorted(file.stem for file in HCL2_ORIGINAL_DIR.iterdir() if file.is_file())
 
 
 # set this to arbitrary list of test suites to run,
@@ -167,9 +165,7 @@ class TestRoundTripReserialization(TestCase):
         for suite in _get_suites():
             with self.subTest(suite=suite):
                 hcl_path = _get_suite_file(suite, SuiteStep.ORIGINAL)
-                json_reserialized_path = _get_suite_file(
-                    suite, SuiteStep.JSON_RESERIALIZED
-                )
+                json_reserialized_path = _get_suite_file(suite, SuiteStep.JSON_RESERIALIZED)
 
                 serialized = _parse_and_serialize(hcl_path.read_text())
                 actual = _deserialize_and_reserialize(serialized)

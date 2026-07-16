@@ -2,33 +2,32 @@
 from unittest import TestCase
 
 from hcl2.rules.containers import (
-    TupleRule,
-    ObjectElemKeyRule,
     ObjectElemKeyExpressionRule,
+    ObjectElemKeyRule,
     ObjectElemRule,
     ObjectRule,
+    TupleRule,
 )
 from hcl2.rules.expressions import ExpressionRule
-from hcl2.rules.literal_rules import IdentifierRule, IntLitRule, FloatLitRule
-from hcl2.rules.strings import StringRule, StringPartRule
+from hcl2.rules.literal_rules import FloatLitRule, IdentifierRule, IntLitRule
+from hcl2.rules.strings import StringPartRule, StringRule
 from hcl2.rules.tokens import (
-    LSQB,
-    RSQB,
-    LBRACE,
-    RBRACE,
-    EQ,
     COLON,
     COMMA,
-    NAME,
     DBLQUOTE,
+    EQ,
+    LBRACE,
+    LSQB,
+    NAME,
+    NL_OR_COMMENT,
+    RBRACE,
+    RSQB,
     STRING_CHARS,
-    IntLiteral,
     FloatLiteral,
+    IntLiteral,
 )
 from hcl2.rules.whitespace import NewLineOrCommentRule
-from hcl2.rules.tokens import NL_OR_COMMENT
-from hcl2.utils import SerializationOptions, SerializationContext
-
+from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Stubs & Helpers ---
 
@@ -98,9 +97,7 @@ class TestTupleRule(TestCase):
         self.assertEqual(len(rule.elements), 2)
 
     def test_serialize_default_returns_list(self):
-        rule = TupleRule(
-            [LSQB(), StubExpression(1), COMMA(), StubExpression(2), RSQB()]
-        )
+        rule = TupleRule([LSQB(), StubExpression(1), COMMA(), StubExpression(2), RSQB()])
         result = rule.serialize()
         self.assertEqual(result, [1, 2])
 
@@ -113,9 +110,7 @@ class TestTupleRule(TestCase):
         self.assertEqual(rule.serialize(), [42])
 
     def test_serialize_wrap_tuples(self):
-        rule = TupleRule(
-            [LSQB(), StubExpression("a"), COMMA(), StubExpression("b"), RSQB()]
-        )
+        rule = TupleRule([LSQB(), StubExpression("a"), COMMA(), StubExpression("b"), RSQB()])
         opts = SerializationOptions(wrap_tuples=True)
         result = rule.serialize(options=opts)
         self.assertEqual(result, "${[a, b]}")
@@ -134,9 +129,7 @@ class TestTupleRule(TestCase):
         self.assertEqual(result, "[a]")
 
     def test_serialize_inside_dollar_string_no_extra_wrap(self):
-        rule = TupleRule(
-            [LSQB(), StubExpression("a"), COMMA(), StubExpression("b"), RSQB()]
-        )
+        rule = TupleRule([LSQB(), StubExpression("a"), COMMA(), StubExpression("b"), RSQB()])
         ctx = SerializationContext(inside_dollar_string=True)
         result = rule.serialize(context=ctx)
         self.assertEqual(result, "[a, b]")
@@ -184,9 +177,7 @@ class TestObjectElemKeyRule(TestCase):
 
 class TestObjectElemKeyExpressionRule(TestCase):
     def test_lark_name(self):
-        self.assertEqual(
-            ObjectElemKeyExpressionRule.lark_name(), "object_elem_key_expr"
-        )
+        self.assertEqual(ObjectElemKeyExpressionRule.lark_name(), "object_elem_key_expr")
 
     def test_expression_property(self):
         expr = StubExpression("1 + 1")

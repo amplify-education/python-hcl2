@@ -3,28 +3,27 @@ from unittest import TestCase
 
 from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.for_expressions import (
-    ForIntroRule,
     ForCondRule,
-    ForTupleExprRule,
+    ForIntroRule,
     ForObjectExprRule,
+    ForTupleExprRule,
 )
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.tokens import (
-    NAME,
-    LSQB,
-    RSQB,
-    LBRACE,
-    RBRACE,
-    FOR,
-    IN,
-    IF,
-    COMMA,
     COLON,
+    COMMA,
     ELLIPSIS,
+    FOR,
     FOR_OBJECT_ARROW,
+    IF,
+    IN,
+    LBRACE,
+    LSQB,
+    NAME,
+    RBRACE,
+    RSQB,
 )
-from hcl2.utils import SerializationOptions, SerializationContext
-
+from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Stubs & helpers ---
 
@@ -94,9 +93,7 @@ class TestForIntroRule(TestCase):
     def test_first_iterator_dual(self):
         i1 = _make_identifier("k")
         i2 = _make_identifier("v")
-        rule = ForIntroRule(
-            [FOR(), i1, COMMA(), i2, IN(), StubExpression("items"), COLON()]
-        )
+        rule = ForIntroRule([FOR(), i1, COMMA(), i2, IN(), StubExpression("items"), COLON()])
         self.assertIs(rule.first_iterator, i1)
 
     def test_second_iterator_none_when_single(self):
@@ -405,9 +402,7 @@ class TestForObjectExprRule(TestCase):
                 RBRACE(),
             ]
         )
-        caller_options = SerializationOptions(
-            with_comments=True, preserve_heredocs=False
-        )
+        caller_options = SerializationOptions(with_comments=True, preserve_heredocs=False)
         rule.serialize(options=caller_options)
         # value_expr should receive options with wrap_objects=True but
         # all other caller settings preserved

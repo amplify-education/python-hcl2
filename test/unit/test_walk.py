@@ -4,9 +4,9 @@ from unittest import TestCase
 from hcl2.rules.base import AttributeRule, BlockRule, BodyRule, StartRule
 from hcl2.rules.expressions import ExpressionRule, ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
-from hcl2.rules.tokens import NAME, EQ, LBRACE, RBRACE, NL_OR_COMMENT
+from hcl2.rules.tokens import EQ, LBRACE, NAME, NL_OR_COMMENT, RBRACE
 from hcl2.rules.whitespace import NewLineOrCommentRule
-from hcl2.utils import SerializationOptions, SerializationContext
+from hcl2.utils import SerializationContext, SerializationOptions
 from hcl2.walk import (
     ancestors,
     find_all,
@@ -104,9 +104,7 @@ class TestFindAll(TestCase):
 
     def test_finds_nested(self):
         BodyRule([_make_attribute("inner", 1)])  # unused but creates parent refs
-        block = _make_block(
-            [_make_identifier("resource")], [_make_attribute("outer", 2)]
-        )
+        block = _make_block([_make_identifier("resource")], [_make_attribute("outer", 2)])
         outer_body = BodyRule([block])
         start = StartRule([outer_body])
         attrs = list(find_all(start, AttributeRule))
@@ -143,8 +141,7 @@ class TestFindByPredicate(TestCase):
         found = list(
             find_by_predicate(
                 body,
-                lambda n: isinstance(n, AttributeRule)
-                and n.identifier.serialize() == "x",
+                lambda n: isinstance(n, AttributeRule) and n.identifier.serialize() == "x",
             )
         )
         self.assertEqual(len(found), 1)

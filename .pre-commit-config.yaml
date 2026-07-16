@@ -26,21 +26,17 @@ repos:
     hooks:
       - id: mdformat
         name: Format markdown
-  - repo: https://github.com/psf/black
-    rev: 22.8.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21
     hooks:
-      - id: black
-        language_version: python3.8
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v0.991    # Use the sha / tag you want to point at
     hooks:
       - id: mypy
-  - repo: local
-    hooks:
-      - id: pylint
-        name: pylint (Python Linting)
-        entry: pylint
-        language: system
-        types: [python]
-        files: ^(hcl2|test)/
-        args: [--rcfile=pylintrc, --output-format=colorized, --score=no]
+        # Pinned so the hook's own venv can build typed-ast, which has no
+        # wheel for Python 3.12+; this only affects mypy's own interpreter,
+        # not the --python-version it type-checks against.
+        language_version: python3.11

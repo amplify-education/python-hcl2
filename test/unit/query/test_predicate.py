@@ -387,9 +387,7 @@ class TestAnyAll(TestCase):
         self.assertEqual(pred.accessor.parts, ["items"])
 
     def test_parse_any_with_boolean_combinators(self):
-        pred = parse_predicate(
-            'any(.elements; .type == "function_call" or .type == "tuple")'
-        )
+        pred = parse_predicate('any(.elements; .type == "function_call" or .type == "tuple")')
         self.assertIsInstance(pred, AnyExpr)
         self.assertIsInstance(pred.predicate, OrExpr)
 

@@ -1,11 +1,11 @@
 """A parser for HCL2 implemented using the Lark parser"""
+
 import functools
 from pathlib import Path
 
 from lark import Lark
 
 from hcl2.postlexer import PostLexer
-
 
 PARSER_FILE = Path(__file__).absolute().resolve().parent / ".lark_cache.bin"
 

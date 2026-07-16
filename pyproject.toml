@@ -50,3 +50,11 @@ include-package-data = true
 
 [tool.setuptools_scm]
 write_to = "hcl2/version.py"
+
+[tool.ruff]
+line-length = 110
+target-version = "py38"
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: import sorting (replaces isort).
+select = ["E", "W", "F", "I"]

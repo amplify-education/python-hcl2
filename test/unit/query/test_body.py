@@ -1,7 +1,7 @@
 # pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
-from hcl2.query.body import DocumentView, BodyView, _collect_leading_comments
+from hcl2.query.body import BodyView, DocumentView, _collect_leading_comments
 
 
 class TestDocumentView(TestCase):
@@ -15,9 +15,7 @@ class TestDocumentView(TestCase):
         self.assertIsInstance(body, BodyView)
 
     def test_blocks(self):
-        doc = DocumentView.parse(
-            'resource "aws_instance" "main" {\n  ami = "test"\n}\n'
-        )
+        doc = DocumentView.parse('resource "aws_instance" "main" {\n  ami = "test"\n}\n')
         blocks = doc.blocks("resource")
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].block_type, "resource")
@@ -28,9 +26,7 @@ class TestDocumentView(TestCase):
         self.assertEqual(len(blocks), 2)
 
     def test_blocks_with_labels(self):
-        doc = DocumentView.parse(
-            'resource "aws_instance" "main" {}\nresource "aws_s3_bucket" "data" {}\n'
-        )
+        doc = DocumentView.parse('resource "aws_instance" "main" {}\nresource "aws_s3_bucket" "data" {}\n')
         blocks = doc.blocks("resource", "aws_instance")
         self.assertEqual(len(blocks), 1)
 

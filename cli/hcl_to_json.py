@@ -6,9 +6,8 @@ import os
 import sys
 from typing import IO, List, Optional, TextIO
 
-from hcl2 import load
-from hcl2.utils import SerializationOptions
 from hcl2.version import __version__
+
 from cli.helpers import (
     EXIT_IO_ERROR,
     EXIT_PARSE_ERROR,
@@ -23,6 +22,8 @@ from cli.helpers import (
     _expand_file_args,
     _install_sigpipe_handler,
 )
+from hcl2 import load
+from hcl2.utils import SerializationOptions
 
 _HCL_EXTENSIONS = {".tf", ".hcl"}
 
@@ -125,22 +126,16 @@ def _stream_ndjson(  # pylint: disable=too-many-arguments,too-many-positional-ar
             print(file_path, file=sys.stderr, flush=True)
         try:
             if file_path == "-":
-                data = _load_to_dict(
-                    sys.stdin, options, only=only, exclude=exclude, fields=fields
-                )
+                data = _load_to_dict(sys.stdin, options, only=only, exclude=exclude, fields=fields)
             else:
                 with open(file_path, "r", encoding="utf-8") as f:
-                    data = _load_to_dict(
-                        f, options, only=only, exclude=exclude, fields=fields
-                    )
+                    data = _load_to_dict(f, options, only=only, exclude=exclude, fields=fields)
         except HCL_SKIPPABLE as exc:
             if skip:
                 worst_exit = max(worst_exit, EXIT_PARTIAL)
                 continue
             print(
-                _error(
-                    str(exc), use_json=True, error_type="parse_error", file=file_path
-                ),
+                _error(str(exc), use_json=True, error_type="parse_error", file=file_path),
                 file=sys.stderr,
             )
             return EXIT_PARSE_ERROR
@@ -197,9 +192,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
         epilog=_EXAMPLES,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "-s", dest="skip", action="store_true", help="Skip un-parsable files"
-    )
+    parser.add_argument("-s", dest="skip", action="store_true", help="Skip un-parsable files")
     parser.add_argument(
         "PATH",
         nargs="*",
@@ -382,9 +375,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
         if len(paths) == 1:
             path = paths[0]
             if path == "-" or os.path.isfile(path):
-                if not _convert_single_file(
-                    path, output, convert, args.skip, HCL_SKIPPABLE, quiet=quiet
-                ):
+                if not _convert_single_file(path, output, convert, args.skip, HCL_SKIPPABLE, quiet=quiet):
                     sys.exit(EXIT_PARTIAL)
             elif os.path.isdir(path):
                 if output is None:

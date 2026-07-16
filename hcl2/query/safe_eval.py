@@ -130,9 +130,7 @@ def validate_expression(expr_str: str) -> ast.Expression:
         # Block dunder attribute access (prevents sandbox escapes via
         # __class__, __subclasses__, __globals__, etc.)
         if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
-            raise UnsafeExpressionError(
-                f"Access to dunder attribute {node.attr!r} is not allowed"
-            )
+            raise UnsafeExpressionError(f"Access to dunder attribute {node.attr!r} is not allowed")
 
         # Validate Call nodes
         if isinstance(node, ast.Call):
@@ -145,9 +143,7 @@ def validate_expression(expr_str: str) -> ast.Expression:
                 if func.id not in _SAFE_CALLABLE_NAMES:
                     raise UnsafeExpressionError(f"Calling {func.id!r} is not allowed")
             else:
-                raise UnsafeExpressionError(
-                    "Only method calls and safe built-in calls are allowed"
-                )
+                raise UnsafeExpressionError("Only method calls and safe built-in calls are allowed")
 
         for child in ast.iter_child_nodes(node):
             _validate(child, depth + 1)

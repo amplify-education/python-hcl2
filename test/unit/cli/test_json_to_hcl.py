@@ -9,7 +9,6 @@ from unittest.mock import patch
 from cli.helpers import EXIT_DIFF, EXIT_IO_ERROR, EXIT_PARSE_ERROR, EXIT_PARTIAL
 from cli.json_to_hcl import main
 
-
 SIMPLE_JSON_DICT = {"x": 1}
 SIMPLE_JSON = json.dumps(SIMPLE_JSON_DICT)
 
@@ -648,10 +647,7 @@ class TestSemanticDiff(TestCase):
     def test_ignores_formatting_differences(self):
         """Formatting-only differences (alignment, commas) should not appear."""
         hcl = (
-            'resource "aws_instance" "main" {\n'
-            '  ami           = "abc-123"\n'
-            '  instance_type = "t2.micro"\n'
-            "}\n"
+            'resource "aws_instance" "main" {\n  ami           = "abc-123"\n  instance_type = "t2.micro"\n}\n'
         )
         # JSON has same values (matching hcl2.load() output format)
         json_data = {
@@ -757,9 +753,7 @@ class TestStructureError(TestCase):
 
             stderr = StringIO()
             with patch("sys.argv", ["jsontohcl2", path]):
-                with patch(
-                    "cli.json_to_hcl.dump", side_effect=TypeError("bad structure")
-                ):
+                with patch("cli.json_to_hcl.dump", side_effect=TypeError("bad structure")):
                     with patch("sys.stderr", stderr):
                         with self.assertRaises(SystemExit) as cm:
                             main()

@@ -24,7 +24,6 @@ from typing import Any, List, Optional, Union
 
 from hcl2.query.path import QuerySyntaxError
 
-
 # ---------------------------------------------------------------------------
 # AST nodes
 # ---------------------------------------------------------------------------
@@ -137,9 +136,7 @@ def tokenize(text: str) -> List[Token]:
     while pos < len(text):
         match = _TOKEN_RE.match(text, pos)
         if match is None:
-            raise QuerySyntaxError(
-                f"Unexpected character at position {pos} in predicate: {text!r}"
-            )
+            raise QuerySyntaxError(f"Unexpected character at position {pos} in predicate: {text!r}")
         pos = match.end()
         kind = match.lastgroup
         assert kind is not None
@@ -293,23 +290,16 @@ class _Parser:  # pylint: disable=too-few-public-methods
                 builtin = word_tok.value
                 self._expect("LPAREN")
                 arg_tok = self._expect("STRING")
-                builtin_arg = (
-                    arg_tok.value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
-                )
+                builtin_arg = arg_tok.value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
                 self._expect("RPAREN")
             elif word_tok.value == "not":
                 builtin = "not"
             elif word_tok.value in BUILTIN_NAMES:
                 builtin = word_tok.value
             else:
-                raise QuerySyntaxError(
-                    f"Expected builtin or string function after |, "
-                    f"got {word_tok.value!r}"
-                )
+                raise QuerySyntaxError(f"Expected builtin or string function after |, got {word_tok.value!r}")
 
-        return Accessor(
-            parts=parts, index=index, builtin=builtin, builtin_arg=builtin_arg
-        )
+        return Accessor(parts=parts, index=index, builtin=builtin, builtin_arg=builtin_arg)
 
     def _literal(self) -> Any:  # pylint: disable=too-many-return-statements
         """Parse a literal value (string, number, boolean, or null)."""
@@ -430,9 +420,7 @@ def _resolve_accessor(  # pylint: disable=too-many-return-statements
         if accessor.builtin == "not":
             return not (current is not None and current is not False and current != 0)
         if accessor.builtin_arg is not None:
-            return _apply_string_function(
-                accessor.builtin, accessor.builtin_arg, current
-            )
+            return _apply_string_function(accessor.builtin, accessor.builtin_arg, current)
         if current is not None:
             current = _apply_accessor_builtin(accessor.builtin, current)
 

@@ -74,9 +74,7 @@ class TestBlockViewAdjacentComments(TestCase):
     _OPTS = SerializationOptions(with_comments=True)
 
     def test_adjacent_comments_at_outer_level(self):
-        doc = DocumentView.parse(
-            '# about resource\nresource "type" "name" {\n  x = 1\n}\n'
-        )
+        doc = DocumentView.parse('# about resource\nresource "type" "name" {\n  x = 1\n}\n')
         block = doc.blocks("resource")[0]
         result = block.to_dict(options=self._OPTS)
         # Adjacent comments go at outer level, alongside the label key
@@ -84,9 +82,7 @@ class TestBlockViewAdjacentComments(TestCase):
         self.assertNotIn("__comments__", result['"type"']['"name"'])
 
     def test_adjacent_separate_from_inner_comments(self):
-        doc = DocumentView.parse(
-            '# adjacent\nresource "type" "name" {\n  # inner\n  x = 1\n}\n'
-        )
+        doc = DocumentView.parse('# adjacent\nresource "type" "name" {\n  # inner\n  x = 1\n}\n')
         block = doc.blocks("resource")[0]
         result = block.to_dict(options=self._OPTS)
         # Adjacent at outer level

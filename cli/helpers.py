@@ -6,7 +6,7 @@ import os
 import signal
 import sys
 from io import StringIO
-from typing import Callable, IO, List, Optional, Set, Tuple, Type
+from typing import IO, Callable, List, Optional, Set, Tuple, Type
 
 from lark import UnexpectedCharacters, UnexpectedToken
 
@@ -158,9 +158,7 @@ def _convert_directory(  # pylint: disable=too-many-positional-arguments,too-man
     for current_dir, _, files in os.walk(in_path):
         dir_prefix = os.path.commonpath([in_path, current_dir])
         relative_current_dir = os.path.relpath(current_dir, dir_prefix)
-        current_out_path = os.path.normpath(
-            os.path.join(out_path, relative_current_dir)
-        )
+        current_out_path = os.path.normpath(os.path.join(out_path, relative_current_dir))
         if not os.path.exists(current_out_path):
             os.makedirs(current_out_path)
         for file_name in files:
@@ -226,9 +224,7 @@ def _convert_multiple_files(  # pylint: disable=too-many-positional-arguments
         file_out_dir = os.path.dirname(file_out)
         if file_out_dir and not os.path.exists(file_out_dir):
             os.makedirs(file_out_dir)
-        if not _convert_single_file(
-            in_path, file_out, convert_fn, skip, skippable, quiet=quiet
-        ):
+        if not _convert_single_file(in_path, file_out, convert_fn, skip, skippable, quiet=quiet):
             any_skipped = True
     return any_skipped
 

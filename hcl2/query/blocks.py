@@ -76,9 +76,7 @@ class BlockView(NodeView):
             result[COMMENTS_KEY] = self._adjacent_comments + existing
         return result
 
-    def blocks(
-        self, block_type: Optional[str] = None, *labels: str
-    ) -> List["NodeView"]:
+    def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["NodeView"]:
         """Delegate to body."""
         from hcl2.query.body import BodyView
 

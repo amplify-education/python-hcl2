@@ -3,7 +3,7 @@
 import inspect
 from typing import Any, Dict, List
 
-from hcl2.query._base import NodeView, _VIEW_REGISTRY
+from hcl2.query._base import _VIEW_REGISTRY, NodeView
 from hcl2.query.safe_eval import _SAFE_CALLABLE_NAMES
 
 
@@ -56,8 +56,8 @@ def _describe_view(view: NodeView) -> Dict[str, Any]:
 
 def _summarize_view(view: NodeView) -> str:
     """Generate a brief summary string for a view."""
-    from hcl2.query.blocks import BlockView
     from hcl2.query.attributes import AttributeView
+    from hcl2.query.blocks import BlockView
 
     if isinstance(view, BlockView):
         return f"block_type={view.block_type!r}, labels={view.labels!r}"

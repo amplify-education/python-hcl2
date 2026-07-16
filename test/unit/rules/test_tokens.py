@@ -2,22 +2,22 @@
 from unittest import TestCase
 
 from hcl2.rules.tokens import (
-    StringToken,
-    StaticStringToken,
-    IntLiteral,
-    FloatLiteral,
-    NAME,
-    LPAR,
-    RPAR,
-    QMARK,
     COLON,
-    EQ,
-    DOT,
     COMMA,
+    DOT,
+    EQ,
     LBRACE,
-    RBRACE,
+    LPAR,
     LSQB,
+    NAME,
+    QMARK,
+    RBRACE,
+    RPAR,
     RSQB,
+    FloatLiteral,
+    IntLiteral,
+    StaticStringToken,
+    StringToken,
 )
 
 

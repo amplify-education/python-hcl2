@@ -1,12 +1,12 @@
 """Rule classes for whitespace, comments, and inline comment handling."""
 
 from abc import ABC
-from typing import Optional, List, Any
+from typing import Any, List, Optional
 
 from hcl2.rules.abstract import LarkRule
 from hcl2.rules.literal_rules import TokenRule
 from hcl2.rules.tokens import NL_OR_COMMENT
-from hcl2.utils import SerializationOptions, SerializationContext
+from hcl2.utils import SerializationContext, SerializationOptions
 
 
 class NewLineOrCommentRule(TokenRule):
@@ -22,9 +22,7 @@ class NewLineOrCommentRule(TokenRule):
         """Create an instance from a raw comment or newline string."""
         return cls([NL_OR_COMMENT(string)])  # type: ignore[abstract]  # pylint: disable=abstract-class-instantiated
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to the raw comment/newline string."""
         return "".join(child.serialize() for child in self._children)
 
@@ -38,9 +36,7 @@ class NewLineOrCommentRule(TokenRule):
         """
         return not self.serialize().startswith("\n")
 
-    def to_list(
-        self, options: SerializationOptions = SerializationOptions()
-    ) -> Optional[List[dict]]:
+    def to_list(self, options: SerializationOptions = SerializationOptions()) -> Optional[List[dict]]:
         """Extract comment objects, or None if only a newline."""
         raw = self.serialize(options)
         if raw == "\n":
@@ -91,7 +87,6 @@ class InlineCommentMixIn(LarkRule, ABC):
         """Collect all inline comment strings from this rule's children."""
         result = []
         for child in self._children:
-
             if isinstance(child, NewLineOrCommentRule):
                 comments = child.to_list()
                 if comments is not None:

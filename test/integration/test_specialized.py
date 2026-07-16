@@ -12,17 +12,16 @@ from pathlib import Path
 from typing import Optional
 from unittest import TestCase
 
-from test.integration.test_round_trip import (
-    _parse_and_serialize,
-    _deserialize_and_reserialize,
-    _deserialize_and_reconstruct,
-    _direct_reconstruct,
-)
-
 from hcl2.deserializer import BaseDeserializer, DeserializerOptions
 from hcl2.formatter import BaseFormatter
 from hcl2.reconstructor import HCLReconstructor
 from hcl2.utils import SerializationOptions
+from test.integration.test_round_trip import (
+    _deserialize_and_reconstruct,
+    _deserialize_and_reserialize,
+    _direct_reconstruct,
+    _parse_and_serialize,
+)
 
 SPECIAL_DIR = Path(__file__).absolute().parent / "specialized"
 
@@ -128,9 +127,7 @@ class TestTemplateDirectives(TestCase):
         hcl_text = self._load_special("template_directives", ".tf")
         serialized = _parse_and_serialize(hcl_text)
         actual = _deserialize_and_reserialize(serialized)
-        expected = json.loads(
-            self._load_special("template_directives_reserialized", ".json")
-        )
+        expected = json.loads(self._load_special("template_directives_reserialized", ".json"))
         self.assertEqual(actual, expected)
 
     def test_json_to_hcl(self):

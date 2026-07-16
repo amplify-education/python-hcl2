@@ -1,30 +1,31 @@
 """Format LarkElement trees with indentation, alignment, and spacing."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
 
 from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
-    StartRule,
-    BlockRule,
     AttributeRule,
+    BlockRule,
     BodyRule,
+    StartRule,
 )
 from hcl2.rules.containers import (
-    ObjectRule,
-    ObjectElemRule,
     ObjectElemKeyExpressionRule,
+    ObjectElemRule,
+    ObjectRule,
     TupleRule,
 )
 from hcl2.rules.expressions import ExprTermRule
-from hcl2.rules.functions import FunctionCallRule
 from hcl2.rules.for_expressions import (
-    ForTupleExprRule,
-    ForObjectExprRule,
-    ForIntroRule,
     ForCondRule,
+    ForIntroRule,
+    ForObjectExprRule,
+    ForTupleExprRule,
 )
-from hcl2.rules.tokens import NL_OR_COMMENT, LBRACE, COLON, LSQB, COMMA
+from hcl2.rules.functions import FunctionCallRule
+from hcl2.rules.tokens import COLON, COMMA, LBRACE, LSQB, NL_OR_COMMENT
 from hcl2.rules.whitespace import NewLineOrCommentRule
 
 
@@ -222,9 +223,7 @@ class BaseFormatter(LarkElementTreeFormatter):
         expression.children[7] = self._build_newline(indent_level)
         self._deindent_last_line()
 
-    def format_forobjectexpr(
-        self, expression: ForObjectExprRule, indent_level: int = 0
-    ):
+    def format_forobjectexpr(self, expression: ForObjectExprRule, indent_level: int = 0):
         """Format a for-object expression with newlines around clauses."""
         for child in expression.children:
             if isinstance(child, ExprTermRule):
@@ -274,9 +273,7 @@ class BaseFormatter(LarkElementTreeFormatter):
             self._align_attributes_sequence(attributes_sequence)
 
     def _align_attributes_sequence(self, attributes_sequence: List[AttributeRule]):
-        max_length = max(
-            len(attribute.identifier.token.value) for attribute in attributes_sequence
-        )
+        max_length = max(len(attribute.identifier.token.value) for attribute in attributes_sequence)
         for attribute in attributes_sequence:
             name_length = len(attribute.identifier.token.value)
             spaces_to_add = max_length - name_length
@@ -310,15 +307,9 @@ class BaseFormatter(LarkElementTreeFormatter):
             width -= 3
         return width
 
-    def _build_newline(
-        self, next_line_indent: int = 0, count: int = 1
-    ) -> NewLineOrCommentRule:
+    def _build_newline(self, next_line_indent: int = 0, count: int = 1) -> NewLineOrCommentRule:
         result = NewLineOrCommentRule(
-            [
-                NL_OR_COMMENT(
-                    ("\n" * count) + " " * self.options.indent_length * next_line_indent
-                )
-            ]
+            [NL_OR_COMMENT(("\n" * count) + " " * self.options.indent_length * next_line_indent)]
         )
         self._last_new_line = result
         return result

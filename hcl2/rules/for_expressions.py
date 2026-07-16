@@ -1,33 +1,33 @@
 """Rule classes for HCL2 for-tuple and for-object expressions."""
 
 from dataclasses import replace
-from typing import Any, Tuple, Optional, List
+from typing import Any, List, Optional, Tuple
 
 from lark.tree import Meta
 
 from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.tokens import (
-    LSQB,
-    RSQB,
-    LBRACE,
-    RBRACE,
-    FOR,
-    IN,
-    IF,
-    COMMA,
     COLON,
+    COMMA,
     ELLIPSIS,
+    FOR,
     FOR_OBJECT_ARROW,
+    IF,
+    IN,
+    LBRACE,
+    LSQB,
+    RBRACE,
+    RSQB,
     StaticStringToken,
 )
 from hcl2.rules.whitespace import (
-    NewLineOrCommentRule,
     InlineCommentMixIn,
+    NewLineOrCommentRule,
 )
 from hcl2.utils import (
-    SerializationOptions,
     SerializationContext,
+    SerializationOptions,
     to_dollar_string,
 )
 
@@ -92,9 +92,7 @@ class ForIntroRule(InlineCommentMixIn):
         """Return the collection expression being iterated over."""
         return self._children[8]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> str:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> str:
         """Serialize to 'for key, value in collection : ' string."""
         result = "for "
 
@@ -129,9 +127,7 @@ class ForCondRule(InlineCommentMixIn):
         """Return the condition expression."""
         return self._children[2]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> str:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> str:
         """Serialize to 'if condition' string."""
         return f"if {self.condition_expr.serialize(options, context)}"
 
@@ -195,9 +191,7 @@ class ForTupleExprRule(ExpressionRule):
         """Return the optional condition rule."""
         return self._children[6]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '[for ... : expr]' string."""
         result = "["
 
@@ -251,11 +245,7 @@ class ForObjectExprRule(ExpressionRule):
         condition = None
 
         for child in children:
-            if (
-                ellipsis_ is None
-                and isinstance(child, StaticStringToken)
-                and child.lark_name() == "ELLIPSIS"
-            ):
+            if ellipsis_ is None and isinstance(child, StaticStringToken) and child.lark_name() == "ELLIPSIS":
                 ellipsis_ = child
             if condition is None and isinstance(child, ForCondRule):
                 condition = child
@@ -297,18 +287,14 @@ class ForObjectExprRule(ExpressionRule):
         """Return the optional condition rule."""
         return self._children[11]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '{for ... : key => value}' string."""
         result = "{"
         with context.modify(inside_dollar_string=True):
             result += self.for_intro.serialize(options, context)
             result += f"{self.key_expr.serialize(options, context)} => "
 
-            result += self.value_expr.serialize(
-                replace(options, wrap_objects=True), context
-            )
+            result += self.value_expr.serialize(replace(options, wrap_objects=True), context)
             if self.ellipsis is not None:
                 result += self.ellipsis.serialize(options, context)
 

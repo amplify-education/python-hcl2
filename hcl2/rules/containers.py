@@ -1,31 +1,31 @@
 """Rule classes for HCL2 tuples, objects, and their elements."""
 
-from typing import Tuple, List, Optional, Union, Any
+from typing import Any, List, Optional, Tuple, Union
 
 from hcl2.rules.abstract import LarkRule
 from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.literal_rules import (
     FloatLitRule,
-    IntLitRule,
     IdentifierRule,
+    IntLitRule,
 )
 from hcl2.rules.strings import StringRule
 from hcl2.rules.tokens import (
     COLON,
+    COMMA,
     EQ,
     LBRACE,
-    COMMA,
-    RBRACE,
     LSQB,
+    RBRACE,
     RSQB,
 )
 from hcl2.rules.whitespace import (
-    NewLineOrCommentRule,
     InlineCommentMixIn,
+    NewLineOrCommentRule,
 )
 from hcl2.utils import (
-    SerializationOptions,
     SerializationContext,
+    SerializationOptions,
     to_dollar_string,
 )
 
@@ -58,22 +58,16 @@ class TupleRule(InlineCommentMixIn):
     @property
     def elements(self) -> List[ExpressionRule]:
         """Return the expression elements of the tuple."""
-        return [
-            child for child in self.children[1:-1] if isinstance(child, ExpressionRule)
-        ]
+        return [child for child in self.children[1:-1] if isinstance(child, ExpressionRule)]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a Python list or bracketed string."""
         if not options.wrap_tuples and not context.inside_dollar_string:
             return [element.serialize(options, context) for element in self.elements]
 
         with context.modify(inside_dollar_string=True):
             result = "["
-            result += ", ".join(
-                str(element.serialize(options, context)) for element in self.elements
-            )
+            result += ", ".join(str(element.serialize(options, context)) for element in self.elements)
             result += "]"
 
         if not context.inside_dollar_string:
@@ -99,9 +93,7 @@ class ObjectElemKeyRule(LarkRule):
         """Return the key value (identifier, string, or number)."""
         return self._children[0]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize the key, coercing numbers to strings."""
         result = self.value.serialize(options, context)
         # Object keys must be strings for JSON compatibility
@@ -131,9 +123,7 @@ class ObjectElemKeyExpressionRule(LarkRule):
         """Return the key expression."""
         return self._children[0]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '${expression}' string."""
         with context.modify(inside_dollar_string=True):
             result = str(self.expression.serialize(options, context))
@@ -166,15 +156,9 @@ class ObjectElemRule(LarkRule):
         """Return the value expression."""
         return self._children[2]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a single-entry dict."""
-        return {
-            self.key.serialize(options, context): self.expression.serialize(
-                options, context
-            )
-        }
+        return {self.key.serialize(options, context): self.expression.serialize(options, context)}
 
 
 class ObjectRule(InlineCommentMixIn):
@@ -200,13 +184,9 @@ class ObjectRule(InlineCommentMixIn):
     @property
     def elements(self) -> List[ObjectElemRule]:
         """Return the list of object element rules."""
-        return [
-            child for child in self.children[1:-1] if isinstance(child, ObjectElemRule)
-        ]
+        return [child for child in self.children[1:-1] if isinstance(child, ObjectElemRule)]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a Python dict or braced string."""
         if not options.wrap_objects and not context.inside_dollar_string:
             dict_result: dict = {}

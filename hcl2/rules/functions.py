@@ -1,17 +1,17 @@
 """Rule classes for HCL2 function calls and arguments."""
 
-from typing import Any, Optional, Tuple, Union, List
+from typing import Any, List, Optional, Tuple, Union
 
 from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.literal_rules import IdentifierRule
-from hcl2.rules.tokens import COMMA, ELLIPSIS, StringToken, LPAR, RPAR
+from hcl2.rules.tokens import COMMA, ELLIPSIS, LPAR, RPAR, StringToken
 from hcl2.rules.whitespace import (
     InlineCommentMixIn,
     NewLineOrCommentRule,
 )
 from hcl2.utils import (
-    SerializationOptions,
     SerializationContext,
+    SerializationOptions,
     to_dollar_string,
 )
 
@@ -50,13 +50,9 @@ class ArgumentsRule(InlineCommentMixIn):
         """Return the list of expression arguments."""
         return [child for child in self._children if isinstance(child, ExpressionRule)]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a comma-separated argument string."""
-        result = ", ".join(
-            str(argument.serialize(options, context)) for argument in self.arguments
-        )
+        result = ", ".join(str(argument.serialize(options, context)) for argument in self.arguments)
         if self.has_ellipsis:
             result += " ..."
         return result
@@ -94,15 +90,10 @@ class FunctionCallRule(InlineCommentMixIn):
                 return child
         return None
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'func(args)' string."""
         with context.modify(inside_dollar_string=True):
-            name = "::".join(
-                identifier.serialize(options, context)
-                for identifier in self.identifiers
-            )
+            name = "::".join(identifier.serialize(options, context) for identifier in self.identifiers)
             args = self.arguments
             args_str = args.serialize(options, context) if args else ""
             result = f"{name}({args_str})"

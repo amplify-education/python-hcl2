@@ -239,9 +239,7 @@ class TestHqMainCli(TestCase):
     def test_diff_identical_files(self):
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tf", delete=False
-        ) as f1, tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tf", delete=False
-        ) as f2:
+        ) as f1, tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as f2:
             f1.write("x = 1\n")
             f2.write("x = 1\n")
             f1.flush()
@@ -262,9 +260,7 @@ class TestHqMainCli(TestCase):
     def test_diff_changed_files(self):
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tf", delete=False
-        ) as f1, tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tf", delete=False
-        ) as f2:
+        ) as f1, tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as f2:
             f1.write("x = 1\n")
             f2.write("x = 2\n")
             f1.flush()
@@ -284,9 +280,7 @@ class TestHqMainCli(TestCase):
     def test_diff_json_output(self):
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tf", delete=False
-        ) as f1, tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tf", delete=False
-        ) as f2:
+        ) as f1, tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as f2:
             f1.write("x = 1\ny = 2\n")
             f2.write("x = 1\nz = 3\n")
             f1.flush()
@@ -405,9 +399,7 @@ class TestExitCodes(TestCase):
         """If any file produces results, exit 0 even if others fail."""
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tf", delete=False
-        ) as good, tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tf", delete=False
-        ) as bad:
+        ) as good, tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as bad:
             good.write("x = 1\n")
             bad.write("{invalid\n")
             good.flush()
@@ -443,9 +435,7 @@ class TestMultipleFileArgs(TestCase):
     def test_two_files(self):
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tf", delete=False
-        ) as f1, tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tf", delete=False
-        ) as f2:
+        ) as f1, tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as f2:
             f1.write("x = 1\n")
             f2.write("x = 2\n")
             f1.flush()
@@ -472,9 +462,7 @@ class TestMultipleFileArgs(TestCase):
             tf_path = os.path.join(tmpdir, "a.tf")
             with open(tf_path, "w", encoding="utf-8") as f:
                 f.write("x = 1\n")
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".tf", delete=False
-            ) as f2:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as f2:
                 f2.write("x = 2\n")
                 f2.flush()
                 try:
@@ -515,9 +503,7 @@ class TestGlobExpansion(TestCase):
                     with self.assertRaises(SystemExit) as cm:
                         main()
                     self.assertEqual(cm.exception.code, EXIT_SUCCESS)
-                    lines = [
-                        line for line in mock_out.getvalue().strip().split("\n") if line
-                    ]
+                    lines = [line for line in mock_out.getvalue().strip().split("\n") if line]
                     # Should have results from both files
                     self.assertEqual(len(lines), 2)
 
@@ -589,11 +575,7 @@ class TestNdjson(TestCase):
                         with self.assertRaises(SystemExit) as cm:
                             main()
                         self.assertEqual(cm.exception.code, EXIT_SUCCESS)
-                        lines = [
-                            l
-                            for l in mock_out.getvalue().strip().split("\n")
-                            if l.strip()
-                        ]
+                        lines = [line for line in mock_out.getvalue().strip().split("\n") if line.strip()]
                         self.assertEqual(len(lines), 2)
                         # Each line should be valid JSON
                         for line in lines:
@@ -618,9 +600,7 @@ class TestNdjson(TestCase):
     def test_multi_file_ndjson_has_provenance(self):
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tf", delete=False
-        ) as f1, tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tf", delete=False
-        ) as f2:
+        ) as f1, tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as f2:
             f1.write("x = 1\n")
             f2.write("x = 2\n")
             f1.flush()
@@ -634,11 +614,7 @@ class TestNdjson(TestCase):
                         with self.assertRaises(SystemExit) as cm:
                             main()
                         self.assertEqual(cm.exception.code, EXIT_SUCCESS)
-                        lines = [
-                            l
-                            for l in mock_out.getvalue().strip().split("\n")
-                            if l.strip()
-                        ]
+                        lines = [line for line in mock_out.getvalue().strip().split("\n") if line.strip()]
                         self.assertEqual(len(lines), 2)
                         d1 = json.loads(lines[0])
                         d2 = json.loads(lines[1])
@@ -653,9 +629,7 @@ class TestProvenance(TestCase):
     def test_multi_file_json_has_file_key(self):
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tf", delete=False
-        ) as f1, tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tf", delete=False
-        ) as f2:
+        ) as f1, tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as f2:
             f1.write("x = 1\n")
             f2.write("x = 2\n")
             f1.flush()
@@ -669,11 +643,7 @@ class TestProvenance(TestCase):
                         with self.assertRaises(SystemExit) as cm:
                             main()
                         self.assertEqual(cm.exception.code, EXIT_SUCCESS)
-                        lines = [
-                            l
-                            for l in mock_out.getvalue().strip().split("\n")
-                            if l.strip()
-                        ]
+                        lines = [line for line in mock_out.getvalue().strip().split("\n") if line.strip()]
                         for line in lines:
                             data = json.loads(line)
                             self.assertIn("__file__", data)
@@ -685,9 +655,7 @@ class TestProvenance(TestCase):
         """--json with multiple files must produce a single valid JSON array."""
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tf", delete=False
-        ) as f1, tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tf", delete=False
-        ) as f2:
+        ) as f1, tempfile.NamedTemporaryFile(mode="w", suffix=".tf", delete=False) as f2:
             f1.write("x = 1\n")
             f2.write("y = 2\n")
             f1.flush()
@@ -763,11 +731,7 @@ class TestWithLocation(TestCase):
                         with self.assertRaises(SystemExit) as cm:
                             main()
                         self.assertEqual(cm.exception.code, EXIT_SUCCESS)
-                        lines = [
-                            l
-                            for l in mock_out.getvalue().strip().split("\n")
-                            if l.strip()
-                        ]
+                        lines = [line for line in mock_out.getvalue().strip().split("\n") if line.strip()]
                         self.assertTrue(len(lines) >= 2)
                         for line in lines:
                             data = json.loads(line)
@@ -1002,9 +966,7 @@ class TestParallelMode(TestCase):
                     with self.assertRaises(SystemExit) as cm:
                         main()
                     self.assertEqual(cm.exception.code, EXIT_SUCCESS)
-                    lines = [
-                        l for l in mock_out.getvalue().strip().split("\n") if l.strip()
-                    ]
+                    lines = [line for line in mock_out.getvalue().strip().split("\n") if line.strip()]
                     self.assertEqual(len(lines), 25)
                     for line in lines:
                         data = json.loads(line)
@@ -1048,7 +1010,5 @@ class TestParallelMode(TestCase):
                     with self.assertRaises(SystemExit) as cm:
                         main()
                     self.assertEqual(cm.exception.code, EXIT_SUCCESS)
-                    lines = [
-                        l for l in mock_out.getvalue().strip().split("\n") if l.strip()
-                    ]
+                    lines = [line for line in mock_out.getvalue().strip().split("\n") if line.strip()]
                     self.assertEqual(len(lines), 25)

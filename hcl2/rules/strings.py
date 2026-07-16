@@ -1,27 +1,27 @@
 """Rule classes for HCL2 string literals, interpolation, and heredoc templates."""
 
 import sys
-from typing import Tuple, List, Any, Union
+from typing import Any, List, Tuple, Union
 
 from hcl2.rules.abstract import LarkRule
 from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.tokens import (
-    INTERP_START,
-    RBRACE,
     DBLQUOTE,
-    STRING_CHARS,
-    ESCAPED_INTERPOLATION,
     ESCAPED_DIRECTIVE,
-    TEMPLATE_STRING,
+    ESCAPED_INTERPOLATION,
     HEREDOC_TEMPLATE,
     HEREDOC_TRIM_TEMPLATE,
+    INTERP_START,
+    RBRACE,
+    STRING_CHARS,
+    TEMPLATE_STRING,
 )
 from hcl2.utils import (
-    SerializationOptions,
-    SerializationContext,
-    to_dollar_string,
-    HEREDOC_TRIM_PATTERN,
     HEREDOC_PATTERN,
+    HEREDOC_TRIM_PATTERN,
+    SerializationContext,
+    SerializationOptions,
+    to_dollar_string,
 )
 
 
@@ -44,9 +44,7 @@ class InterpolationRule(LarkRule):
         """Return the interpolated expression."""
         return self.children[1]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to ${expression} string."""
         with context.modify(inside_dollar_string=True):
             return to_dollar_string(self.expression.serialize(options, context))
@@ -73,9 +71,7 @@ class StringPartRule(LarkRule):
         """Return the content element (string chars, escape, interpolation, or directive)."""
         return self._children[0]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize this string part."""
         return self.content.serialize(options, context)
 
@@ -95,9 +91,7 @@ class StringRule(LarkRule):
         """Return the list of string parts between quotes."""
         return self.children[1:-1]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a quoted string."""
         inner = "".join(part.serialize(options, context) for part in self.string_parts)
         if options.strip_string_quotes:
@@ -121,9 +115,7 @@ class HeredocTemplateRule(LarkRule):
         """Return the raw heredoc token."""
         return self.children[0]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize the heredoc, optionally stripping to a plain string."""
         heredoc = self.heredoc.serialize(options, context)
 
@@ -132,9 +124,7 @@ class HeredocTemplateRule(LarkRule):
             if not match:
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
             heredoc = match.group(2).rstrip(self._trim_chars)
-            heredoc = (
-                heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-            )
+            heredoc = heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             if options.strip_string_quotes:
                 return heredoc
             return f'"{heredoc}"'
@@ -155,9 +145,7 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
         """Return the grammar rule name."""
         return "heredoc_template_trim"
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize the trim heredoc, stripping common leading whitespace."""
         # See https://github.com/hashicorp/hcl2/blob/master/hcl/hclsyntax/spec.md#template-expressions
         # This is a special version of heredocs that are declared with "<<-"
@@ -218,9 +206,7 @@ class TemplateStringRule(LarkRule):
             return raw[2:-2]
         return raw
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize preserving escaped-quote delimiters for round-trip fidelity.
 
         Inside template directive expressions, strings are delimited by \\"

@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 from cli.helpers import (
     _collect_files,
-    _convert_single_file,
     _convert_directory,
     _convert_multiple_files,
+    _convert_single_file,
     _error,
     _expand_file_args,
 )
@@ -630,9 +630,7 @@ class TestQuietMode(TestCase):
                 out_f.write(in_f.read())
 
             with patch("sys.stderr", stderr), patch("sys.stdout", stdout):
-                _convert_single_file(
-                    path, None, convert, False, (Exception,), quiet=True
-                )
+                _convert_single_file(path, None, convert, False, (Exception,), quiet=True)
 
             self.assertEqual(stderr.getvalue(), "")
             self.assertIn("hello", stdout.getvalue())
@@ -649,8 +647,6 @@ class TestQuietMode(TestCase):
                 out_f.write(in_f.read())
 
             with patch("sys.stderr", stderr), patch("sys.stdout", stdout):
-                _convert_single_file(
-                    path, None, convert, False, (Exception,), quiet=False
-                )
+                _convert_single_file(path, None, convert, False, (Exception,), quiet=False)
 
             self.assertIn("test.txt", stderr.getvalue())

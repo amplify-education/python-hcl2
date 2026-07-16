@@ -2,22 +2,21 @@
 from unittest import TestCase
 
 from hcl2.const import IS_BLOCK
-from hcl2.rules.base import AttributeRule, BodyRule, StartRule, BlockRule
+from hcl2.rules.base import AttributeRule, BlockRule, BodyRule, StartRule
 from hcl2.rules.expressions import ExpressionRule, ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
-from hcl2.rules.strings import StringRule, StringPartRule
+from hcl2.rules.strings import StringPartRule, StringRule
 from hcl2.rules.tokens import (
-    NAME,
+    DBLQUOTE,
     EQ,
     LBRACE,
-    RBRACE,
-    DBLQUOTE,
-    STRING_CHARS,
+    NAME,
     NL_OR_COMMENT,
+    RBRACE,
+    STRING_CHARS,
 )
 from hcl2.rules.whitespace import NewLineOrCommentRule
-from hcl2.utils import SerializationOptions, SerializationContext
-
+from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Stubs & helpers ---
 

@@ -1,15 +1,14 @@
 # pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
+# Ensure views are registered
+import hcl2.query  # noqa: F401,E402  pylint: disable=unused-import
 from hcl2.query._base import NodeView, view_for
 from hcl2.rules.base import AttributeRule, BodyRule, StartRule
 from hcl2.rules.expressions import ExpressionRule, ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
-from hcl2.rules.tokens import NAME, EQ
+from hcl2.rules.tokens import EQ, NAME
 from hcl2.utils import SerializationContext, SerializationOptions
-
-# Ensure views are registered
-import hcl2.query  # noqa: F401,E402  pylint: disable=unused-import
 
 
 class StubExpression(ExpressionRule):

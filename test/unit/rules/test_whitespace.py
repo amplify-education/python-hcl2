@@ -2,9 +2,8 @@
 from unittest import TestCase
 
 from hcl2.rules.tokens import NAME, NL_OR_COMMENT
-from hcl2.rules.whitespace import NewLineOrCommentRule, InlineCommentMixIn
-from hcl2.utils import SerializationOptions, SerializationContext
-
+from hcl2.rules.whitespace import InlineCommentMixIn, NewLineOrCommentRule
+from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Concrete stub for testing InlineCommentMixIn ---
 

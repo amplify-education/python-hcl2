@@ -1,19 +1,18 @@
 """Rule classes for HCL2 structural elements (attributes, bodies, blocks)."""
 
 from collections import defaultdict
-from typing import Tuple, Any, List, Union, Optional
+from typing import Any, List, Optional, Tuple, Union
 
 from lark.tree import Meta
 
-from hcl2.const import IS_BLOCK, INLINE_COMMENTS_KEY
+from hcl2.const import INLINE_COMMENTS_KEY, IS_BLOCK
 from hcl2.rules.abstract import LarkRule, LarkToken
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.strings import StringRule
 from hcl2.rules.tokens import EQ, LBRACE, RBRACE
-
 from hcl2.rules.whitespace import NewLineOrCommentRule
-from hcl2.utils import SerializationOptions, SerializationContext
+from hcl2.utils import SerializationContext, SerializationOptions
 
 
 class AttributeRule(LarkRule):
@@ -40,9 +39,7 @@ class AttributeRule(LarkRule):
         """Return the attribute value expression."""
         return self._children[2]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a single-entry dict."""
         return {self.identifier.serialize(options): self.expression.serialize(options)}
 
@@ -63,9 +60,7 @@ class BodyRule(LarkRule):
         """Return the grammar rule name."""
         return "body"
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a dict, grouping blocks under their type name."""
         attribute_names = set()
         comments = []
@@ -74,7 +69,6 @@ class BodyRule(LarkRule):
         result = defaultdict(list)
 
         for child in self._children:
-
             if isinstance(child, BlockRule):
                 name = child.labels[0].serialize(options)
                 if name in attribute_names:
@@ -117,9 +111,7 @@ class StartRule(LarkRule):
         """Return the grammar rule name."""
         return "start"
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize by delegating to the body."""
         return self.body.serialize(options)
 
@@ -138,9 +130,7 @@ class BlockRule(LarkRule):
     def __init__(self, children, meta: Optional[Meta] = None):
         super().__init__(children, meta)
 
-        *self._labels, self._body = [
-            child for child in children if not isinstance(child, LarkToken)
-        ]
+        *self._labels, self._body = [child for child in children if not isinstance(child, LarkToken)]
 
     @staticmethod
     def lark_name() -> str:
@@ -157,9 +147,7 @@ class BlockRule(LarkRule):
         """Return the block body."""
         return self._body
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a nested dict with labels as keys."""
         result = self._body.serialize(options)
         if options.explicit_blocks:

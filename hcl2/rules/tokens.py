@@ -1,7 +1,7 @@
 """Token classes for terminal elements in the LarkElement tree."""
 
 from functools import lru_cache
-from typing import Callable, Any, Dict, Type, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple, Type
 
 from hcl2.rules.abstract import LarkToken
 
@@ -15,9 +15,7 @@ class StringToken(LarkToken):
     @staticmethod
     def lark_name() -> str:
         """Overridden by dynamic subclasses created via ``__class_getitem__``."""
-        raise NotImplementedError(
-            "Use StringToken['NAME'] to create a concrete subclass"
-        )
+        raise NotImplementedError("Use StringToken['NAME'] to create a concrete subclass")
 
     @classmethod
     @lru_cache(maxsize=None)
@@ -51,9 +49,7 @@ class StaticStringToken(StringToken):
 
     @classmethod
     @lru_cache(maxsize=None)
-    def __build_subclass(
-        cls, name: str, default_value: Optional[str] = None
-    ) -> Type["StringToken"]:
+    def __build_subclass(cls, name: str, default_value: Optional[str] = None) -> Type["StringToken"]:
         """Create a subclass with a constant `lark_name` and default value."""
 
         result = type(  # type: ignore

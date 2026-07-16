@@ -118,10 +118,7 @@ class TestExecutePipeline(TestCase):
     def test_multi_stage_chaining(self):
         doc = self._make_doc('resource "aws_instance" "main" {\n  ami = "test"\n}\n')
         # Pipe unwraps blocks to body, so chain with body attributes
-        stages = [
-            classify_stage(s)
-            for s in split_pipeline("resource.aws_instance.main | .ami")
-        ]
+        stages = [classify_stage(s) for s in split_pipeline("resource.aws_instance.main | .ami")]
         results = execute_pipeline(doc, stages)
         self.assertEqual(len(results), 1)
 
@@ -148,9 +145,7 @@ class TestExecutePipeline(TestCase):
 
     def test_pipe_select(self):
         doc = self._make_doc('variable "a" {\n  default = 1\n}\nvariable "b" {}\n')
-        stages = [
-            classify_stage(s) for s in split_pipeline("variable[*] | select(.default)")
-        ]
+        stages = [classify_stage(s) for s in split_pipeline("variable[*] | select(.default)")]
         results = execute_pipeline(doc, stages)
         self.assertEqual(len(results), 1)
 

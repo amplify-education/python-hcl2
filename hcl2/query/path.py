@@ -23,9 +23,7 @@ class PathSegment:
 
 
 # Optional type qualifier prefix:  type_filter:name~?[bracket]?
-_SEGMENT_RE = re.compile(
-    r"^(?:([a-z_]+):)?([a-zA-Z_][a-zA-Z0-9_-]*|\*)(~)?(?:\[(\*|[0-9]+)\])?\??$"
-)
+_SEGMENT_RE = re.compile(r"^(?:([a-z_]+):)?([a-zA-Z_][a-zA-Z0-9_-]*|\*)(~)?(?:\[(\*|[0-9]+)\])?\??$")
 
 
 def parse_path(path_str: str) -> List[PathSegment]:  # pylint: disable=too-many-locals
@@ -209,9 +207,7 @@ def _extract_select(part: str) -> Optional[tuple]:  # pylint: disable=too-many-l
         return None
 
     seg_name = part[:idx]
-    if not seg_name or not re.match(
-        r"^(?:[a-z_]+:)?(?:[a-zA-Z_][a-zA-Z0-9_-]*|\*)~?$", seg_name
-    ):
+    if not seg_name or not re.match(r"^(?:[a-z_]+:)?(?:[a-zA-Z_][a-zA-Z0-9_-]*|\*)~?$", seg_name):
         raise QuerySyntaxError(f"Invalid segment name before [select(): {seg_name!r}")
 
     # Parse optional type_filter:name prefix
@@ -245,9 +241,7 @@ def _extract_select(part: str) -> Optional[tuple]:  # pylint: disable=too-many-l
         if clean_tail:
             tail_match = re.match(r"^\[(\*|[0-9]+)\]$", clean_tail)
             if not tail_match:
-                raise QuerySyntaxError(
-                    f"Unexpected suffix after [select(...)]: {tail!r} in {part!r}"
-                )
+                raise QuerySyntaxError(f"Unexpected suffix after [select(...)]: {tail!r} in {part!r}")
             bracket = tail_match.group(1)
             if bracket == "*":
                 select_all = True

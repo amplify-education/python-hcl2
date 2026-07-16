@@ -1,28 +1,28 @@
 """Rule classes for HCL2 indexing, attribute access, and splat expressions."""
 
-from typing import List, Optional, Tuple, Any, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from lark.tree import Meta
 
 from hcl2.rules.abstract import LarkRule
-from hcl2.rules.expressions import ExprTermRule, ExpressionRule
+from hcl2.rules.expressions import ExpressionRule, ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.tokens import (
+    ATTR_SPLAT,
     DOT,
-    IntLiteral,
+    FULL_SPLAT,
     LSQB,
     RSQB,
-    ATTR_SPLAT,
-    FULL_SPLAT,
+    IntLiteral,
 )
 from hcl2.rules.whitespace import (
     InlineCommentMixIn,
     NewLineOrCommentRule,
 )
 from hcl2.utils import (
+    SerializationContext,
     SerializationOptions,
     to_dollar_string,
-    SerializationContext,
 )
 
 
@@ -44,9 +44,7 @@ class ShortIndexRule(LarkRule):
         """Return the index token."""
         return self.children[1]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '.N' string."""
         return f".{self.index.serialize(options, context)}"
 
@@ -72,9 +70,7 @@ class SqbIndexRule(InlineCommentMixIn):
         """Return the index expression inside the brackets."""
         return self.children[2]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '[expr]' string."""
         return f"[{self.index_expression.serialize(options, context)}]"
 
@@ -93,9 +89,7 @@ class IndexExprTermRule(ExpressionRule):
         """Return the grammar rule name."""
         return "index_expr_term"
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'expr[index]' string."""
         with context.modify(inside_dollar_string=True):
             expr = self.children[0].serialize(options, context)
@@ -124,9 +118,7 @@ class GetAttrRule(LarkRule):
         """Return the accessed identifier."""
         return self._children[1]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '.identifier' string."""
         return f".{self.identifier.serialize(options, context)}"
 
@@ -154,9 +146,7 @@ class GetAttrExprTermRule(ExpressionRule):
         """Return the attribute access rule."""
         return self._children[1]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'expr.attr' string."""
         with context.modify(inside_dollar_string=True):
             expr = self.expr_term.serialize(options, context)
@@ -187,13 +177,9 @@ class AttrSplatRule(LarkRule):
         """Return the trailing accessor chain."""
         return self._children[1:]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '.*...' string."""
-        return ".*" + "".join(
-            get_attr.serialize(options, context) for get_attr in self.get_attrs
-        )
+        return ".*" + "".join(get_attr.serialize(options, context) for get_attr in self.get_attrs)
 
 
 class AttrSplatExprTermRule(ExpressionRule):
@@ -216,9 +202,7 @@ class AttrSplatExprTermRule(ExpressionRule):
         """Return the attribute splat rule."""
         return self._children[1]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'expr.*...' string."""
         with context.modify(inside_dollar_string=True):
             expr = self.expr_term.serialize(options, context)
@@ -250,13 +234,9 @@ class FullSplatRule(LarkRule):
         """Return the trailing accessor chain."""
         return self._children[1:]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '[*]...' string."""
-        return "[*]" + "".join(
-            get_attr.serialize(options, context) for get_attr in self.get_attrs
-        )
+        return "[*]" + "".join(get_attr.serialize(options, context) for get_attr in self.get_attrs)
 
 
 class FullSplatExprTermRule(ExpressionRule):
@@ -279,9 +259,7 @@ class FullSplatExprTermRule(ExpressionRule):
         """Return the full splat rule."""
         return self._children[1]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'expr[*]...' string."""
         with context.modify(inside_dollar_string=True):
             expr = self.expr_term.serialize(options, context)

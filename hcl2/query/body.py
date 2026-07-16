@@ -59,9 +59,7 @@ class DocumentView(NodeView):
         node: StartRule = self._node  # type: ignore[assignment]
         return BodyView(node.body)
 
-    def blocks(
-        self, block_type: Optional[str] = None, *labels: str
-    ) -> List["NodeView"]:
+    def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["NodeView"]:
         """Return matching blocks, delegating to body."""
         return self.body.blocks(block_type, *labels)
 
@@ -78,9 +76,7 @@ class DocumentView(NodeView):
 class BodyView(NodeView):
     """View over an HCL2 body (BodyRule)."""
 
-    def blocks(
-        self, block_type: Optional[str] = None, *labels: str
-    ) -> List["NodeView"]:
+    def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["NodeView"]:
         """Return blocks, optionally filtered by type and labels."""
         from hcl2.query.blocks import BlockView
 
@@ -97,7 +93,7 @@ class BodyView(NodeView):
                 name_lbls = block_view.name_labels
                 if len(labels) > len(name_lbls):
                     continue
-                if any(l != nl for l, nl in zip(labels, name_lbls)):
+                if any(label != nl for label, nl in zip(labels, name_lbls)):
                     continue
             results.append(block_view)
         return results

@@ -4,9 +4,8 @@ from unittest import TestCase
 from lark import Token, Tree
 from lark.tree import Meta
 
-from hcl2.rules.abstract import LarkToken, LarkRule
-from hcl2.utils import SerializationOptions, SerializationContext
-
+from hcl2.rules.abstract import LarkRule, LarkToken
+from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Concrete stubs for testing ABCs ---
 

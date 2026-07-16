@@ -3,53 +3,52 @@
 
 from unittest import TestCase
 
-from lark import Tree, Token
+from lark import Token, Tree
 
 from hcl2.reconstructor import HCLReconstructor
-from hcl2.rules.base import BlockRule, AttributeRule, BodyRule, StartRule
+from hcl2.rules.base import AttributeRule, BlockRule, BodyRule, StartRule
 from hcl2.rules.containers import (
-    ObjectRule,
-    ObjectElemRule,
     ObjectElemKeyRule,
+    ObjectElemRule,
+    ObjectRule,
     TupleRule,
 )
 from hcl2.rules.expressions import (
-    BinaryTermRule,
-    ExprTermRule,
-    ConditionalRule,
-    UnaryOpRule,
     BinaryOpRule,
+    BinaryTermRule,
+    ConditionalRule,
+    ExprTermRule,
+    UnaryOpRule,
 )
 from hcl2.rules.for_expressions import (
-    ForIntroRule,
     ForCondRule,
-    ForTupleExprRule,
+    ForIntroRule,
     ForObjectExprRule,
+    ForTupleExprRule,
 )
 from hcl2.rules.literal_rules import BinaryOperatorRule, IdentifierRule
 from hcl2.rules.strings import StringRule
 from hcl2.rules.tokens import (
+    BINARY_OP,
+    COLON,
+    COMMA,
+    DBLQUOTE,
+    ELLIPSIS,
+    EQ,
+    FOR,
+    FOR_OBJECT_ARROW,
+    IF,
+    IN,
+    LBRACE,
+    LSQB,
     NAME,
     NL_OR_COMMENT,
-    EQ,
-    LBRACE,
-    RBRACE,
-    LSQB,
-    RSQB,
-    COMMA,
-    COLON,
     QMARK,
-    FOR,
-    IN,
-    IF,
-    ELLIPSIS,
-    FOR_OBJECT_ARROW,
-    DBLQUOTE,
+    RBRACE,
+    RSQB,
     STRING_CHARS,
-    BINARY_OP,
 )
 from hcl2.rules.whitespace import NewLineOrCommentRule
-
 
 # --- helpers ---
 
@@ -218,9 +217,7 @@ class TestSpaceBeforeToken(TestCase):
         r._last_was_space = False
         r._last_token_name = "NAME"
         token = Token("LBRACE", "{")
-        self.assertTrue(
-            r._should_add_space_before(token, parent_rule_name=BlockRule.lark_name())
-        )
+        self.assertTrue(r._should_add_space_before(token, parent_rule_name=BlockRule.lark_name()))
 
     def test_no_space_before_lbrace_outside_block(self):
         r = _r()
@@ -294,9 +291,7 @@ class TestSpaceAroundBinaryOps(TestCase):
         r._last_was_space = False
         r._last_token_name = "MINUS"
         token = Token("NAME", "x")
-        self.assertFalse(
-            r._should_add_space_before(token, parent_rule_name=UnaryOpRule.lark_name())
-        )
+        self.assertFalse(r._should_add_space_before(token, parent_rule_name=UnaryOpRule.lark_name()))
 
 
 class TestSpaceAroundConditional(TestCase):
@@ -305,44 +300,28 @@ class TestSpaceAroundConditional(TestCase):
         r._last_was_space = False
         r._last_token_name = "NAME"
         token = Token("QMARK", "?")
-        self.assertTrue(
-            r._should_add_space_before(
-                token, parent_rule_name=ConditionalRule.lark_name()
-            )
-        )
+        self.assertTrue(r._should_add_space_before(token, parent_rule_name=ConditionalRule.lark_name()))
 
     def test_space_before_colon(self):
         r = _r()
         r._last_was_space = False
         r._last_token_name = "NAME"
         token = Token("COLON", ":")
-        self.assertTrue(
-            r._should_add_space_before(
-                token, parent_rule_name=ConditionalRule.lark_name()
-            )
-        )
+        self.assertTrue(r._should_add_space_before(token, parent_rule_name=ConditionalRule.lark_name()))
 
     def test_space_after_qmark(self):
         r = _r()
         r._last_was_space = False
         r._last_token_name = "QMARK"
         token = Token("NAME", "x")
-        self.assertTrue(
-            r._should_add_space_before(
-                token, parent_rule_name=ConditionalRule.lark_name()
-            )
-        )
+        self.assertTrue(r._should_add_space_before(token, parent_rule_name=ConditionalRule.lark_name()))
 
     def test_space_after_colon(self):
         r = _r()
         r._last_was_space = False
         r._last_token_name = "COLON"
         token = Token("NAME", "x")
-        self.assertTrue(
-            r._should_add_space_before(
-                token, parent_rule_name=ConditionalRule.lark_name()
-            )
-        )
+        self.assertTrue(r._should_add_space_before(token, parent_rule_name=ConditionalRule.lark_name()))
 
     def test_no_space_qmark_outside_conditional(self):
         r = _r()
@@ -475,9 +454,7 @@ class TestSpaceColonInForIntro(TestCase):
         r._last_was_space = False
         r._last_token_name = "NAME"
         token = Token("COLON", ":")
-        self.assertTrue(
-            r._should_add_space_before(token, parent_rule_name=ForIntroRule.lark_name())
-        )
+        self.assertTrue(r._should_add_space_before(token, parent_rule_name=ForIntroRule.lark_name()))
 
     def test_no_space_colon_outside_for_intro_and_conditional(self):
         r = _r()
@@ -497,9 +474,7 @@ class TestSpaceBeforeTree(TestCase):
         r._last_token_name = "NAME"
         r._last_rule_name = IdentifierRule.lark_name()
         tree = Tree(IdentifierRule.lark_name(), [Token("NAME", "label2")])
-        self.assertTrue(
-            r._should_add_space_before(tree, parent_rule_name=BlockRule.lark_name())
-        )
+        self.assertTrue(r._should_add_space_before(tree, parent_rule_name=BlockRule.lark_name()))
 
     def test_space_between_string_and_identifier_in_block(self):
         r = _r()
@@ -507,9 +482,7 @@ class TestSpaceBeforeTree(TestCase):
         r._last_token_name = "DBLQUOTE"
         r._last_rule_name = StringRule.lark_name()
         tree = Tree(IdentifierRule.lark_name(), [Token("NAME", "label")])
-        self.assertTrue(
-            r._should_add_space_before(tree, parent_rule_name=BlockRule.lark_name())
-        )
+        self.assertTrue(r._should_add_space_before(tree, parent_rule_name=BlockRule.lark_name()))
 
     def test_no_space_between_labels_outside_block(self):
         r = _r()
@@ -525,9 +498,7 @@ class TestSpaceBeforeTree(TestCase):
         r._last_token_name = "NAME"
         r._last_rule_name = StringRule.lark_name()
         self.assertFalse(
-            r._should_add_space_before(
-                Tree("expr_term", []), parent_rule_name=BlockRule.lark_name()
-            )
+            r._should_add_space_before(Tree("expr_term", []), parent_rule_name=BlockRule.lark_name())
         )
 
     def test_space_after_qmark_before_tree_in_conditional(self):
@@ -535,31 +506,21 @@ class TestSpaceBeforeTree(TestCase):
         r._last_was_space = False
         r._last_token_name = "QMARK"
         tree = Tree("expr_term", [Token("NAME", "x")])
-        self.assertTrue(
-            r._should_add_space_before(
-                tree, parent_rule_name=ConditionalRule.lark_name()
-            )
-        )
+        self.assertTrue(r._should_add_space_before(tree, parent_rule_name=ConditionalRule.lark_name()))
 
     def test_space_after_colon_before_tree_in_conditional(self):
         r = _r()
         r._last_was_space = False
         r._last_token_name = "COLON"
         tree = Tree("expr_term", [Token("NAME", "x")])
-        self.assertTrue(
-            r._should_add_space_before(
-                tree, parent_rule_name=ConditionalRule.lark_name()
-            )
-        )
+        self.assertTrue(r._should_add_space_before(tree, parent_rule_name=ConditionalRule.lark_name()))
 
     def test_no_space_after_other_token_before_tree_in_conditional(self):
         r = _r()
         r._last_was_space = False
         r._last_token_name = "LPAR"
         self.assertFalse(
-            r._should_add_space_before(
-                Tree("expr_term", []), parent_rule_name=ConditionalRule.lark_name()
-            )
+            r._should_add_space_before(Tree("expr_term", []), parent_rule_name=ConditionalRule.lark_name())
         )
 
     def test_space_after_colon_before_tree_in_for_tuple_expr(self):
@@ -567,33 +528,21 @@ class TestSpaceBeforeTree(TestCase):
         r._last_was_space = False
         r._last_token_name = "COLON"
         tree = Tree("expr_term", [Token("NAME", "x")])
-        self.assertTrue(
-            r._should_add_space_before(
-                tree, parent_rule_name=ForTupleExprRule.lark_name()
-            )
-        )
+        self.assertTrue(r._should_add_space_before(tree, parent_rule_name=ForTupleExprRule.lark_name()))
 
     def test_space_after_colon_before_tree_in_for_object_expr(self):
         r = _r()
         r._last_was_space = False
         r._last_token_name = "COLON"
         tree = Tree("expr_term", [Token("NAME", "x")])
-        self.assertTrue(
-            r._should_add_space_before(
-                tree, parent_rule_name=ForObjectExprRule.lark_name()
-            )
-        )
+        self.assertTrue(r._should_add_space_before(tree, parent_rule_name=ForObjectExprRule.lark_name()))
 
     def test_no_space_after_colon_before_nlc_in_for_expr(self):
         r = _r()
         r._last_was_space = False
         r._last_token_name = "COLON"
         tree = Tree("new_line_or_comment", [Token("NL_OR_COMMENT", "\n")])
-        self.assertFalse(
-            r._should_add_space_before(
-                tree, parent_rule_name=ForTupleExprRule.lark_name()
-            )
-        )
+        self.assertFalse(r._should_add_space_before(tree, parent_rule_name=ForTupleExprRule.lark_name()))
 
     def test_no_space_after_colon_outside_for_expr(self):
         r = _r()
@@ -856,9 +805,7 @@ class TestReconstructBinaryOp(TestCase):
                                         Tree(
                                             "expr_term",
                                             [
-                                                Tree(
-                                                    "identifier", [Token("NAME", "a")]
-                                                ),
+                                                Tree("identifier", [Token("NAME", "a")]),
                                             ],
                                         ),
                                         Tree(

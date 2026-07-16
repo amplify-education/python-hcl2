@@ -8,13 +8,9 @@ import sys
 from io import StringIO
 from typing import TextIO
 
-import hcl2
-from hcl2 import dump
-from hcl2.deserializer import DeserializerOptions
-from hcl2.formatter import FormatterOptions
-from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
-from hcl2.utils import SerializationOptions
 from hcl2.version import __version__
+
+import hcl2
 from cli.helpers import (
     EXIT_DIFF,
     EXIT_IO_ERROR,
@@ -28,6 +24,11 @@ from cli.helpers import (
     _expand_file_args,
     _install_sigpipe_handler,
 )
+from hcl2 import dump
+from hcl2.deserializer import DeserializerOptions
+from hcl2.formatter import FormatterOptions
+from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
+from hcl2.utils import SerializationOptions
 
 
 def _json_to_hcl(
@@ -74,9 +75,7 @@ def _json_to_hcl_fragment(
 def _strip_block_markers(data):
     """Recursively remove ``__is_block__`` keys from nested dicts."""
     if isinstance(data, dict):
-        return {
-            k: _strip_block_markers(v) for k, v in data.items() if k != "__is_block__"
-        }
+        return {k: _strip_block_markers(v) for k, v in data.items() if k != "__is_block__"}
     if isinstance(data, list):
         return [_strip_block_markers(item) for item in data]
     return data
@@ -115,9 +114,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
         epilog=_EXAMPLES,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "-s", dest="skip", action="store_true", help="Skip un-parsable files"
-    )
+    parser.add_argument("-s", dest="skip", action="store_true", help="Skip un-parsable files")
     parser.add_argument(
         "PATH",
         nargs="*",
@@ -315,9 +312,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
                 sys.exit(EXIT_IO_ERROR)
 
             # Parse original HCL → normalized dict
-            sem_opts = SerializationOptions(
-                with_comments=False, with_meta=False, explicit_blocks=True
-            )
+            sem_opts = SerializationOptions(with_comments=False, with_meta=False, explicit_blocks=True)
             with open(original_path, "r", encoding="utf-8") as f:
                 dict_original = hcl2.load(f, serialization_options=sem_opts)
 
@@ -366,9 +361,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
         if len(paths) == 1:
             path = paths[0]
             if path == "-" or os.path.isfile(path):
-                if not _convert_single_file(
-                    path, output, convert, args.skip, JSON_SKIPPABLE, quiet=quiet
-                ):
+                if not _convert_single_file(path, output, convert, args.skip, JSON_SKIPPABLE, quiet=quiet):
                     sys.exit(EXIT_PARTIAL)
             elif os.path.isdir(path):
                 if output is None:
