@@ -1,37 +1,36 @@
 # pylint: disable=C0103,C0114,C0115,C0116
 from unittest import TestCase
 
-from hcl2.const import IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY
+from hcl2.const import COMMENTS_KEY, INLINE_COMMENTS_KEY, IS_BLOCK
 from hcl2.deserializer import BaseDeserializer, DeserializerOptions
-from hcl2.rules.base import StartRule, BodyRule, BlockRule, AttributeRule
+from hcl2.rules.base import AttributeRule, BlockRule, BodyRule, StartRule
 from hcl2.rules.containers import (
-    TupleRule,
-    ObjectRule,
-    ObjectElemRule,
     ObjectElemKeyExpressionRule,
+    ObjectElemRule,
+    ObjectRule,
+    TupleRule,
 )
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.literal_rules import (
+    FloatLitRule,
     IdentifierRule,
     IntLitRule,
-    FloatLitRule,
     LiteralValueRule,
 )
 from hcl2.rules.strings import (
-    StringRule,
-    StringPartRule,
-    InterpolationRule,
     HeredocTemplateRule,
     HeredocTrimTemplateRule,
+    InterpolationRule,
+    StringPartRule,
+    StringRule,
 )
 from hcl2.rules.tokens import (
-    STRING_CHARS,
-    ESCAPED_INTERPOLATION,
+    COLON,
     COMMA,
     EQ,
-    COLON,
+    ESCAPED_INTERPOLATION,
+    STRING_CHARS,
 )
-
 
 # --- helpers ---
 

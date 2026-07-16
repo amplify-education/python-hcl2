@@ -75,9 +75,7 @@ class TestConditionalView(TestCase):
         )
 
         doc = self._parse('x = true ? "yes" : "no"\n')
-        stages = [
-            classify_stage(s) for s in split_pipeline("*..conditional:* | .condition")
-        ]
+        stages = [classify_stage(s) for s in split_pipeline("*..conditional:* | .condition")]
         results = execute_pipeline(doc, stages)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].to_hcl().strip(), "true")

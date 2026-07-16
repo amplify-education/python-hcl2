@@ -2,8 +2,8 @@
 from unittest import TestCase
 
 from hcl2.utils import (
-    SerializationOptions,
     SerializationContext,
+    SerializationOptions,
     is_dollar_string,
     to_dollar_string,
     unwrap_dollar_string,

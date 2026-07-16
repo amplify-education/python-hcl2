@@ -5,63 +5,63 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, TextIO, List, Optional, Union
+from typing import Any, List, Optional, TextIO, Union
 
 from regex import regex
 
+from hcl2.const import COMMENTS_KEY, INLINE_COMMENTS_KEY, IS_BLOCK
 from hcl2.parser import parser as _get_parser
-from hcl2.const import IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY
 from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
-    BlockRule,
     AttributeRule,
+    BlockRule,
     BodyRule,
     StartRule,
 )
 from hcl2.rules.containers import (
-    TupleRule,
-    ObjectRule,
-    ObjectElemRule,
     ObjectElemKeyExpressionRule,
     ObjectElemKeyRule,
+    ObjectElemRule,
+    ObjectRule,
+    TupleRule,
 )
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.literal_rules import (
+    FloatLitRule,
     IdentifierRule,
     IntLitRule,
-    FloatLitRule,
     LiteralValueRule,
 )
 from hcl2.rules.strings import (
-    StringRule,
-    InterpolationRule,
-    StringPartRule,
     HeredocTemplateRule,
     HeredocTrimTemplateRule,
+    InterpolationRule,
+    StringPartRule,
+    StringRule,
 )
 from hcl2.rules.tokens import (
-    NAME,
-    EQ,
-    DBLQUOTE,
-    STRING_CHARS,
-    ESCAPED_INTERPOLATION,
-    INTERP_START,
-    RBRACE,
-    IntLiteral,
-    FloatLiteral,
-    RSQB,
-    LSQB,
-    COMMA,
-    LBRACE,
-    HEREDOC_TRIM_TEMPLATE,
-    HEREDOC_TEMPLATE,
     COLON,
-    TRUE,
+    COMMA,
+    DBLQUOTE,
+    EQ,
+    ESCAPED_INTERPOLATION,
     FALSE,
+    HEREDOC_TEMPLATE,
+    HEREDOC_TRIM_TEMPLATE,
+    INTERP_START,
+    LBRACE,
+    LSQB,
+    NAME,
     NULL,
+    RBRACE,
+    RSQB,
+    STRING_CHARS,
+    TRUE,
+    FloatLiteral,
+    IntLiteral,
 )
 from hcl2.transformer import RuleTransformer
-from hcl2.utils import HEREDOC_TRIM_PATTERN, HEREDOC_PATTERN
+from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
 
 
 @dataclass
@@ -107,9 +107,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
     def load_python(self, value: Any) -> StartRule:
         """Deserialize a Python object into a StartRule tree."""
         if not isinstance(value, dict):
-            raise TypeError(
-                f"Expected dict for top-level HCL body, got {type(value).__name__}"
-            )
+            raise TypeError(f"Expected dict for top-level HCL body, got {type(value).__name__}")
         # Top-level dict is always a body (attributes + blocks), not an object
         children = self._deserialize_block_elements(value)
         return StartRule([BodyRule(children)])
@@ -121,7 +119,6 @@ class BaseDeserializer(LarkElementTreeDeserializer):
     def _deserialize(self, value: Any) -> LarkElement:
         if isinstance(value, dict):
             if self._contains_block_marker(value):
-
                 children: List[Any] = []
 
                 block_elements = self._deserialize_block_elements(value)
@@ -250,11 +247,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         if value.startswith("${") and value.endswith("}"):
             return StringPartRule(
-                [
-                    InterpolationRule(
-                        [INTERP_START(), self._deserialize_expression(value), RBRACE()]
-                    )
-                ]
+                [InterpolationRule([INTERP_START(), self._deserialize_expression(value), RBRACE()])]
             )
 
         return StringPartRule([STRING_CHARS(value)])
@@ -402,8 +395,6 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                 return True
             if isinstance(value, list):
                 for element in value:
-                    if isinstance(element, dict) and self._contains_block_marker(
-                        element
-                    ):
+                    if isinstance(element, dict) and self._contains_block_marker(element):
                         return True
         return False

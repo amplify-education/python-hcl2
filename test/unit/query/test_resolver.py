@@ -19,23 +19,17 @@ class TestResolvePathStructural(TestCase):
         self.assertEqual(len(results), 1)
 
     def test_block_type_with_label(self):
-        doc = DocumentView.parse(
-            'resource "aws_instance" "main" {\n  ami = "test"\n}\n'
-        )
+        doc = DocumentView.parse('resource "aws_instance" "main" {\n  ami = "test"\n}\n')
         results = resolve_path(doc, parse_path("resource.aws_instance"))
         self.assertEqual(len(results), 1)
 
     def test_block_full_path(self):
-        doc = DocumentView.parse(
-            'resource "aws_instance" "main" {\n  ami = "test"\n}\n'
-        )
+        doc = DocumentView.parse('resource "aws_instance" "main" {\n  ami = "test"\n}\n')
         results = resolve_path(doc, parse_path("resource.aws_instance.main"))
         self.assertEqual(len(results), 1)
 
     def test_block_attribute(self):
-        doc = DocumentView.parse(
-            'resource "aws_instance" "main" {\n  ami = "test"\n}\n'
-        )
+        doc = DocumentView.parse('resource "aws_instance" "main" {\n  ami = "test"\n}\n')
         results = resolve_path(doc, parse_path("resource.aws_instance.main.ami"))
         self.assertEqual(len(results), 1)
 
@@ -75,9 +69,7 @@ class TestResolvePathStructural(TestCase):
         self.assertEqual(len(results), 1)
 
     def test_wildcard_labels(self):
-        doc = DocumentView.parse(
-            'resource "aws_instance" "main" {}\nresource "aws_s3_bucket" "data" {}\n'
-        )
+        doc = DocumentView.parse('resource "aws_instance" "main" {}\nresource "aws_s3_bucket" "data" {}\n')
         results = resolve_path(doc, parse_path("resource[*].*"))
         self.assertEqual(len(results), 2)
 
@@ -154,15 +146,11 @@ class TestResolvePathStructural(TestCase):
         doc = DocumentView.parse("x = 1\n")
         attr = doc.attribute("x")
         value_view = attr.value_node
-        results = resolve_path(
-            value_view, [PathSegment(name="foo", select_all=False, index=None)]
-        )
+        results = resolve_path(value_view, [PathSegment(name="foo", select_all=False, index=None)])
         self.assertEqual(len(results), 0)
 
     def test_block_labels_consumed_then_body(self):
-        doc = DocumentView.parse(
-            'resource "aws_instance" "main" {\n  ami = "test"\n}\n'
-        )
+        doc = DocumentView.parse('resource "aws_instance" "main" {\n  ami = "test"\n}\n')
         results = resolve_path(doc, parse_path("resource.aws_instance.main.ami"))
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "ami")
@@ -177,23 +165,14 @@ class TestResolveRecursive(TestCase):
         self.assertEqual(results[0].name, "ami")
 
     def test_recursive_deeply_nested(self):
-        hcl = (
-            'resource "type" "name" {\n'
-            '  provisioner "local-exec" {\n'
-            '    command = "echo"\n'
-            "  }\n"
-            "}\n"
-        )
+        hcl = 'resource "type" "name" {\n  provisioner "local-exec" {\n    command = "echo"\n  }\n}\n'
         doc = DocumentView.parse(hcl)
         results = resolve_path(doc, parse_path("resource..command"))
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "command")
 
     def test_recursive_multiple_matches(self):
-        hcl = (
-            'resource "a" "x" {\n  ami = "1"\n}\n'
-            'resource "b" "y" {\n  ami = "2"\n}\n'
-        )
+        hcl = 'resource "a" "x" {\n  ami = "1"\n}\nresource "b" "y" {\n  ami = "2"\n}\n'
         doc = DocumentView.parse(hcl)
         results = resolve_path(doc, parse_path("*..ami"))
         self.assertEqual(len(results), 2)
@@ -215,10 +194,7 @@ class TestResolveRecursive(TestCase):
         self.assertEqual(len(results), 1)
 
     def test_recursive_with_select_all(self):
-        hcl = (
-            'resource "a" "x" {\n  tag = "1"\n}\n'
-            'resource "b" "y" {\n  tag = "2"\n}\n'
-        )
+        hcl = 'resource "a" "x" {\n  tag = "1"\n}\nresource "b" "y" {\n  tag = "2"\n}\n'
         doc = DocumentView.parse(hcl)
         results = resolve_path(doc, parse_path("*..tag[*]"))
         self.assertEqual(len(results), 2)
@@ -243,11 +219,7 @@ class TestTypeFilter(TestCase):
         doc = DocumentView.parse(hcl)
         results = resolve_path(
             doc,
-            [
-                PathSegment(
-                    name="*", select_all=True, index=None, type_filter="attribute"
-                )
-            ],
+            [PathSegment(name="*", select_all=True, index=None, type_filter="attribute")],
         )
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "x")
@@ -306,17 +278,13 @@ class TestSkipLabels(TestCase):
     """Test the ``~`` (skip labels) operator."""
 
     def test_skip_labels_basic(self):
-        doc = DocumentView.parse(
-            'resource "aws_instance" "main" {\n  ami = "test"\n}\n'
-        )
+        doc = DocumentView.parse('resource "aws_instance" "main" {\n  ami = "test"\n}\n')
         results = resolve_path(doc, parse_path("resource~.ami"))
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "ami")
 
     def test_skip_labels_wildcard(self):
-        doc = DocumentView.parse(
-            'resource "a" "x" {\n  ami = 1\n}\nresource "b" "y" {\n  ami = 2\n}\n'
-        )
+        doc = DocumentView.parse('resource "a" "x" {\n  ami = 1\n}\nresource "b" "y" {\n  ami = 2\n}\n')
         results = resolve_path(doc, parse_path("resource~[*]"))
         self.assertEqual(len(results), 2)
 

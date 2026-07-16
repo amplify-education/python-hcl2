@@ -2,27 +2,28 @@
 
 from typing import List, Optional, Union
 
-from lark import Tree, Token
+from lark import Token, Tree
+
 from hcl2.rules import tokens
 from hcl2.rules.base import BlockRule
 from hcl2.rules.containers import ObjectElemRule
 from hcl2.rules.directives import (
-    TemplateIfRule,
-    TemplateForRule,
-    TemplateIfStartRule,
     TemplateElseRule,
-    TemplateEndifRule,
-    TemplateForStartRule,
     TemplateEndforRule,
+    TemplateEndifRule,
+    TemplateForRule,
+    TemplateForStartRule,
+    TemplateIfRule,
+    TemplateIfStartRule,
 )
-from hcl2.rules.for_expressions import ForIntroRule, ForTupleExprRule, ForObjectExprRule
-from hcl2.rules.literal_rules import IdentifierRule, LiteralValueRule
-from hcl2.rules.strings import StringRule
 from hcl2.rules.expressions import (
-    ExprTermRule,
     ConditionalRule,
+    ExprTermRule,
     UnaryOpRule,
 )
+from hcl2.rules.for_expressions import ForIntroRule, ForObjectExprRule, ForTupleExprRule
+from hcl2.rules.literal_rules import IdentifierRule, LiteralValueRule
+from hcl2.rules.strings import StringRule
 
 
 class HCLReconstructor:
@@ -85,30 +86,21 @@ class HCLReconstructor:
             token_type = current_node.type
 
             # Space before '{' in blocks
-            if (
-                token_type == tokens.LBRACE.lark_name()
-                and parent_rule_name == BlockRule.lark_name()
-            ):
+            if token_type == tokens.LBRACE.lark_name() and parent_rule_name == BlockRule.lark_name():
                 return True
 
             # Space around Conditional Expression operators
             if parent_rule_name == ConditionalRule.lark_name() and (
                 token_type in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
-                or self._last_token_name
-                in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
+                or self._last_token_name in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
             ):
                 # COLON may already carry leading whitespace from the grammar
-                if token_type == tokens.COLON.lark_name() and str(
-                    current_node
-                ).startswith((" ", "\t")):
+                if token_type == tokens.COLON.lark_name() and str(current_node).startswith((" ", "\t")):
                     return False
                 return True
 
             # Space before colon in for_intro
-            if (
-                parent_rule_name == ForIntroRule.lark_name()
-                and token_type == tokens.COLON.lark_name()
-            ):
+            if parent_rule_name == ForIntroRule.lark_name() and token_type == tokens.COLON.lark_name():
                 if str(current_node).startswith((" ", "\t")):
                     return False
                 return True
@@ -210,10 +202,7 @@ class HCLReconstructor:
             if parent_rule_name == UnaryOpRule.lark_name():
                 return False
 
-            if (
-                token_type in self._binary_op_types
-                or self._last_token_name in self._binary_op_types
-            ):
+            if token_type in self._binary_op_types or self._last_token_name in self._binary_op_types:
                 return True
 
         elif isinstance(current_node, Tree):
@@ -237,11 +226,10 @@ class HCLReconstructor:
                     return True
 
             # Space after QMARK/COLON in conditional expressions
-            if (
-                parent_rule_name == ConditionalRule.lark_name()
-                and self._last_token_name
-                in [tokens.COLON.lark_name(), tokens.QMARK.lark_name()]
-            ):
+            if parent_rule_name == ConditionalRule.lark_name() and self._last_token_name in [
+                tokens.COLON.lark_name(),
+                tokens.QMARK.lark_name(),
+            ]:
                 return True
 
             # Space after colon in for expressions and object elements
@@ -261,9 +249,7 @@ class HCLReconstructor:
 
         return False
 
-    def _reconstruct_tree(
-        self, tree: Tree, parent_rule_name: Optional[str] = None
-    ) -> List[str]:
+    def _reconstruct_tree(self, tree: Tree, parent_rule_name: Optional[str] = None) -> List[str]:
         """Recursively reconstruct a Tree node into HCL text fragments."""
         result = []
         rule_name = tree.data
@@ -302,9 +288,7 @@ class HCLReconstructor:
 
         return result
 
-    def _reconstruct_token(
-        self, token: Token, parent_rule_name: Optional[str] = None
-    ) -> str:
+    def _reconstruct_token(self, token: Token, parent_rule_name: Optional[str] = None) -> str:
         """Reconstruct a Token node into HCL text fragments."""
         result = str(token.value)
         if self._should_add_space_before(token, parent_rule_name):

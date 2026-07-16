@@ -6,9 +6,8 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from cli.helpers import EXIT_IO_ERROR, EXIT_PARSE_ERROR, EXIT_PARTIAL
 from cli.hcl_to_json import main
-
+from cli.helpers import EXIT_IO_ERROR, EXIT_PARSE_ERROR, EXIT_PARTIAL
 
 SIMPLE_HCL = "x = 1\n"
 SIMPLE_JSON_DICT = {"x": 1}
@@ -86,9 +85,7 @@ class TestHclToJson(TestCase):
 
         output = stdout.getvalue()
         self.assertTrue(output.endswith("\n"), "output should end with newline")
-        self.assertFalse(
-            output.endswith("\n\n"), "output should not have double trailing newline"
-        )
+        self.assertFalse(output.endswith("\n\n"), "output should not have double trailing newline")
 
     def test_directory_mode(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -460,11 +457,7 @@ class TestNdjsonStructuredErrors(TestCase):
                     self.assertEqual(cm.exception.code, EXIT_PARSE_ERROR)
 
             # stderr may contain progress line (filename) before the JSON error
-            lines = [
-                ln
-                for ln in stderr.getvalue().strip().splitlines()
-                if ln.startswith("{")
-            ]
+            lines = [ln for ln in stderr.getvalue().strip().splitlines() if ln.startswith("{")]
             self.assertEqual(len(lines), 1)
             data = json.loads(lines[0])
             self.assertEqual(data["error"], "parse_error")
@@ -786,9 +779,7 @@ class TestBlockFiltering(TestCase):
             _write_file(path, HCL_WITH_BLOCKS)
 
             stdout = StringIO()
-            with patch(
-                "sys.argv", ["hcl2tojson", "--exclude", "variable,output", path]
-            ):
+            with patch("sys.argv", ["hcl2tojson", "--exclude", "variable,output", path]):
                 with patch("sys.stdout", stdout):
                     main()
 

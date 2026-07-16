@@ -8,19 +8,21 @@ import os
 import sys
 from typing import Any, List, Optional, Tuple
 
+from hcl2.version import __version__
+
 from hcl2.query._base import NodeView
-from hcl2.utils import SerializationOptions
 from hcl2.query.body import DocumentView
 from hcl2.query.introspect import build_schema, describe_results
 from hcl2.query.path import QuerySyntaxError
 from hcl2.query.pipeline import classify_stage, execute_pipeline, split_pipeline
 from hcl2.query.resolver import resolve_path
 from hcl2.query.safe_eval import (
-    UnsafeExpressionError,
     _SAFE_CALLABLE_NAMES,
+    UnsafeExpressionError,
     safe_eval,
 )
-from hcl2.version import __version__
+from hcl2.utils import SerializationOptions
+
 from .helpers import _expand_file_args  # noqa: F401 — re-exported for tests
 
 # ---------------------------------------------------------------------------
@@ -171,9 +173,7 @@ def _collect_files(path: str) -> List[str]:
 def _error(msg: str, use_json: bool, **extra) -> str:
     """Format an error message."""
     if use_json:
-        return json.dumps(
-            {"error": extra.get("error_type", "error"), "message": msg, **extra}
-        )
+        return json.dumps({"error": extra.get("error_type", "error"), "message": msg, **extra})
     return f"Error: {msg}"
 
 
@@ -347,17 +347,12 @@ class OutputConfig:
     def format_list(self, items: list) -> str:
         """Format a list result (e.g. from hybrid mode returning a list)."""
         if self.output_json:
-            converted = [
-                _convert_for_json(item, options=self.serialization_options)
-                for item in items
-            ]
+            converted = [_convert_for_json(item, options=self.serialization_options) for item in items]
             return json.dumps(converted, indent=self.json_indent, default=str)
         parts = []
         for item in items:
             if isinstance(item, NodeView):
-                parts.append(
-                    item.to_hcl() if not self.output_value else str(item.to_dict())
-                )
+                parts.append(item.to_hcl() if not self.output_value else str(item.to_dict()))
             else:
                 parts.append(str(item))
         if not self.output_value:
@@ -367,10 +362,7 @@ class OutputConfig:
     def format_output(self, results: List[Any]) -> str:
         """Format results for final output."""
         if self.output_json and len(results) > 1:
-            items = [
-                _convert_for_json(item, options=self.serialization_options)
-                for item in results
-            ]
+            items = [_convert_for_json(item, options=self.serialization_options) for item in results]
             return json.dumps(items, indent=self.json_indent, default=str)
         return "\n".join(self.format_result(r) for r in results)
 
@@ -427,9 +419,7 @@ class OutputSink:
 
         # JSON + multi — accumulate for merged output
         if self.config.output_json and self.multi:
-            self._accumulator.extend(
-                _convert_results(results, file_path, self.multi, self.config)
-            )
+            self._accumulator.extend(_convert_results(results, file_path, self.multi, self.config))
             return
 
         # Single-file output (with_location or default)
@@ -458,12 +448,8 @@ class OutputSink:
         """Sort and emit accumulated JSON results."""
         if not self._accumulator:
             return
-        self._accumulator.sort(
-            key=lambda x: x.get("__file__", "") if isinstance(x, dict) else ""
-        )
-        print(
-            json.dumps(self._accumulator, indent=self.config.json_indent, default=str)
-        )
+        self._accumulator.sort(key=lambda x: x.get("__file__", "") if isinstance(x, dict) else "")
+        print(json.dumps(self._accumulator, indent=self.config.json_indent, default=str))
         self._accumulator.clear()
 
 
@@ -543,9 +529,7 @@ def _process_file(args_tuple):
     return (file_path, EXIT_SUCCESS, converted, None)
 
 
-def _run_diff(
-    file1: str, file2: str, use_json: bool, json_indent: Optional[int]
-) -> int:
+def _run_diff(file1: str, file2: str, use_json: bool, json_indent: Optional[int]) -> int:
     """Run structural diff between two HCL files.
 
     Returns an exit code: 0 if files are identical, 1 if they differ.
@@ -554,9 +538,7 @@ def _run_diff(
     import hcl2
     from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
 
-    opts = SerializationOptions(
-        with_comments=False, with_meta=False, explicit_blocks=True
-    )
+    opts = SerializationOptions(with_comments=False, with_meta=False, explicit_blocks=True)
     for path in (file1, file2):
         if path == "-":
             continue
@@ -630,9 +612,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     output_group = parser.add_mutually_exclusive_group()
     output_group.add_argument("--json", action="store_true", help="Output as JSON")
-    output_group.add_argument(
-        "--value", action="store_true", help="Output raw value only"
-    )
+    output_group.add_argument("--value", action="store_true", help="Output raw value only")
     output_group.add_argument(
         "--raw",
         action="store_true",
@@ -796,9 +776,7 @@ def _execute_and_emit(
     output_config: OutputConfig,
 ) -> int:
     """Execute queries across files and emit results. Returns an exit code."""
-    file_paths = [
-        fp for fa in _expand_file_args(args.FILE) for fp in _collect_files(fa)
-    ]
+    file_paths = [fp for fa in _expand_file_args(args.FILE) for fp in _collect_files(fa)]
     any_results = False
     worst_exit = EXIT_SUCCESS
     multi = len(file_paths) > 1
@@ -816,14 +794,9 @@ def _execute_and_emit(
     with OutputSink(output_config, multi) as sink:
         if use_parallel:
             n_workers = args.jobs or min(os.cpu_count() or 1, len(file_paths))
-            worker_args = [
-                (fp, query, False, args.QUERY, multi, output_config)
-                for fp in file_paths
-            ]
+            worker_args = [(fp, query, False, args.QUERY, multi, output_config) for fp in file_paths]
             with multiprocessing.Pool(n_workers) as pool:
-                for fp, exit_code, converted, error_msg in pool.imap_unordered(
-                    _process_file, worker_args
-                ):
+                for fp, exit_code, converted, error_msg in pool.imap_unordered(_process_file, worker_args):
                     if error_msg:
                         etype = _EXIT_TO_ERROR_TYPE.get(exit_code, "error")
                         print(
@@ -838,9 +811,7 @@ def _execute_and_emit(
                     sink.emit_converted(converted)
         else:
             for file_path in file_paths:
-                results, exit_code = _run_query_on_file(
-                    file_path, query, args.eval, use_json, args.QUERY
-                )
+                results, exit_code = _run_query_on_file(file_path, query, args.eval, use_json, args.QUERY)
                 if results is None:
                     worst_exit = max(worst_exit, exit_code)
                     continue

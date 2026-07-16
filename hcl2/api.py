@@ -5,7 +5,7 @@ Also exposes intermediate pipeline stages for advanced usage.
 """
 
 import json as _json
-from typing import TextIO, Optional
+from typing import Optional, TextIO
 
 from lark.tree import Tree
 
@@ -16,7 +16,6 @@ from hcl2.reconstructor import HCLReconstructor
 from hcl2.rules.base import StartRule
 from hcl2.transformer import RuleTransformer
 from hcl2.utils import SerializationOptions
-
 
 # ---------------------------------------------------------------------------
 # Primary API: load / loads / dump / dumps
@@ -202,9 +201,7 @@ def transform(lark_tree: Tree, *, discard_comments: bool = False) -> StartRule:
     :param lark_tree: Raw Lark tree from :func:`parse_to_tree` or :func:`parse_string_to_tree`.
     :param discard_comments: If True, discard comments during transformation.
     """
-    return RuleTransformer(discard_new_line_or_comments=discard_comments).transform(
-        lark_tree
-    )
+    return RuleTransformer(discard_new_line_or_comments=discard_comments).transform(lark_tree)
 
 
 def query(source):

@@ -2,21 +2,21 @@
 from unittest import TestCase
 
 from hcl2.rules.literal_rules import (
-    KeywordRule,
+    BinaryOperatorRule,
+    FloatLitRule,
     IdentifierRule,
     IntLitRule,
-    FloatLitRule,
-    BinaryOperatorRule,
+    KeywordRule,
     LiteralValueRule,
 )
 from hcl2.rules.tokens import (
-    NAME,
     BINARY_OP,
-    IntLiteral,
-    FloatLiteral,
-    TRUE,
     FALSE,
+    NAME,
     NULL,
+    TRUE,
+    FloatLiteral,
+    IntLiteral,
 )
 from hcl2.utils import SerializationContext, SerializationOptions
 

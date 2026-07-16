@@ -1,7 +1,10 @@
-"""Used by dependencies_check.yml to verify if dependencies between pyproject.yml and requirements.txt are in sync"""
+"""Used by dependencies_check.yml to verify if dependencies between pyproject.yml and
+requirements.txt are in sync"""
+
+import difflib
 import sys
 from typing import Set
-import difflib
+
 import tomli
 
 

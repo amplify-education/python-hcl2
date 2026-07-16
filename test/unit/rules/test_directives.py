@@ -4,29 +4,29 @@
 from unittest import TestCase
 
 from hcl2.rules.directives import (
-    TemplateIfStartRule,
     TemplateElseRule,
-    TemplateEndifRule,
-    TemplateForStartRule,
     TemplateEndforRule,
-    TemplateIfRule,
+    TemplateEndifRule,
     TemplateForRule,
+    TemplateForStartRule,
+    TemplateIfRule,
+    TemplateIfStartRule,
 )
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.strings import StringPartRule
 from hcl2.rules.tokens import (
-    NAME,
+    COMMA,
     DIRECTIVE_START,
-    STRIP_MARKER,
-    RBRACE,
-    IF,
     ELSE,
+    ENDFOR,
     ENDIF,
     FOR,
+    IF,
     IN,
-    ENDFOR,
-    COMMA,
+    NAME,
+    RBRACE,
     STRING_CHARS,
+    STRIP_MARKER,
 )
 
 
@@ -41,9 +41,7 @@ class TestTemplateIfStartRule(TestCase):
 
     def test_serialize_strip_markers(self):
         cond = IdentifierRule([NAME("cond")])
-        rule = TemplateIfStartRule(
-            [DIRECTIVE_START(), STRIP_MARKER(), IF(), cond, STRIP_MARKER(), RBRACE()]
-        )
+        rule = TemplateIfStartRule([DIRECTIVE_START(), STRIP_MARKER(), IF(), cond, STRIP_MARKER(), RBRACE()])
         self.assertEqual(rule.serialize(), "%{~ if cond ~}")
 
     def test_condition_property(self):
@@ -61,9 +59,7 @@ class TestTemplateElseRule(TestCase):
         self.assertEqual(rule.serialize(), "%{ else }")
 
     def test_serialize_strip_markers(self):
-        rule = TemplateElseRule(
-            [DIRECTIVE_START(), STRIP_MARKER(), ELSE(), STRIP_MARKER(), RBRACE()]
-        )
+        rule = TemplateElseRule([DIRECTIVE_START(), STRIP_MARKER(), ELSE(), STRIP_MARKER(), RBRACE()])
         self.assertEqual(rule.serialize(), "%{~ else ~}")
 
 
@@ -83,18 +79,14 @@ class TestTemplateForStartRule(TestCase):
     def test_serialize_basic(self):
         iterator = IdentifierRule([NAME("item")])
         collection = IdentifierRule([NAME("items")])
-        rule = TemplateForStartRule(
-            [DIRECTIVE_START(), FOR(), iterator, IN(), collection, RBRACE()]
-        )
+        rule = TemplateForStartRule([DIRECTIVE_START(), FOR(), iterator, IN(), collection, RBRACE()])
         self.assertEqual(rule.serialize(), "%{ for item in items }")
 
     def test_serialize_key_value(self):
         key = IdentifierRule([NAME("k")])
         val = IdentifierRule([NAME("v")])
         collection = IdentifierRule([NAME("map")])
-        rule = TemplateForStartRule(
-            [DIRECTIVE_START(), FOR(), key, COMMA(), val, IN(), collection, RBRACE()]
-        )
+        rule = TemplateForStartRule([DIRECTIVE_START(), FOR(), key, COMMA(), val, IN(), collection, RBRACE()])
         self.assertEqual(rule.serialize(), "%{ for k, v in map }")
 
     def test_serialize_strip_markers(self):
@@ -152,9 +144,7 @@ class TestTemplateIfRule(TestCase):
             [DIRECTIVE_START(), STRIP_MARKER(), IF(), cond, STRIP_MARKER(), RBRACE()]
         )
         body = [StringPartRule([STRING_CHARS("x")])]
-        endif = TemplateEndifRule(
-            [DIRECTIVE_START(), STRIP_MARKER(), ENDIF(), STRIP_MARKER(), RBRACE()]
-        )
+        endif = TemplateEndifRule([DIRECTIVE_START(), STRIP_MARKER(), ENDIF(), STRIP_MARKER(), RBRACE()])
         rule = TemplateIfRule(if_start, body, None, None, endif)
         self.assertEqual(rule.serialize(), "%{~ if c ~}x%{~ endif ~}")
 
@@ -166,9 +156,7 @@ class TestTemplateForRule(TestCase):
     def test_serialize_basic(self):
         iterator = IdentifierRule([NAME("item")])
         collection = IdentifierRule([NAME("items")])
-        for_start = TemplateForStartRule(
-            [DIRECTIVE_START(), FOR(), iterator, IN(), collection, RBRACE()]
-        )
+        for_start = TemplateForStartRule([DIRECTIVE_START(), FOR(), iterator, IN(), collection, RBRACE()])
         body = [StringPartRule([STRING_CHARS("text")])]
         endfor = TemplateEndforRule([DIRECTIVE_START(), ENDFOR(), RBRACE()])
         rule = TemplateForRule(for_start, body, endfor)

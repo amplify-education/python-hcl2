@@ -440,24 +440,18 @@ class TestNdjsonSubprocess(TestCase):
             self.assertIn("message", err)
 
     def test_ndjson_all_io_fail_with_skip_exits_4(self):
-        result = _run_hcl2tojson(
-            "--ndjson", "-s", "/nonexistent/a.tf", "/nonexistent/b.tf"
-        )
+        result = _run_hcl2tojson("--ndjson", "-s", "/nonexistent/a.tf", "/nonexistent/b.tf")
         # All-fail with IO errors should exit 4 (EXIT_IO_ERROR), not 2
         self.assertEqual(result.returncode, 4, f"stderr: {result.stderr}")
 
     def test_ndjson_only_filter_skips_empty(self):
-        result = _run_hcl2tojson(
-            "--ndjson", "--only", "nonexistent_block_type", str(HCL_DIR / "nulls.tf")
-        )
+        result = _run_hcl2tojson("--ndjson", "--only", "nonexistent_block_type", str(HCL_DIR / "nulls.tf"))
         self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
         # No NDJSON line emitted when all data is filtered out
         self.assertEqual(result.stdout.strip(), "")
 
     def test_ndjson_json_indent_warning(self):
-        result = _run_hcl2tojson(
-            "--ndjson", "--json-indent", "2", str(HCL_DIR / "nulls.tf")
-        )
+        result = _run_hcl2tojson("--ndjson", "--json-indent", "2", str(HCL_DIR / "nulls.tf"))
         self.assertEqual(result.returncode, 0)
         self.assertIn("ignored", result.stderr.lower())
 
@@ -522,9 +516,7 @@ class TestDiffMode(TestCase):
 
     def test_diff_from_stdin(self):
         json_text = (JSON_DIR / "nulls.json").read_text()
-        result = _run_jsontohcl2(
-            "--diff", str(HCL_RECONSTRUCTED_DIR / "nulls.tf"), "-", stdin=json_text
-        )
+        result = _run_jsontohcl2("--diff", str(HCL_RECONSTRUCTED_DIR / "nulls.tf"), "-", stdin=json_text)
         self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
         self.assertEqual(result.stdout, "")
 
@@ -586,9 +578,7 @@ class TestSemanticDiffMode(TestCase):
             _write_file(hcl_path, "x = 1\n")
             _write_file(json_path, json.dumps({"x": 2}))
 
-            result = _run_jsontohcl2(
-                "--semantic-diff", hcl_path, "--diff-json", json_path
-            )
+            result = _run_jsontohcl2("--semantic-diff", hcl_path, "--diff-json", json_path)
             self.assertEqual(result.returncode, 5)
             entries = json.loads(result.stdout)
             self.assertEqual(len(entries), 1)
@@ -600,9 +590,7 @@ class TestSemanticDiffMode(TestCase):
             hcl_path = os.path.join(tmpdir, "original.tf")
             _write_file(hcl_path, "x = 1\n")
 
-            result = _run_jsontohcl2(
-                "--semantic-diff", hcl_path, "-", stdin=json.dumps({"x": 99})
-            )
+            result = _run_jsontohcl2("--semantic-diff", hcl_path, "-", stdin=json.dumps({"x": 99}))
             self.assertEqual(result.returncode, 5)
             self.assertIn("x", result.stdout)
 
@@ -633,9 +621,7 @@ class TestSemanticDiffMode(TestCase):
 
 class TestFragmentMode(TestCase):
     def test_fragment_from_stdin(self):
-        result = _run_jsontohcl2(
-            "--fragment", "-", stdin='{"cpu": 512, "memory": 1024}'
-        )
+        result = _run_jsontohcl2("--fragment", "-", stdin='{"cpu": 512, "memory": 1024}')
         self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
         self.assertIn("cpu", result.stdout)
         self.assertIn("512", result.stdout)
@@ -669,9 +655,7 @@ class TestFieldsProjection(TestCase):
             '  tags    = { env = "prod" }\n'
             "}\n"
         )
-        result = _run_hcl2tojson(
-            "--only", "module", "--fields", "cpu,memory", stdin=hcl
-        )
+        result = _run_hcl2tojson("--only", "module", "--fields", "cpu,memory", stdin=hcl)
         self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
         data = json.loads(result.stdout)
         block = data["module"][0]['"test"']
@@ -767,15 +751,11 @@ class TestMultiFileCollision(TestCase):
             for root, _dirs, files in os.walk(outdir):
                 for fname in files:
                     out_files.append(os.path.join(root, fname))
-            self.assertEqual(
-                len(out_files), 2, f"Expected 2 output files, got: {out_files}"
-            )
+            self.assertEqual(len(out_files), 2, f"Expected 2 output files, got: {out_files}")
 
             # Each should contain different data
             contents = set()
             for path in out_files:
                 with open(path, encoding="utf-8") as fobj:
                     contents.add(fobj.read())
-            self.assertEqual(
-                len(contents), 2, "Output files should have different content"
-            )
+            self.assertEqual(len(contents), 2, "Output files should have different content")

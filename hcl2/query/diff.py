@@ -24,13 +24,9 @@ def diff_dicts(left: Any, right: Any, path: str = "") -> List[DiffEntry]:
         for key in all_keys:
             child_path = f"{path}.{key}" if path else key
             if key not in left:
-                entries.append(
-                    DiffEntry(path=child_path, kind="added", right=right[key])
-                )
+                entries.append(DiffEntry(path=child_path, kind="added", right=right[key]))
             elif key not in right:
-                entries.append(
-                    DiffEntry(path=child_path, kind="removed", left=left[key])
-                )
+                entries.append(DiffEntry(path=child_path, kind="removed", left=left[key]))
             else:
                 entries.extend(diff_dicts(left[key], right[key], child_path))
     elif isinstance(left, list) and isinstance(right, list):
@@ -44,9 +40,7 @@ def diff_dicts(left: Any, right: Any, path: str = "") -> List[DiffEntry]:
             else:
                 entries.extend(diff_dicts(left[i], right[i], child_path))
     elif left != right:
-        entries.append(
-            DiffEntry(path=path or "(root)", kind="changed", left=left, right=right)
-        )
+        entries.append(DiffEntry(path=path or "(root)", kind="changed", left=left, right=right))
 
     return entries
 
@@ -62,9 +56,7 @@ def format_diff_text(entries: List[DiffEntry]) -> str:
         elif entry.kind == "removed":
             lines.append(f"- {entry.path}: {_fmt_val(entry.left)}")
         elif entry.kind == "changed":
-            lines.append(
-                f"~ {entry.path}: {_fmt_val(entry.left)} -> {_fmt_val(entry.right)}"
-            )
+            lines.append(f"~ {entry.path}: {_fmt_val(entry.left)} -> {_fmt_val(entry.right)}")
     return "\n".join(lines)
 
 

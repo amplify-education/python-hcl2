@@ -4,7 +4,7 @@ from abc import ABC
 from typing import Any, Tuple
 
 from hcl2.rules.abstract import LarkRule, LarkToken
-from hcl2.utils import SerializationOptions, SerializationContext, to_dollar_string
+from hcl2.utils import SerializationContext, SerializationOptions, to_dollar_string
 
 
 class TokenRule(LarkRule, ABC):
@@ -17,9 +17,7 @@ class TokenRule(LarkRule, ABC):
         """Return the single token child."""
         return self._children[0]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize by delegating to the token's own serialization."""
         return self.token.serialize()
 
@@ -43,9 +41,7 @@ class LiteralValueRule(TokenRule):
         """Return the grammar rule name."""
         return "literal_value"
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to Python True, False, or None."""
         value = self.token.value
         if context.inside_dollar_string:
@@ -79,18 +75,12 @@ class FloatLitRule(TokenRule):
         """Return the grammar rule name."""
         return "float_lit"
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize, preserving scientific notation when configured."""
         value = self.token.value
         # Scientific notation (e.g. 1.23e5) cannot survive a Python float()
         # round-trip, so preserve it as a ${...} expression string.
-        if (
-            options.preserve_scientific_notation
-            and isinstance(value, str)
-            and "e" in value.lower()
-        ):
+        if options.preserve_scientific_notation and isinstance(value, str) and "e" in value.lower():
             if context.inside_dollar_string:
                 return value
             return to_dollar_string(value)

@@ -100,9 +100,7 @@ def _resolve_segment(  # pylint: disable=too-many-return-statements
     return []
 
 
-def _resolve_recursive(
-    state: _ResolverState, segment: PathSegment
-) -> List[_ResolverState]:
+def _resolve_recursive(state: _ResolverState, segment: PathSegment) -> List[_ResolverState]:
     """Recursive descent: try matching segment on the node and all descendants."""
     from hcl2.query._base import view_for
 
@@ -265,9 +263,7 @@ def _resolve_on_tuple(node: "NodeView", segment: PathSegment) -> List[_ResolverS
     return []
 
 
-def _resolve_on_function_call(
-    node: "NodeView", segment: PathSegment
-) -> List[_ResolverState]:
+def _resolve_on_function_call(node: "NodeView", segment: PathSegment) -> List[_ResolverState]:
     """Resolve a segment on a FunctionCallView."""
     from hcl2.query.functions import FunctionCallView
 
@@ -281,9 +277,7 @@ def _resolve_on_function_call(
     return []
 
 
-def _resolve_on_conditional(
-    node: "NodeView", segment: PathSegment
-) -> List[_ResolverState]:
+def _resolve_on_conditional(node: "NodeView", segment: PathSegment) -> List[_ResolverState]:
     """Resolve a segment on a ConditionalView."""
     from hcl2.query.expressions import ConditionalView
 
@@ -299,17 +293,13 @@ def _resolve_on_conditional(
     return []
 
 
-def _apply_index_filter(
-    candidates: List[_ResolverState], segment: PathSegment
-) -> List[_ResolverState]:
+def _apply_index_filter(candidates: List[_ResolverState], segment: PathSegment) -> List[_ResolverState]:
     """Apply type filter, predicate filter, and [*]/[N] index to candidates."""
     # Apply type filter if present
     if segment.type_filter is not None:
         from hcl2.query._base import view_type_name
 
-        candidates = [
-            c for c in candidates if view_type_name(c.node) == segment.type_filter
-        ]
+        candidates = [c for c in candidates if view_type_name(c.node) == segment.type_filter]
 
     # Apply predicate filter if present
     if segment.predicate is not None:

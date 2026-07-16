@@ -3,24 +3,23 @@ from unittest import TestCase
 
 from hcl2.rules.abstract import LarkRule
 from hcl2.rules.expressions import (
+    BinaryOpRule,
+    BinaryTermRule,
+    ConditionalRule,
     ExpressionRule,
     ExprTermRule,
-    ConditionalRule,
-    BinaryTermRule,
-    BinaryOpRule,
     UnaryOpRule,
 )
 from hcl2.rules.literal_rules import BinaryOperatorRule
 from hcl2.rules.tokens import (
-    LPAR,
-    RPAR,
-    QMARK,
-    COLON,
     BINARY_OP,
+    COLON,
+    LPAR,
+    QMARK,
+    RPAR,
     StringToken,
 )
-from hcl2.utils import SerializationOptions, SerializationContext
-
+from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Stubs & helpers ---
 
@@ -148,9 +147,7 @@ class TestExprTermRule(TestCase):
         seen_context = {}
 
         class ContextCapture(ExpressionRule):
-            def serialize(
-                self, options=SerializationOptions(), context=SerializationContext()
-            ):
+            def serialize(self, options=SerializationOptions(), context=SerializationContext()):
                 seen_context["inside_parentheses"] = context.inside_parentheses
                 return "x"
 
@@ -163,9 +160,7 @@ class TestExprTermRule(TestCase):
         seen_context = {}
 
         class ContextCapture(ExpressionRule):
-            def serialize(
-                self, options=SerializationOptions(), context=SerializationContext()
-            ):
+            def serialize(self, options=SerializationOptions(), context=SerializationContext()):
                 seen_context["inside_parentheses"] = context.inside_parentheses
                 return "x"
 
@@ -199,9 +194,7 @@ class TestConditionalRule(TestCase):
 
     def test_condition_property(self):
         cond = StubExpression("cond")
-        rule = ConditionalRule(
-            [cond, QMARK(), StubExpression("t"), COLON(), StubExpression("f")]
-        )
+        rule = ConditionalRule([cond, QMARK(), StubExpression("t"), COLON(), StubExpression("f")])
         self.assertIs(rule.condition, cond)
 
     def test_if_true_property(self):

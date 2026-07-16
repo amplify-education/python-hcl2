@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any, List, Tuple
 
-from hcl2.query.path import QuerySyntaxError, PathSegment, parse_path
+from hcl2.query.path import PathSegment, QuerySyntaxError, parse_path
 
 
 @dataclass(frozen=True)
@@ -89,9 +89,7 @@ def split_pipeline(query_str: str) -> List[str]:
         elif char == "}":
             brace_depth -= 1
             current.append(char)
-        elif (
-            char == "|" and bracket_depth == 0 and paren_depth == 0 and brace_depth == 0
-        ):
+        elif char == "|" and bracket_depth == 0 and paren_depth == 0 and brace_depth == 0:
             stage = "".join(current).strip()
             if not stage:
                 raise QuerySyntaxError("Empty stage in pipeline")
@@ -311,9 +309,7 @@ def execute_pipeline(root: Any, stages: List[Any], file_path: str = "") -> List[
             # see underlying values instead of wrapper views.
             # Don't unwrap for ConstructStage — it needs original views
             # for property access like .block_type, .name_labels.
-            if i < len(stages) - 1 and not isinstance(
-                stages[i + 1], (PathStage, ConstructStage)
-            ):
+            if i < len(stages) - 1 and not isinstance(stages[i + 1], (PathStage, ConstructStage)):
                 next_results = _unwrap_for_next_stage(next_results)
 
         elif isinstance(stage, BuiltinStage):

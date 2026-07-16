@@ -7,9 +7,8 @@ from hcl2.rules.functions import (
     FunctionCallRule,
 )
 from hcl2.rules.literal_rules import IdentifierRule
-from hcl2.rules.tokens import NAME, COMMA, ELLIPSIS, LPAR, RPAR, StringToken
-from hcl2.utils import SerializationOptions, SerializationContext
-
+from hcl2.rules.tokens import COMMA, ELLIPSIS, LPAR, NAME, RPAR, StringToken
+from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Stubs & helpers ---
 

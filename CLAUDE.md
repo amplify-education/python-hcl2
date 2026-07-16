@@ -193,10 +193,10 @@ Always run round-trip full test suite after any modification.
 
 ## Pre-commit Checks
 
-Hooks are defined in `.pre-commit-config.yaml` (includes black, mypy, pylint, and others). All changed files must pass these checks before committing. When writing or modifying code:
+Hooks are defined in `.pre-commit-config.yaml` (includes ruff, mypy, and others). All changed files must pass these checks before committing. When writing or modifying code:
 
-- Format Python with **black** (Python 3.8 target).
-- Ensure **mypy** and **pylint** pass. Pylint config is in `pylintrc`, scoped to `hcl2/` and `test/`.
+- Format and lint Python with **ruff** (config in `pyproject.toml`'s `[tool.ruff]`).
+- Ensure **mypy** passes.
 - End files with a newline; strip trailing whitespace (except under `test/integration/(hcl2_reconstructed|specialized)/`).
 
 ## Keeping Docs Current

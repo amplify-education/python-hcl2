@@ -1,4 +1,5 @@
 """Serialization options, context tracking, and string utility helpers."""
+
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, replace

@@ -10,9 +10,9 @@ from typing import (
     TypeVar,
 )
 
+from hcl2 import walk as _walk_mod
 from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.utils import SerializationOptions
-from hcl2 import walk as _walk_mod
 
 T = TypeVar("T", bound=LarkRule)
 

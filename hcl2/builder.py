@@ -1,7 +1,7 @@
 """A utility class for constructing HCL documents from Python code."""
-from typing import List, Optional
 
 from collections import defaultdict
+from typing import List, Optional
 
 from hcl2.const import IS_BLOCK
 
@@ -24,7 +24,7 @@ class Builder:
         block_type: str,
         labels: Optional[List[str]] = None,
         __nested_builder__: Optional["Builder"] = None,
-        **attributes
+        **attributes,
     ) -> "Builder":
         """Create a block within this HCL document."""
 
@@ -53,7 +53,6 @@ class Builder:
         )
 
         for block_type, blocks in self.blocks.items():
-
             for labels, block_builder, nested_blocks in blocks:
                 # build the sub-block
                 block = block_builder.build()
@@ -70,9 +69,7 @@ class Builder:
 
         return body
 
-    def _add_nested_blocks(
-        self, block: dict, nested_blocks_builder: "Builder"
-    ) -> "dict":
+    def _add_nested_blocks(self, block: dict, nested_blocks_builder: "Builder") -> "dict":
         """Add nested blocks defined within another `Builder` instance to the `block` dictionary"""
         nested_block = nested_blocks_builder.build()
         for key, value in nested_block.items():

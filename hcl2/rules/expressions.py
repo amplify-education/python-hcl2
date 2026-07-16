@@ -9,16 +9,16 @@ from hcl2.rules.abstract import (
     LarkToken,
 )
 from hcl2.rules.literal_rules import BinaryOperatorRule
-from hcl2.rules.tokens import LPAR, RPAR, QMARK, COLON
+from hcl2.rules.tokens import COLON, LPAR, QMARK, RPAR
 from hcl2.rules.whitespace import (
-    NewLineOrCommentRule,
     InlineCommentMixIn,
+    NewLineOrCommentRule,
 )
 from hcl2.utils import (
-    wrap_into_parentheses,
-    to_dollar_string,
-    SerializationOptions,
     SerializationContext,
+    SerializationOptions,
+    to_dollar_string,
+    wrap_into_parentheses,
 )
 
 
@@ -30,9 +30,7 @@ class ExpressionRule(InlineCommentMixIn, ABC):
         """?expression is transparent in Lark — subclasses must override."""
         raise NotImplementedError("ExpressionRule.lark_name() must be overridden")
 
-    def __init__(
-        self, children, meta: Optional[Meta] = None, parentheses: bool = False
-    ):
+    def __init__(self, children, meta: Optional[Meta] = None, parentheses: bool = False):
         super().__init__(children, meta)
         self._parentheses = parentheses
 
@@ -100,13 +98,9 @@ class ExprTermRule(ExpressionRule):
         """Return the inner expression."""
         return self._children[2]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize, handling parenthesized expression wrapping."""
-        with context.modify(
-            inside_parentheses=self.parentheses or context.inside_parentheses
-        ):
+        with context.modify(inside_parentheses=self.parentheses or context.inside_parentheses):
             result = self.expression.serialize(options, context)
 
         if self.parentheses:
@@ -156,9 +150,7 @@ class ConditionalRule(ExpressionRule):
         """Return the false-branch expression."""
         return self._children[8]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to ternary expression string."""
         with context.modify(inside_dollar_string=True):
             result = (
@@ -205,9 +197,7 @@ class BinaryTermRule(ExpressionRule):
         """Return the right-hand operand."""
         return self._children[3]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'operator operand' string."""
         op_str = self.binary_operator.serialize(options, context)
         term_str = self.expr_term.serialize(options, context)
@@ -274,15 +264,11 @@ class BinaryOpRule(ExpressionRule):
             return trailing.to_list() or []
         return []
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'lhs operator rhs' string."""
         with context.modify(inside_dollar_string=True):
             lhs = self.expr_term.serialize(options, context)
-            operator = str(
-                self.binary_term.binary_operator.serialize(options, context)
-            ).strip()
+            operator = str(self.binary_term.binary_operator.serialize(options, context)).strip()
             rhs = self.binary_term.expr_term.serialize(options, context)
 
         result = f"{lhs} {operator} {rhs}"
@@ -315,9 +301,7 @@ class UnaryOpRule(ExpressionRule):
         """Return the operand."""
         return self._children[1]
 
-    def serialize(
-        self, options=SerializationOptions(), context=SerializationContext()
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'operator operand' string."""
         with context.modify(inside_dollar_string=True):
             operator = self.operator.rstrip()

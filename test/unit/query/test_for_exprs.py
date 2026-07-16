@@ -2,8 +2,8 @@
 from unittest import TestCase
 
 from hcl2.query.body import DocumentView
-from hcl2.query.for_exprs import ForTupleView, ForObjectView
-from hcl2.rules.for_expressions import ForTupleExprRule, ForObjectExprRule
+from hcl2.query.for_exprs import ForObjectView, ForTupleView
+from hcl2.rules.for_expressions import ForObjectExprRule, ForTupleExprRule
 from hcl2.walk import find_first
 
 

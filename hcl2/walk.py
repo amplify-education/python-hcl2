@@ -45,9 +45,7 @@ def find_first(node: LarkElement, rule_type: Type[T]) -> Optional[T]:
     return None
 
 
-def find_by_predicate(
-    node: LarkElement, predicate: Callable[[LarkElement], bool]
-) -> Iterator[LarkElement]:
+def find_by_predicate(node: LarkElement, predicate: Callable[[LarkElement], bool]) -> Iterator[LarkElement]:
     """Find all descendants matching an arbitrary predicate."""
     for element in walk(node):
         if predicate(element):

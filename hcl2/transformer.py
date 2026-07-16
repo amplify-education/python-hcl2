@@ -1,78 +1,78 @@
 """Transform Lark parse trees into typed LarkElement rule trees."""
 
 # pylint: disable=missing-function-docstring,unused-argument
-from lark import Token, Tree, v_args, Transformer, Discard
+from lark import Discard, Token, Transformer, Tree, v_args
 from lark.tree import Meta
 
 from hcl2.rules.base import (
-    StartRule,
-    BodyRule,
-    BlockRule,
     AttributeRule,
+    BlockRule,
+    BodyRule,
+    StartRule,
 )
 from hcl2.rules.containers import (
-    ObjectRule,
-    ObjectElemRule,
-    ObjectElemKeyRule,
-    TupleRule,
     ObjectElemKeyExpressionRule,
+    ObjectElemKeyRule,
+    ObjectElemRule,
+    ObjectRule,
+    TupleRule,
+)
+from hcl2.rules.directives import (
+    TemplateElseRule,
+    TemplateEndforRule,
+    TemplateEndifRule,
+    TemplateForRule,
+    TemplateForStartRule,
+    TemplateIfRule,
+    TemplateIfStartRule,
 )
 from hcl2.rules.expressions import (
-    BinaryTermRule,
-    UnaryOpRule,
     BinaryOpRule,
-    ExprTermRule,
+    BinaryTermRule,
     ConditionalRule,
+    ExprTermRule,
+    UnaryOpRule,
 )
 from hcl2.rules.for_expressions import (
-    ForTupleExprRule,
-    ForObjectExprRule,
-    ForIntroRule,
     ForCondRule,
+    ForIntroRule,
+    ForObjectExprRule,
+    ForTupleExprRule,
 )
 from hcl2.rules.functions import ArgumentsRule, FunctionCallRule
 from hcl2.rules.indexing import (
-    IndexExprTermRule,
-    SqbIndexRule,
-    ShortIndexRule,
-    GetAttrRule,
-    GetAttrExprTermRule,
     AttrSplatExprTermRule,
     AttrSplatRule,
-    FullSplatRule,
     FullSplatExprTermRule,
+    FullSplatRule,
+    GetAttrExprTermRule,
+    GetAttrRule,
+    IndexExprTermRule,
+    ShortIndexRule,
+    SqbIndexRule,
 )
 from hcl2.rules.literal_rules import (
-    FloatLitRule,
-    IntLitRule,
-    IdentifierRule,
     BinaryOperatorRule,
+    FloatLitRule,
+    IdentifierRule,
+    IntLitRule,
     KeywordRule,
     LiteralValueRule,
 )
 from hcl2.rules.strings import (
-    InterpolationRule,
-    StringRule,
-    StringPartRule,
     HeredocTemplateRule,
     HeredocTrimTemplateRule,
+    InterpolationRule,
+    StringPartRule,
+    StringRule,
     TemplateStringRule,
-)
-from hcl2.rules.directives import (
-    TemplateIfRule,
-    TemplateForRule,
-    TemplateIfStartRule,
-    TemplateElseRule,
-    TemplateEndifRule,
-    TemplateForStartRule,
-    TemplateEndforRule,
 )
 from hcl2.rules.tokens import (
     NAME,
-    IntLiteral,
     FloatLiteral,
-    StringToken,
+    IntLiteral,
     StaticStringToken,
+    StringToken,
 )
 from hcl2.rules.whitespace import NewLineOrCommentRule
 
@@ -141,9 +141,7 @@ class RuleTransformer(Transformer):
         return AttributeRule(args, meta)
 
     @v_args(meta=True)
-    def new_line_or_comment(
-        self, meta: Meta, args
-    ):  # -> NewLineOrCommentRule | Discard
+    def new_line_or_comment(self, meta: Meta, args):  # -> NewLineOrCommentRule | Discard
         if self.discard_new_line_or_comments:
             return Discard
         return NewLineOrCommentRule(args, meta)
@@ -243,9 +241,7 @@ class RuleTransformer(Transformer):
     def _assemble_template_for(self, parts, start_idx, meta: Meta):
         """Assemble a TemplateForRule from flat parts starting at start_idx."""
         for_start = parts[start_idx].content
-        body, end, i = self._collect_body(
-            parts, start_idx + 1, (TemplateEndforRule,), meta
-        )
+        body, end, i = self._collect_body(parts, start_idx + 1, (TemplateEndforRule,), meta)
         if not isinstance(end, TemplateEndforRule):
             raise RuntimeError("Unterminated template for directive")
         return TemplateForRule(for_start, body, end, meta), i

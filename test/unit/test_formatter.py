@@ -3,42 +3,41 @@ from unittest import TestCase
 
 from hcl2.formatter import BaseFormatter, FormatterOptions
 from hcl2.rules.base import (
-    StartRule,
-    BodyRule,
-    BlockRule,
     AttributeRule,
+    BlockRule,
+    BodyRule,
+    StartRule,
 )
 from hcl2.rules.containers import (
-    ObjectRule,
-    ObjectElemRule,
     ObjectElemKeyRule,
+    ObjectElemRule,
+    ObjectRule,
     TupleRule,
 )
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.for_expressions import (
-    ForIntroRule,
     ForCondRule,
-    ForTupleExprRule,
+    ForIntroRule,
     ForObjectExprRule,
+    ForTupleExprRule,
 )
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.tokens import (
-    NAME,
-    EQ,
-    LBRACE,
-    RBRACE,
-    LSQB,
-    RSQB,
-    COMMA,
     COLON,
-    FOR,
-    IN,
-    IF,
+    COMMA,
     ELLIPSIS,
+    EQ,
+    FOR,
     FOR_OBJECT_ARROW,
+    IF,
+    IN,
+    LBRACE,
+    LSQB,
+    NAME,
+    RBRACE,
+    RSQB,
 )
 from hcl2.rules.whitespace import NewLineOrCommentRule
-
 
 # --- helpers ---
 
@@ -211,9 +210,7 @@ class TestFormatBodyRule(TestCase):
 
         f.format_body_rule(body, 1)
         # Should have: newline, attr, (final newline removed by pop)
-        nlc_children = [
-            c for c in body._children if isinstance(c, NewLineOrCommentRule)
-        ]
+        nlc_children = [c for c in body._children if isinstance(c, NewLineOrCommentRule)]
         self.assertGreaterEqual(len(nlc_children), 1)
         # The attribute should still be in children
         attr_children = [c for c in body._children if isinstance(c, AttributeRule)]
@@ -280,9 +277,7 @@ class TestFormatBlockRule(TestCase):
 
         f.format_block_rule(block, indent_level=1)
         # Should NOT insert newline before RBRACE
-        nlc_children = [
-            c for c in block.children if isinstance(c, NewLineOrCommentRule)
-        ]
+        nlc_children = [c for c in block.children if isinstance(c, NewLineOrCommentRule)]
         # Only the body formatting newlines, but no double-newline insertion
         has_double_nl = any(_nlc_value(c).startswith("\n\n") for c in nlc_children)
         self.assertFalse(has_double_nl)
@@ -386,9 +381,7 @@ class TestFormatObjectRule(TestCase):
         f.format_object_rule(obj, indent_level=1)
         # Should have newlines between the elements
         nlc_count = sum(1 for c in obj._children if isinstance(c, NewLineOrCommentRule))
-        self.assertGreaterEqual(
-            nlc_count, 3
-        )  # after LBRACE, between elems, before RBRACE
+        self.assertGreaterEqual(nlc_count, 3)  # after LBRACE, between elems, before RBRACE
 
 
 # --- format_expression dispatch ---
@@ -516,9 +509,7 @@ class TestIndentLength(TestCase):
         body._parent = block
 
         f.format_body_rule(body, 1)
-        nlc_children = [
-            c for c in body._children if isinstance(c, NewLineOrCommentRule)
-        ]
+        nlc_children = [c for c in body._children if isinstance(c, NewLineOrCommentRule)]
         # At least one newline should have 4 spaces of indent
         has_4_space = any("    " in _nlc_value(c) for c in nlc_children)
         self.assertTrue(has_4_space)
@@ -774,9 +765,7 @@ class TestFormatForObjectExpr(TestCase):
 
         f.format_forobjectexpr(expr, indent_level=1)
 
-        nlc_count = sum(
-            1 for c in inner_tup._children if isinstance(c, NewLineOrCommentRule)
-        )
+        nlc_count = sum(1 for c in inner_tup._children if isinstance(c, NewLineOrCommentRule))
         self.assertGreater(nlc_count, 0)
 
     def test_for_cond_expression_formatting(self):
