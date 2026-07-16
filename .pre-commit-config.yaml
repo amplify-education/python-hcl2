@@ -36,3 +36,7 @@ repos:
     rev: v0.991    # Use the sha / tag you want to point at
     hooks:
       - id: mypy
+        # Pinned so the hook's own venv can build typed-ast, which has no
+        # wheel for Python 3.12+; this only affects mypy's own interpreter,
+        # not the --python-version it type-checks against.
+        language_version: python3.11
