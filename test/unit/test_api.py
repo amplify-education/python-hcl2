@@ -288,3 +288,46 @@ class TestQuery(TestCase):
         self.assertIsInstance(result, DocumentView)
         attr = result.attribute("x")
         self.assertIsNotNone(attr)
+
+
+class TestNegativeIntegerLiterals(TestCase):
+    """`-3` loads as the int -3, without disturbing subtraction.
+
+    MINUS serves as both the unary sign and the binary subtraction operator, so
+    a negative integer cannot be folded into INT_LITERAL by the lexer without
+    breaking `10 -3`. These cases pin both halves of that trade-off.
+    """
+
+    def test_negative_int_is_an_int(self):
+        self.assertEqual(loads("x = -3\n"), {"x": -3})
+
+    def test_negative_int_matches_negative_float_handling(self):
+        self.assertEqual(loads("x = -3\ny = -3.5\n"), {"x": -3, "y": -3.5})
+
+    def test_negative_ints_in_tuple(self):
+        self.assertEqual(loads("x = [-1, 2, -30]\n"), {"x": [-1, 2, -30]})
+
+    def test_negative_ints_in_object(self):
+        self.assertEqual(loads("x = { a = -1, b = 2 }\n"), {"x": {"a": -1, "b": 2}})
+
+    def test_spaced_subtraction_is_still_an_expression(self):
+        self.assertEqual(loads("x = 10 - 3\n"), {"x": "${10 - 3}"})
+
+    def test_tight_subtraction_is_still_an_expression(self):
+        """`10 -3` is a subtraction, not two adjacent literals."""
+        self.assertEqual(loads("x = 10 -3\n"), {"x": "${10 - 3}"})
+
+    def test_negated_reference_is_still_an_expression(self):
+        self.assertEqual(loads("x = -var.count\n"), {"x": "${-var.count}"})
+
+    def test_negation_inside_a_larger_expression(self):
+        self.assertEqual(loads("x = 1 + -3\n"), {"x": "${1 + -3}"})
+
+    def test_parenthesised_negation_is_still_an_expression(self):
+        self.assertEqual(loads("x = -(3)\n"), {"x": "${-(3)}"})
+
+    def test_scientific_notation_is_unaffected(self):
+        self.assertEqual(loads("x = -1e10\n"), {"x": "${-1e10}"})
+
+    def test_round_trip_through_dumps(self):
+        self.assertEqual(loads(dumps(loads("x = -3\n"))), {"x": -3})

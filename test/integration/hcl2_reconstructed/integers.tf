@@ -1,0 +1,28 @@
+locals {
+  simple_int            = 123
+  zero                  = 0
+  large_int             = 9876543210
+  negative_int          = -42
+  negative_one          = -1
+  negative_large        = -9876543210
+  int_calculation       = 105 * 3 / 2
+  int_subtraction       = 10 - 3
+  int_negated_reference = -var.count
+  int_comparison        = 5 > 2 ? 1 : 0
+  int_list              = [
+    1,
+    2,
+    3,
+    -4,
+    -5,
+  ]
+  int_object            = {
+    positive = 7,
+    negative = -7,
+    mixed    = [
+      -1,
+      0,
+      1,
+    ],
+  }
+}

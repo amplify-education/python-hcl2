@@ -424,6 +424,55 @@ class TestUnaryOpRule(TestCase):
         self.assertEqual(result, "${(-x)}")
 
 
+class TestUnaryOpRuleNegativeNumbers(TestCase):
+    """`-3` is the number -3, not the expression string "${-3}".
+
+    The lexer cannot fold the sign into INT_LITERAL, because MINUS is also the
+    binary subtraction operator and `10 -3` has to stay a subtraction, so a
+    negative integer reaches serialization as MINUS applied to a literal.
+    """
+
+    def _make_unary(self, op_str, operand_val):
+        token_cls = MINUS_TOKEN if op_str == "-" else NOT_TOKEN
+        return UnaryOpRule([token_cls(op_str), _make_expr_term(operand_val)])
+
+    def test_negative_int_serializes_to_int(self):
+        rule = self._make_unary("-", 3)
+        self.assertEqual(rule.serialize(), -3)
+
+    def test_negative_zero_serializes_to_int(self):
+        rule = self._make_unary("-", 0)
+        self.assertEqual(rule.serialize(), 0)
+
+    def test_negative_float_serializes_to_float(self):
+        rule = self._make_unary("-", 3.5)
+        self.assertEqual(rule.serialize(), -3.5)
+
+    def test_negated_identifier_stays_an_expression(self):
+        rule = self._make_unary("-", "var.count")
+        self.assertEqual(rule.serialize(), "${-var.count}")
+
+    def test_not_operator_is_untouched(self):
+        rule = self._make_unary("!", 1)
+        self.assertEqual(rule.serialize(), "${!1}")
+
+    def test_inside_dollar_string_stays_text(self):
+        """Within a larger expression the operand must remain concatenable."""
+        rule = self._make_unary("-", 3)
+        ctx = SerializationContext(inside_dollar_string=True)
+        self.assertEqual(rule.serialize(context=ctx), "-3")
+
+    def test_force_parens_keeps_expression_form(self):
+        """A bare number cannot carry the parentheses that option requests."""
+        rule = self._make_unary("-", 3)
+        opts = SerializationOptions(force_operation_parentheses=True)
+        self.assertEqual(rule.serialize(options=opts), "${-3}")
+
+    def test_boolean_operand_is_not_treated_as_a_number(self):
+        rule = self._make_unary("-", True)
+        self.assertEqual(rule.serialize(), "${-True}")
+
+
 # --- ExpressionRule._wrap_into_parentheses tests ---
 
 
