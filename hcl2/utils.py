@@ -3,6 +3,7 @@
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
+from typing import Optional, Tuple
 
 HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
 HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
@@ -37,6 +38,70 @@ class SerializationOptions:
     # producing backwards-compatible output (e.g. "hello" instead of '"hello"').
     # Note: round-trip through from_dict/dumps is NOT supported WITH this option.
     strip_string_quotes: bool = False
+
+
+_SIMPLE_ESCAPES = {
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+    '"': '"',
+    "\\": "\\",
+}
+_UNICODE_ESCAPE_WIDTHS = {"u": 4, "U": 8}
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+
+def _decode_unicode_escape(text: str, index: int) -> Optional[Tuple[str, int]]:
+    """Decode a \\uNNNN or \\UNNNNNNNN escape whose marker sits at `index`."""
+    width = _UNICODE_ESCAPE_WIDTHS[text[index]]
+    digits = text[index + 1 : index + 1 + width]
+    if len(digits) != width or any(char not in _HEX_DIGITS for char in digits):
+        return None
+    return chr(int(digits, 16)), index + 1 + width
+
+
+def process_escape_sequences(value: str) -> str:
+    """Resolve the escape sequences HCL defines inside a quoted template.
+
+    Used when `strip_string_quotes` is set, which asks for the *value* of a
+    string rather than its source form. Escapes are resolved in a single pass,
+    so an escaped backslash cannot combine with the character after it: `\\\\n`
+    is a backslash followed by "n", not a newline.
+
+    An unrecognized escape is preserved verbatim, backslash included. Terraform
+    rejects those outright, but the grammar here accepts them, and a serializer
+    is the wrong place to raise an error the parser did not.
+    """
+    if "\\" not in value:
+        return value
+
+    parts = []
+    index = 0
+    length = len(value)
+    while index < length:
+        char = value[index]
+        if char != "\\" or index + 1 >= length:
+            parts.append(char)
+            index += 1
+            continue
+
+        marker = value[index + 1]
+        if marker in _SIMPLE_ESCAPES:
+            parts.append(_SIMPLE_ESCAPES[marker])
+            index += 2
+            continue
+        if marker in _UNICODE_ESCAPE_WIDTHS:
+            decoded = _decode_unicode_escape(value, index + 1)
+            if decoded is not None:
+                parts.append(decoded[0])
+                index = decoded[1]
+                continue
+
+        parts.append(char)
+        parts.append(marker)
+        index += 2
+
+    return "".join(parts)
 
 
 @dataclass
