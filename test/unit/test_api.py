@@ -332,3 +332,30 @@ class TestEmptyHeredocs(TestCase):
 
     def test_indented_closing_delimiter_still_allowed(self):
         self.assertEqual(loads("a = <<EOF\nx\n   EOF\n"), {"a": '"<<EOF\nx\n   EOF"'})
+
+    def test_two_consecutive_empty_heredocs_stay_separate(self):
+        """The tightest form of the run-on: nothing between the two markers.
+
+        Before the fix this returned a single attribute whose value spanned
+        both, with `b` absent and no exception raised.
+        """
+        source = "a = <<EOF\nEOF\nb = <<EOF\nEOF\n"
+        self.assertEqual(loads(source), {"a": '"<<EOF\nEOF"', "b": '"<<EOF\nEOF"'})
+
+    def test_empty_heredoc_before_a_different_delimiter(self):
+        """The run-on latched onto any later delimiter, not just a matching one."""
+        source = "a = <<AAA\nAAA\nb = <<BBB\nbody\nBBB\n"
+        self.assertEqual(loads(source), {"a": '"<<AAA\nAAA"', "b": '"<<BBB\nbody\nBBB"'})
+
+    def test_empty_trimmed_heredoc_with_tab_indented_delimiter(self):
+        """`\\s*` before the delimiter covers tabs, not just spaces."""
+        self.assertEqual(loads("a = <<-EOF\n\tEOF\n"), {"a": '"<<-EOF\n\tEOF"'})
+
+    def test_empty_heredoc_in_a_tuple(self):
+        self.assertEqual(loads("a = [<<EOF\nEOF\n]\n"), {"a": ['"<<EOF\nEOF"']})
+
+    def test_empty_heredoc_as_an_object_value(self):
+        self.assertEqual(loads("a = {\n  k = <<EOF\nEOF\n}\n"), {"a": {"k": '"<<EOF\nEOF"'}})
+
+    def test_empty_heredoc_as_a_function_argument(self):
+        self.assertEqual(loads("a = trimspace(<<EOF\nEOF\n)\n"), {"a": '${trimspace("<<EOF\nEOF")}'})
