@@ -82,11 +82,23 @@ ELLIPSIS : "..."
 COLONS: "::"
 
 // Heredocs
-HEREDOC_TEMPLATE : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:(?:.|\n)*?\n)??\s*(?P=heredoc)\n/
-HEREDOC_TEMPLATE_TRIM : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)\n(?:(?:.|\n)*?\n)??\s*(?P=heredoc_trim)\n/
+// \r? accepts CRLF line endings around the markers. %ignore cannot help here:
+// it applies between tokens, never inside a terminal's own pattern, so without
+// this a heredoc in a CRLF file fails to match at all. The body group is lazy
+// and optional so an empty body matches without the delimiter search running on
+// to a later marker.
+HEREDOC_TEMPLATE : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]+)\r?\n(?:(?:.|\n)*?\r?\n)??\s*(?P=heredoc)\r?\n/
+HEREDOC_TEMPLATE_TRIM : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]+)\r?\n(?:(?:.|\n)*?\r?\n)??\s*(?P=heredoc_trim)\r?\n/
 
-// Ignore whitespace (but not newlines, as they're significant in HCL)
-%ignore /[ \t]+/
+// Ignore whitespace (but not newlines, as they're significant in HCL).
+// \r is ignored too so CRLF line endings (\r\n) parse the same as LF: the
+// \r before a significant \n is swallowed here, leaving NL_OR_COMMENT to
+// match the \n as usual. A \r that belongs to a terminal's own content is
+// unaffected, because that terminal matches a longer span from the same
+// position and wins: STRING_CHARS keeps a literal CR inside a quoted string,
+// and heredoc bodies keep theirs. Structural \r around heredoc markers is
+// handled by the terminals above, not here.
+%ignore /[ \t\r]+/
 
 // ============================================================================
 // Rules
