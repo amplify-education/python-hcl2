@@ -77,7 +77,7 @@ data = loads(text, serialization_options=SerializationOptions(
 | `preserve_heredocs` | `bool` | `True` | Keep heredocs in their original form                                                                                                            |
 | `force_operation_parentheses` | `bool` | `False` | Force parentheses around all operations                                                                                                         |
 | `preserve_scientific_notation` | `bool` | `True` | Keep scientific notation as-is                                                                                                                  |
-| `strip_string_quotes` | `bool` | `False` | Remove surrounding quotes from string values (e.g. `"hello"` instead of `'"hello"'`). **Breaks JSON->HCL2 deserialization and reconstruction.** |
+| `strip_string_quotes` | `bool` | `False` | Yield string *values* rather than source text: remove surrounding quotes (e.g. `"hello"` instead of `'"hello"'`) and resolve escape sequences (`"a\nb"` becomes a real newline). String literals inside expressions keep their quotes, so `upper("x")` stays `'${upper("x")}'`. **Breaks JSON->HCL2 deserialization and reconstruction.** |
 
 ### Comment Format
 

@@ -446,3 +446,91 @@ class TestNegatedKeywords(TestCase):
     def test_bare_keywords_are_still_python_values(self):
         """Outside an expression the keywords keep their Python mappings."""
         self.assertEqual(loads("x = true\ny = false\nz = null\n"), {"x": True, "y": False, "z": None})
+
+
+class TestStripStringQuotes(TestCase):
+    """`strip_string_quotes=True` asks for values, not source text.
+
+    It is the documented v7-compatibility path, so it has to yield what v7
+    yielded: quotes removed from string *values*, escape sequences resolved,
+    and expressions left as valid HCL.
+    """
+
+    _OPTIONS = SerializationOptions(strip_string_quotes=True)
+
+    def _load(self, source):
+        return loads(source, serialization_options=self._OPTIONS)
+
+    def test_plain_value_loses_its_quotes(self):
+        self.assertEqual(self._load('a = "plain"\n'), {"a": "plain"})
+
+    def test_value_in_object_and_list(self):
+        self.assertEqual(
+            self._load('a = { k = "v" }\nb = ["x"]\n'),
+            {"a": {"k": "v"}, "b": ["x"]},
+        )
+
+    def test_function_argument_keeps_its_quotes(self):
+        """Unquoting here would turn a string into an identifier."""
+        self.assertEqual(self._load('a = upper("x")\n'), {"a": '${upper("x")}'})
+
+    def test_conditional_branches_keep_their_quotes(self):
+        self.assertEqual(
+            self._load('a = var.x ? "yes" : "no"\n'),
+            {"a": '${var.x ? "yes" : "no"}'},
+        )
+
+    def test_comparison_against_a_string_keeps_its_quotes(self):
+        """An unquoted empty string would leave `s != ` behind."""
+        self.assertEqual(
+            self._load('a = [for s in var.l : upper(s) if s != ""]\n'),
+            {"a": '${[for s in var.l : upper(s) if s != ""]}'},
+        )
+
+    def test_nested_call_keeps_every_quote(self):
+        self.assertEqual(
+            self._load('a = join(",", ["x", "y"])\n'),
+            {"a": '${join(",", ["x", "y"])}'},
+        )
+
+    def test_escaped_quote_is_resolved(self):
+        self.assertEqual(self._load(r'a = "quote \"in\" here"' + "\n"), {"a": 'quote "in" here'})
+
+    def test_escaped_whitespace_is_resolved(self):
+        self.assertEqual(self._load(r'a = "x\ny\tz"' + "\n"), {"a": "x\ny\tz"})
+
+    def test_escaped_backslash_is_resolved(self):
+        self.assertEqual(self._load(r'a = "back\\slash"' + "\n"), {"a": "back\\slash"})
+
+    def test_escaped_backslash_does_not_combine_with_the_next_character(self):
+        r"""`\\n` is a backslash followed by "n", not a newline."""
+        self.assertEqual(self._load(r'a = "back\\nslash"' + "\n"), {"a": "back\\nslash"})
+
+    def test_unknown_escape_is_preserved(self):
+        self.assertEqual(self._load(r'a = "keep \q intact"' + "\n"), {"a": r"keep \q intact"})
+
+    def test_out_of_range_unicode_escape_does_not_raise(self):
+        """An unusable codepoint is preserved, not propagated as an exception.
+
+        `\\U00110000` makes `chr` raise ValueError and `\\UFFFFFFFF` makes it
+        raise OverflowError; neither is the serializer's error to raise, since
+        the grammar accepted the input.
+        """
+        self.assertEqual(self._load(r'a = "X\U00110000Y"' + "\n"), {"a": r"X\U00110000Y"})
+        self.assertEqual(self._load(r'a = "X\UFFFFFFFFY"' + "\n"), {"a": r"X\UFFFFFFFFY"})
+
+    def test_lone_surrogate_escape_stays_encodable(self):
+        """Decoding it would yield a value that cannot be written out as UTF-8."""
+        result = self._load(r'a = "X\uD800Y"' + "\n")
+        self.assertEqual(result, {"a": r"X\uD800Y"})
+        result["a"].encode("utf-8")
+
+    def test_interpolation_is_left_alone(self):
+        self.assertEqual(self._load('a = "pre${var.x}post"\n'), {"a": "pre${var.x}post"})
+
+    def test_escaped_interpolation_marker_is_left_alone(self):
+        self.assertEqual(self._load('a = "lit $${x}"\n'), {"a": "lit $${x}"})
+
+    def test_default_options_still_preserve_source_form(self):
+        """Without the option, the source form is kept for reconstruction."""
+        self.assertEqual(loads(r'a = "line1\nline2"' + "\n"), {"a": r'"line1\nline2"'})

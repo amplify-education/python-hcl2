@@ -29,6 +29,10 @@ data = hcl2.load(f, serialization_options=SerializationOptions(strip_string_quot
 
 > **Note:** `strip_string_quotes=True` is one-way — dicts produced with it cannot round-trip back to HCL via `dumps()` because the quotes needed to distinguish strings from identifiers are gone.
 
+Because the option asks for values rather than source text, it also resolves the escape sequences HCL defines (`\n`, `\r`, `\t`, `\"`, `\\`, `\uNNNN`, `\UNNNNNNNN`), as v7 did. Escapes are resolved in a single pass, so `\\n` is a backslash followed by `n` rather than a newline — v7 replaced sequentially and produced a newline there. Any other escape, including a codepoint outside the Unicode range, is left verbatim.
+
+Quotes are stripped only from strings in *value* position. A string literal inside an expression is part of that expression's source text and keeps its quotes, so `upper("x")` serializes to `'${upper("x")}'` — unquoting it there would change what it refers to.
+
 ## New metadata keys in output dicts
 
 **Impact: high** — code that iterates keys or does exact-match assertions will break.
