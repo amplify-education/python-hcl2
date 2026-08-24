@@ -1,5 +1,6 @@
 """Rule classes for HCL2 string literals, interpolation, and heredoc templates."""
 
+import re
 import sys
 from typing import Any, List, Tuple, Union
 
@@ -24,6 +25,25 @@ from hcl2.utils import (
     process_escape_sequences,
     to_dollar_string,
 )
+
+
+def _strip_closing_marker_line(text: str) -> str:
+    r"""Drop the closing marker line's indentation and the one newline before it.
+
+    A heredoc body always ends ``...\n<indent>``, where ``<indent>`` is the
+    whitespace preceding the closing marker on its own line. The spec allows
+    "an arbitrary number of spaces preceding it", and neither that indentation
+    nor the newline separating it from the last content line is part of the
+    value. The newline may be ``\r\n``, since heredocs parse in CRLF files.
+
+    Everything else is: additional blank lines, and trailing spaces on a
+    content line. The latter are safe because a content line always ends with
+    its own newline, so the indentation match never reaches them. This replaces
+    a blanket ``rstrip("\n\t ")``, which could not tell the two apart and
+    discarded both.
+    """
+    text = re.sub(r"[ \t]*\Z", "", text)
+    return re.sub(r"\r?\n\Z", "", text)
 
 
 class InterpolationRule(LarkRule):
@@ -149,7 +169,7 @@ class HeredocTemplateRule(LarkRule):
             match = HEREDOC_PATTERN.match(heredoc)
             if not match:
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
-            heredoc = match.group(2).rstrip(self._trim_chars)
+            heredoc = _strip_closing_marker_line(match.group(2))
             heredoc = heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             if options.strip_string_quotes:
                 return heredoc
@@ -186,14 +206,22 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
             heredoc = match.group(2)
 
-        heredoc = heredoc.rstrip(self._trim_chars)
+        heredoc = _strip_closing_marker_line(heredoc)
         lines = heredoc.split("\n")
 
         # calculate the min number of leading spaces in each line
+        # The spec measures "any literal string at the start of each line", so a
+        # blank line offers no measurement. Counting it as zero would drag the
+        # minimum down and cancel the dedent for every other line -- which only
+        # became reachable once blank lines stopped being stripped above.
         min_spaces = sys.maxsize
         for line in lines:
+            if not line.strip():
+                continue
             leading_spaces = len(line) - len(line.lstrip(" "))
             min_spaces = min(min_spaces, leading_spaces)
+        if min_spaces == sys.maxsize:
+            min_spaces = 0
 
         # trim off that number of leading spaces from each line
         lines = [line[min_spaces:] for line in lines]
