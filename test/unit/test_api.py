@@ -359,3 +359,90 @@ class TestEmptyHeredocs(TestCase):
 
     def test_empty_heredoc_as_a_function_argument(self):
         self.assertEqual(loads("a = trimspace(<<EOF\nEOF\n)\n"), {"a": '${trimspace("<<EOF\nEOF")}'})
+
+
+class TestNegativeIntegerLiterals(TestCase):
+    """`-3` loads as the int -3, without disturbing subtraction.
+
+    MINUS serves as both the unary sign and the binary subtraction operator, so
+    a negative integer cannot be folded into INT_LITERAL by the lexer without
+    breaking `10 -3`. These cases pin both halves of that trade-off.
+    """
+
+    def test_negative_int_is_an_int(self):
+        self.assertEqual(loads("x = -3\n"), {"x": -3})
+
+    def test_negative_int_matches_negative_float_handling(self):
+        self.assertEqual(loads("x = -3\ny = -3.5\n"), {"x": -3, "y": -3.5})
+
+    def test_negative_ints_in_tuple(self):
+        self.assertEqual(loads("x = [-1, 2, -30]\n"), {"x": [-1, 2, -30]})
+
+    def test_negative_ints_in_object(self):
+        self.assertEqual(loads("x = { a = -1, b = 2 }\n"), {"x": {"a": -1, "b": 2}})
+
+    def test_spaced_subtraction_is_still_an_expression(self):
+        self.assertEqual(loads("x = 10 - 3\n"), {"x": "${10 - 3}"})
+
+    def test_tight_subtraction_is_still_an_expression(self):
+        """`10 -3` is a subtraction, not two adjacent literals."""
+        self.assertEqual(loads("x = 10 -3\n"), {"x": "${10 - 3}"})
+
+    def test_negated_reference_is_still_an_expression(self):
+        self.assertEqual(loads("x = -var.count\n"), {"x": "${-var.count}"})
+
+    def test_negation_inside_a_larger_expression(self):
+        self.assertEqual(loads("x = 1 + -3\n"), {"x": "${1 + -3}"})
+
+    def test_parenthesised_negation_is_still_an_expression(self):
+        self.assertEqual(loads("x = -(3)\n"), {"x": "${-(3)}"})
+
+    def test_scientific_notation_is_unaffected(self):
+        """`-1e10` never reaches the unary path: it lexes as a single FLOAT_LITERAL."""
+        self.assertEqual(loads("x = -1e10\n"), {"x": "${-1e10}"})
+
+    def test_spaced_negation_of_scientific_notation_stays_an_expression(self):
+        """The spaced form *is* a unary op, and its operand is a string.
+
+        `preserve_scientific_notation` (on by default) keeps `1e10` as source
+        text, so there is no number to negate and the expression form stands.
+        """
+        self.assertEqual(loads("x = - 1e10\n"), {"x": "${-1e10}"})
+
+    def test_spaced_negation_of_integer_is_still_a_number(self):
+        self.assertEqual(loads("x = - 3\n"), {"x": -3})
+
+    def test_negative_zero_normalises_to_zero(self):
+        """`-0` is 0. The dict path drops the sign; the direct path keeps the source."""
+        self.assertEqual(loads("x = -0\n"), {"x": 0})
+        self.assertEqual(dumps(loads("x = -0\n")), "x = 0\n")
+
+    def test_round_trip_through_dumps(self):
+        self.assertEqual(loads(dumps(loads("x = -3\n"))), {"x": -3})
+
+
+class TestNegatedKeywords(TestCase):
+    """`-true` is not arithmetic, so it stays an expression.
+
+    This is the parsed counterpart to the `bool` guard in
+    `UnaryOpRule._negate_numeric_literal`: a keyword operand is serialized with
+    `inside_dollar_string` set and so arrives as the string "true", never as a
+    Python bool. Without that distinction `bool` subclassing `int` would turn
+    `-true` into -1.
+    """
+
+    def test_negated_true(self):
+        self.assertEqual(loads("x = -true\n"), {"x": "${-true}"})
+
+    def test_negated_false(self):
+        self.assertEqual(loads("x = -false\n"), {"x": "${-false}"})
+
+    def test_negated_null(self):
+        self.assertEqual(loads("x = -null\n"), {"x": "${-null}"})
+
+    def test_not_operator_on_keyword(self):
+        self.assertEqual(loads("x = !true\n"), {"x": "${!true}"})
+
+    def test_bare_keywords_are_still_python_values(self):
+        """Outside an expression the keywords keep their Python mappings."""
+        self.assertEqual(loads("x = true\ny = false\nz = null\n"), {"x": True, "y": False, "z": None})
