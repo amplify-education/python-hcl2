@@ -13,9 +13,8 @@ Options:
 import argparse
 import os
 
-from hcl2.version import __version__
-
 from hcl2 import load
+from hcl2.version import __version__
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="This script recursively converts hcl2 files to json")

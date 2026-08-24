@@ -8,8 +8,6 @@ import os
 import sys
 from typing import Any, List, Optional, Tuple
 
-from hcl2.version import __version__
-
 from hcl2.query._base import NodeView
 from hcl2.query.body import DocumentView
 from hcl2.query.introspect import build_schema, describe_results
@@ -22,6 +20,7 @@ from hcl2.query.safe_eval import (
     safe_eval,
 )
 from hcl2.utils import SerializationOptions
+from hcl2.version import __version__
 
 from .helpers import _expand_file_args  # noqa: F401 — re-exported for tests
 
