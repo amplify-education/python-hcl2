@@ -178,6 +178,23 @@ class TestStringRule(TestCase):
         opts = SerializationOptions(strip_string_quotes=True)
         self.assertEqual(rule.serialize(opts), "prefix:${var.name}")
 
+    def test_serialize_strip_string_quotes_inside_expression_keeps_quotes(self):
+        """A string nested in an expression is that expression's source text."""
+        rule = _make_string([_make_string_part_chars("x")])
+        opts = SerializationOptions(strip_string_quotes=True)
+        ctx = SerializationContext(inside_dollar_string=True)
+        self.assertEqual(rule.serialize(opts, ctx), '"x"')
+
+    def test_serialize_strip_string_quotes_resolves_escapes(self):
+        rule = _make_string([_make_string_part_chars(r"say \"hi\"")])
+        opts = SerializationOptions(strip_string_quotes=True)
+        self.assertEqual(rule.serialize(opts), 'say "hi"')
+
+    def test_serialize_without_strip_keeps_escapes_raw(self):
+        """Default output stays source-shaped so it can be reconstructed."""
+        rule = _make_string([_make_string_part_chars(r"say \"hi\"")])
+        self.assertEqual(rule.serialize(), r'"say \"hi\""')
+
 
 # --- HeredocTemplateRule tests ---
 

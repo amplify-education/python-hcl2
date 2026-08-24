@@ -31,4 +31,16 @@ EOF
   json_content = <<EOF
 {"key": "value"}
 EOF
+
+  empty = <<EOF
+EOF
+
+  empty_trimmed = <<-EOF
+  EOF
+
+  blank_line_only = <<EOF
+
+EOF
+
+  after_empty = "still parsed"
 }

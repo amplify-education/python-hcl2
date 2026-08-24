@@ -5,6 +5,7 @@ from hcl2.utils import (
     SerializationContext,
     SerializationOptions,
     is_dollar_string,
+    process_escape_sequences,
     to_dollar_string,
     unwrap_dollar_string,
     wrap_into_parentheses,
@@ -140,3 +141,68 @@ class TestWrapIntoParentheses(TestCase):
 
     def test_dollar_expression(self):
         self.assertEqual(wrap_into_parentheses("${a + b}"), "${(a + b)}")
+
+
+class TestProcessEscapeSequences(TestCase):
+    """Escape resolution used by `strip_string_quotes`."""
+
+    def test_no_backslash_is_returned_unchanged(self):
+        self.assertEqual(process_escape_sequences("plain text"), "plain text")
+
+    def test_simple_escapes(self):
+        self.assertEqual(process_escape_sequences(r"a\nb\tc\rd"), "a\nb\tc\rd")
+
+    def test_escaped_quote(self):
+        self.assertEqual(process_escape_sequences(r"say \"hi\""), 'say "hi"')
+
+    def test_escaped_backslash(self):
+        self.assertEqual(process_escape_sequences(r"back\\slash"), "back\\slash")
+
+    def test_escaped_backslash_is_not_reused_by_the_next_character(self):
+        r"""A single pass: `\\n` cannot become a newline."""
+        self.assertEqual(process_escape_sequences(r"back\\nslash"), "back\\nslash")
+
+    def test_unicode_escape(self):
+        self.assertEqual(process_escape_sequences(r"café"), "café")
+
+    def test_long_unicode_escape(self):
+        self.assertEqual(process_escape_sequences(r"\U0001F600"), "\U0001f600")
+
+    def test_malformed_unicode_escape_is_preserved(self):
+        self.assertEqual(process_escape_sequences(r"\u12"), r"\u12")
+
+    def test_non_hex_unicode_escape_is_preserved(self):
+        self.assertEqual(process_escape_sequences(r"\uZZZZ"), r"\uZZZZ")
+
+    def test_unknown_escape_is_preserved(self):
+        self.assertEqual(process_escape_sequences(r"keep \q intact"), r"keep \q intact")
+
+    def test_trailing_backslash_is_preserved(self):
+        self.assertEqual(process_escape_sequences("trailing\\"), "trailing\\")
+
+    def test_highest_valid_codepoint_is_decoded(self):
+        self.assertEqual(process_escape_sequences(r"\U0010FFFF"), "\U0010ffff")
+
+    def test_codepoint_past_the_unicode_maximum_is_preserved(self):
+        """`chr` raises above 0x10FFFF; the escape is left verbatim instead."""
+        self.assertEqual(process_escape_sequences(r"\U00110000"), r"\U00110000")
+
+    def test_codepoint_too_large_for_c_int_is_preserved(self):
+        """`int(digits, 16)` fits in a Python int but overflows `chr`."""
+        self.assertEqual(process_escape_sequences(r"\UFFFFFFFF"), r"\UFFFFFFFF")
+
+    def test_lone_surrogate_is_preserved(self):
+        r"""`chr(0xD800)` succeeds but the result cannot be encoded to UTF-8."""
+        self.assertEqual(process_escape_sequences(r"\uD800"), r"\uD800")
+        self.assertEqual(process_escape_sequences(r"\uDFFF"), r"\uDFFF")
+
+    def test_characters_bracketing_the_surrogate_range_still_decode(self):
+        """Only D800-DFFF is rejected; the codepoints either side still decode."""
+        self.assertEqual(process_escape_sequences(r"\uD7FF"), "\ud7ff")
+        self.assertEqual(process_escape_sequences(r"\uE000"), "\ue000")
+
+    def test_result_is_always_utf8_encodable(self):
+        """The point of rejecting surrogates: callers can safely write the value out."""
+        for source in (r"\uD800", r"\uDFFF", r"\U00110000", r"\UFFFFFFFF"):
+            with self.subTest(source=source):
+                process_escape_sequences(source).encode("utf-8")

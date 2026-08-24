@@ -22,6 +22,7 @@ from hcl2.utils import (
     HEREDOC_TRIM_PATTERN,
     SerializationContext,
     SerializationOptions,
+    process_escape_sequences,
     to_dollar_string,
 )
 
@@ -112,11 +113,34 @@ class StringRule(LarkRule):
         return self.children[1:-1]
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
-        """Serialize to a quoted string."""
+        """Serialize to a quoted string.
+
+        `strip_string_quotes` asks for the string's value rather than its
+        source form, so it applies only where a value is what the caller gets:
+        a string nested inside an expression is part of that expression's text,
+        and unquoting it there would produce something that is no longer valid
+        HCL (`upper("x")` becoming `upper(x)`).
+        """
+        if options.strip_string_quotes and not context.inside_dollar_string:
+            return "".join(
+                self._serialize_part_as_value(part, options, context) for part in self.string_parts
+            )
+
         inner = "".join(part.serialize(options, context) for part in self.string_parts)
-        if options.strip_string_quotes:
-            return inner
         return '"' + inner + '"'
+
+    @staticmethod
+    def _serialize_part_as_value(part, options, context) -> str:
+        """Serialize one part, resolving escapes in literal text only.
+
+        Interpolations and escaped interpolation/directive markers are passed
+        through untouched: their text is expression source, not literal
+        content, so an escape inside them is not this string's to resolve.
+        """
+        serialized = part.serialize(options, context)
+        if part.content.lark_name() == "STRING_CHARS":
+            return process_escape_sequences(serialized)
+        return serialized
 
 
 class HeredocTemplateRule(LarkRule):

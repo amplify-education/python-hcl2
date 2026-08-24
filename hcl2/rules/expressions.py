@@ -1,7 +1,7 @@
 """Rule classes for HCL2 expressions, conditionals, and binary/unary operations."""
 
 from abc import ABC
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Union
 
 from lark.tree import Meta
 
@@ -305,12 +305,41 @@ class UnaryOpRule(ExpressionRule):
         """Serialize to 'operator operand' string."""
         with context.modify(inside_dollar_string=True):
             operator = self.operator.rstrip()
-            result = f"{operator}{self.expr_term.serialize(options, context)}"
+            operand = self.expr_term.serialize(options, context)
+            result = f"{operator}{operand}"
 
         if not context.inside_dollar_string:
+            # A negated numeric literal is a number, not an expression. The
+            # lexer splits `-3` into MINUS and INT_LITERAL because MINUS is also
+            # the binary operator (`1 -3` must stay a subtraction), so negative
+            # integers arrive here rather than as a single token. Recombining
+            # them keeps `-3` an int, matching `-3.5`, which FLOAT_LITERAL
+            # already matches whole.
+            negated = self._negate_numeric_literal(operator, operand, options)
+            if negated is not None:
+                return negated
             result = to_dollar_string(result)
 
         if options.force_operation_parentheses:
             result = self._wrap_into_parentheses(result, options, context)
 
         return result
+
+    @staticmethod
+    def _negate_numeric_literal(
+        operator: str, operand: Any, options: SerializationOptions
+    ) -> Optional[Union[int, float]]:
+        """Return the negated value when this is `-` applied to a number.
+
+        Returns None when the operation is anything else, so that the caller
+        falls back to the `${...}` expression form: `-var.x` has no literal
+        value, `!flag` is not arithmetic, and a scientific-notation operand
+        serializes to a string when `preserve_scientific_notation` is set.
+        Parenthesised output is likewise left alone, since a bare number cannot
+        carry the parentheses that option asks for.
+        """
+        if operator != "-" or options.force_operation_parentheses:
+            return None
+        if isinstance(operand, bool) or not isinstance(operand, (int, float)):
+            return None
+        return -operand
