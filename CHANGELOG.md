@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Restore `py.typed` marker so type checkers recognize `hcl2` (and `cli`) as typed packages. ([#298](https://github.com/amplify-education/python-hcl2/issues/298))
+- Parse heredocs with an empty body again. A marker immediately followed by its closing delimiter failed to match, and the lexer then ran on to a later delimiter, silently absorbing the attributes in between. ([#309](https://github.com/amplify-education/python-hcl2/issues/309))
+- Negative integer literals load as numbers again instead of `${-N}` expression strings, matching negative floats and the pre-8.x behaviour. ([#307](https://github.com/amplify-education/python-hcl2/issues/307))
+- `strip_string_quotes` no longer unquotes string literals nested inside expressions, which produced invalid HCL such as `${upper(x)}` from `upper("x")`. ([#310](https://github.com/amplify-education/python-hcl2/issues/310))
+- `strip_string_quotes` now resolves escape sequences, so the values it yields match what the option documents. Escapes naming a codepoint outside the Unicode range, or a lone surrogate, are preserved verbatim rather than raising. ([#308](https://github.com/amplify-education/python-hcl2/issues/308))
 - Parse files with CRLF (`\r\n`) line endings, including heredocs. A `\r` acting as part of a line ending is ignored, so a CRLF file reconstructs with LF endings; a `\r` that is content — inside a quoted string or a heredoc body — is preserved. ([#315](https://github.com/amplify-education/python-hcl2/issues/315))
 
 ## \[8.1.2\] - 2026-04-10

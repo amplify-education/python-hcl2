@@ -8,6 +8,10 @@
       "trimmed": "\"indented1\\nindented2\"",
       "trimmed_mixed": "\"line1\\n  line2\\nline3\"",
       "json_content": "\"{\\\"key\\\": \\\"value\\\"}\"",
+      "empty": "\"\"",
+      "empty_trimmed": "\"\"",
+      "blank_line_only": "\"\"",
+      "after_empty": "\"still parsed\"",
       "__is_block__": true
     }
   ]
