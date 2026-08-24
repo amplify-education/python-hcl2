@@ -33,7 +33,7 @@ def _strip_closing_marker_line(text: str) -> str:
     whitespace preceding the closing marker on its own line. The spec allows
     "an arbitrary number of spaces preceding it", and neither that indentation
     nor the newline separating it from the last content line is part of the
-    value.
+    value. The newline may be ``\r\n``, since heredocs parse in CRLF files.
 
     Everything else is: additional blank lines, and trailing spaces on a
     content line. The latter are safe because a content line always ends with
@@ -42,9 +42,7 @@ def _strip_closing_marker_line(text: str) -> str:
     discarded both.
     """
     text = re.sub(r"[ \t]*\Z", "", text)
-    if text.endswith("\n"):
-        return text[:-1]
-    return text
+    return re.sub(r"\r?\n\Z", "", text)
 
 
 class InterpolationRule(LarkRule):
