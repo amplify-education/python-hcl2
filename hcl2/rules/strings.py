@@ -25,6 +25,23 @@ from hcl2.utils import (
 )
 
 
+def _strip_single_trailing_newline(text: str) -> str:
+    """Remove exactly one trailing newline, matching HCL's heredoc semantics.
+
+    A single trailing "\n" immediately before the closing marker separates
+    the last body line from the marker line and is not part of the
+    heredoc's value -- this mirrors the established one-line heredoc
+    behavior (existing golden tests depend on "x\n" -> "x"). Anything
+    beyond that single newline -- additional blank lines, or trailing
+    spaces/tabs on the final content line -- is genuine body content and
+    must be preserved, unlike the previous blanket
+    ``rstrip("\n\t ")`` which silently discarded it.
+    """
+    if text.endswith("\n"):
+        return text[:-1]
+    return text
+
+
 class InterpolationRule(LarkRule):
     """Rule for ${expression} interpolation within strings."""
 
@@ -123,7 +140,7 @@ class HeredocTemplateRule(LarkRule):
             match = HEREDOC_PATTERN.match(heredoc)
             if not match:
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
-            heredoc = match.group(2).rstrip(self._trim_chars)
+            heredoc = _strip_single_trailing_newline(match.group(2))
             heredoc = heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             if options.strip_string_quotes:
                 return heredoc
