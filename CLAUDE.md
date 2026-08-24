@@ -199,6 +199,12 @@ Hooks are defined in `.pre-commit-config.yaml` (includes ruff, mypy, and others)
 - Ensure **mypy** passes.
 - End files with a newline; strip trailing whitespace (except under `test/integration/(hcl2_reconstructed|specialized)/`).
 
+Run the hooks against staged files (`git add -A && pre-commit run`) rather than `--files $(git diff ...)`, which skips untracked files. `no-commit-to-branch` fails by design during `--all-files` while `main` is checked out.
+
+`CONTRIBUTING.md` documents the end-to-end contributor workflow this feeds into: local suite + pre-commit green, then a draft PR, then `/review-pr` before requesting human review.
+
 ## Keeping Docs Current
 
 Update this file when architecture, modules, API surface, or testing conventions change. Also update `README.md` and the docs in `docs/` (`01_getting_started.md`, `02_querying.md`, `03_advanced_api.md`, `04_hq.md`, `05_hq_examples.md`) when changes affect the public API, CLI flags, or option fields.
+
+Update `CONTRIBUTING.md` when the contributor workflow changes — the test or pre-commit commands, the skills it references, or what CI runs. It is the entry point contributors read, so a stale command there costs more than a stale line here.
