@@ -8,6 +8,10 @@
       "trimmed": "\"<<-EOF\n    indented1\n    indented2\n  EOF\"",
       "trimmed_mixed": "\"<<-EOF\n    line1\n      line2\n    line3\n  EOF\"",
       "json_content": "\"<<EOF\n{\"key\": \"value\"}\nEOF\"",
+      "empty": "\"<<EOF\nEOF\"",
+      "empty_trimmed": "\"<<-EOF\n  EOF\"",
+      "blank_line_only": "\"<<EOF\n\nEOF\"",
+      "after_empty": "\"still parsed\"",
       "__is_block__": true
     }
   ]
