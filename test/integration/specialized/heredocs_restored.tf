@@ -17,4 +17,8 @@ line1
 line3
 EOF
   json_content     = "{\"key\": \"value\"}"
+  empty            = ""
+  empty_trimmed    = ""
+  blank_line_only  = ""
+  after_empty      = "still parsed"
 }

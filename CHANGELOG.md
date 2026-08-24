@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Restore `py.typed` marker so type checkers recognize `hcl2` (and `cli`) as typed packages. ([#298](https://github.com/amplify-education/python-hcl2/issues/298))
+- Parse heredocs with an empty body again. A marker immediately followed by its closing delimiter failed to match, and the lexer then ran on to a later delimiter, silently absorbing the attributes in between. ([#309](https://github.com/amplify-education/python-hcl2/issues/309))
 - Negative integer literals load as numbers again instead of `${-N}` expression strings, matching negative floats and the pre-8.x behaviour. ([#307](https://github.com/amplify-education/python-hcl2/issues/307))
 
 ## \[8.1.2\] - 2026-04-10
