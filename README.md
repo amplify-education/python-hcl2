@@ -146,10 +146,11 @@ You can reach us at <mailto:github@amplify.com>
 
 ## Contributing
 
-We welcome pull requests! For your pull request to be accepted smoothly, we suggest that you:
+We welcome pull requests! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow. In short:
 
 - For any sizable change, first open a GitHub issue to discuss your idea.
-- Create a pull request. Explain why you want to make the change and what it's for.
+- Get the test suite and pre-commit passing locally.
+- Open a draft pull request, verify it with `/review-pr`, then mark it ready.
 
 We'll try to answer any PR's promptly.
 
