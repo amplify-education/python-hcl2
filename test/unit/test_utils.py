@@ -179,3 +179,30 @@ class TestProcessEscapeSequences(TestCase):
 
     def test_trailing_backslash_is_preserved(self):
         self.assertEqual(process_escape_sequences("trailing\\"), "trailing\\")
+
+    def test_highest_valid_codepoint_is_decoded(self):
+        self.assertEqual(process_escape_sequences(r"\U0010FFFF"), "\U0010ffff")
+
+    def test_codepoint_past_the_unicode_maximum_is_preserved(self):
+        """`chr` raises above 0x10FFFF; the escape is left verbatim instead."""
+        self.assertEqual(process_escape_sequences(r"\U00110000"), r"\U00110000")
+
+    def test_codepoint_too_large_for_c_int_is_preserved(self):
+        """`int(digits, 16)` fits in a Python int but overflows `chr`."""
+        self.assertEqual(process_escape_sequences(r"\UFFFFFFFF"), r"\UFFFFFFFF")
+
+    def test_lone_surrogate_is_preserved(self):
+        r"""`chr(0xD800)` succeeds but the result cannot be encoded to UTF-8."""
+        self.assertEqual(process_escape_sequences(r"\uD800"), r"\uD800")
+        self.assertEqual(process_escape_sequences(r"\uDFFF"), r"\uDFFF")
+
+    def test_characters_bracketing_the_surrogate_range_still_decode(self):
+        """Only D800-DFFF is rejected; the codepoints either side still decode."""
+        self.assertEqual(process_escape_sequences(r"\uD7FF"), "\ud7ff")
+        self.assertEqual(process_escape_sequences(r"\uE000"), "\ue000")
+
+    def test_result_is_always_utf8_encodable(self):
+        """The point of rejecting surrogates: callers can safely write the value out."""
+        for source in (r"\uD800", r"\uDFFF", r"\U00110000", r"\UFFFFFFFF"):
+            with self.subTest(source=source):
+                process_escape_sequences(source).encode("utf-8")

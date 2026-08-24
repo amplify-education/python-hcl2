@@ -49,15 +49,26 @@ _SIMPLE_ESCAPES = {
 }
 _UNICODE_ESCAPE_WIDTHS = {"u": 4, "U": 8}
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+_MAX_CODEPOINT = 0x10FFFF
+_SURROGATES = range(0xD800, 0xE000)
 
 
 def _decode_unicode_escape(text: str, index: int) -> Optional[Tuple[str, int]]:
-    """Decode a \\uNNNN or \\UNNNNNNNN escape whose marker sits at `index`."""
+    """Decode a \\uNNNN or \\UNNNNNNNN escape whose marker sits at `index`.
+
+    Returns None for anything that is not a usable character, leaving the
+    caller to preserve the escape verbatim: too few digits, a non-hex digit, a
+    codepoint past the Unicode maximum (`chr` raises for those), or a lone
+    surrogate, which `chr` accepts but which cannot be encoded to UTF-8.
+    """
     width = _UNICODE_ESCAPE_WIDTHS[text[index]]
     digits = text[index + 1 : index + 1 + width]
     if len(digits) != width or any(char not in _HEX_DIGITS for char in digits):
         return None
-    return chr(int(digits, 16)), index + 1 + width
+    codepoint = int(digits, 16)
+    if codepoint > _MAX_CODEPOINT or codepoint in _SURROGATES:
+        return None
+    return chr(codepoint), index + 1 + width
 
 
 def process_escape_sequences(value: str) -> str:

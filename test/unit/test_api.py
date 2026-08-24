@@ -351,6 +351,22 @@ class TestStripStringQuotes(TestCase):
     def test_unknown_escape_is_preserved(self):
         self.assertEqual(self._load(r'a = "keep \q intact"' + "\n"), {"a": r"keep \q intact"})
 
+    def test_out_of_range_unicode_escape_does_not_raise(self):
+        """An unusable codepoint is preserved, not propagated as an exception.
+
+        `\\U00110000` makes `chr` raise ValueError and `\\UFFFFFFFF` makes it
+        raise OverflowError; neither is the serializer's error to raise, since
+        the grammar accepted the input.
+        """
+        self.assertEqual(self._load(r'a = "X\U00110000Y"' + "\n"), {"a": r"X\U00110000Y"})
+        self.assertEqual(self._load(r'a = "X\UFFFFFFFFY"' + "\n"), {"a": r"X\UFFFFFFFFY"})
+
+    def test_lone_surrogate_escape_stays_encodable(self):
+        """Decoding it would yield a value that cannot be written out as UTF-8."""
+        result = self._load(r'a = "X\uD800Y"' + "\n")
+        self.assertEqual(result, {"a": r"X\uD800Y"})
+        result["a"].encode("utf-8")
+
     def test_interpolation_is_left_alone(self):
         self.assertEqual(self._load('a = "pre${var.x}post"\n'), {"a": "pre${var.x}post"})
 

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Restore `py.typed` marker so type checkers recognize `hcl2` (and `cli`) as typed packages. ([#298](https://github.com/amplify-education/python-hcl2/issues/298))
 - `strip_string_quotes` no longer unquotes string literals nested inside expressions, which produced invalid HCL such as `${upper(x)}` from `upper("x")`. ([#310](https://github.com/amplify-education/python-hcl2/issues/310))
-- `strip_string_quotes` now resolves escape sequences, so the values it yields match what the option documents. ([#308](https://github.com/amplify-education/python-hcl2/issues/308))
+- `strip_string_quotes` now resolves escape sequences, so the values it yields match what the option documents. Escapes naming a codepoint outside the Unicode range, or a lone surrogate, are preserved verbatim rather than raising. ([#308](https://github.com/amplify-education/python-hcl2/issues/308))
 
 ## \[8.1.2\] - 2026-04-10
 

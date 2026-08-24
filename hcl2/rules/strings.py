@@ -118,7 +118,7 @@ class StringRule(LarkRule):
         content, so an escape inside them is not this string's to resolve.
         """
         serialized = part.serialize(options, context)
-        if isinstance(part.content, STRING_CHARS):
+        if part.content.lark_name() == "STRING_CHARS":
             return process_escape_sequences(serialized)
         return serialized
 
