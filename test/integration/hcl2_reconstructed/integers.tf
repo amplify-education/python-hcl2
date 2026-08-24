@@ -5,6 +5,8 @@ locals {
   negative_int          = -42
   negative_one          = -1
   negative_large        = -9876543210
+  negative_zero         = 0
+  negated_keyword       = -true
   int_calculation       = 105 * 3 / 2
   int_subtraction       = 10 - 3
   int_negated_reference = -var.count

@@ -327,7 +327,51 @@ class TestNegativeIntegerLiterals(TestCase):
         self.assertEqual(loads("x = -(3)\n"), {"x": "${-(3)}"})
 
     def test_scientific_notation_is_unaffected(self):
+        """`-1e10` never reaches the unary path: it lexes as a single FLOAT_LITERAL."""
         self.assertEqual(loads("x = -1e10\n"), {"x": "${-1e10}"})
+
+    def test_spaced_negation_of_scientific_notation_stays_an_expression(self):
+        """The spaced form *is* a unary op, and its operand is a string.
+
+        `preserve_scientific_notation` (on by default) keeps `1e10` as source
+        text, so there is no number to negate and the expression form stands.
+        """
+        self.assertEqual(loads("x = - 1e10\n"), {"x": "${-1e10}"})
+
+    def test_spaced_negation_of_integer_is_still_a_number(self):
+        self.assertEqual(loads("x = - 3\n"), {"x": -3})
+
+    def test_negative_zero_normalises_to_zero(self):
+        """`-0` is 0. The dict path drops the sign; the direct path keeps the source."""
+        self.assertEqual(loads("x = -0\n"), {"x": 0})
+        self.assertEqual(dumps(loads("x = -0\n")), "x = 0\n")
 
     def test_round_trip_through_dumps(self):
         self.assertEqual(loads(dumps(loads("x = -3\n"))), {"x": -3})
+
+
+class TestNegatedKeywords(TestCase):
+    """`-true` is not arithmetic, so it stays an expression.
+
+    This is the parsed counterpart to the `bool` guard in
+    `UnaryOpRule._negate_numeric_literal`: a keyword operand is serialized with
+    `inside_dollar_string` set and so arrives as the string "true", never as a
+    Python bool. Without that distinction `bool` subclassing `int` would turn
+    `-true` into -1.
+    """
+
+    def test_negated_true(self):
+        self.assertEqual(loads("x = -true\n"), {"x": "${-true}"})
+
+    def test_negated_false(self):
+        self.assertEqual(loads("x = -false\n"), {"x": "${-false}"})
+
+    def test_negated_null(self):
+        self.assertEqual(loads("x = -null\n"), {"x": "${-null}"})
+
+    def test_not_operator_on_keyword(self):
+        self.assertEqual(loads("x = !true\n"), {"x": "${!true}"})
+
+    def test_bare_keywords_are_still_python_values(self):
+        """Outside an expression the keywords keep their Python mappings."""
+        self.assertEqual(loads("x = true\ny = false\nz = null\n"), {"x": True, "y": False, "z": None})

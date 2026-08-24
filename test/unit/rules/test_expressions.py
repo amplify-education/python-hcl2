@@ -469,8 +469,22 @@ class TestUnaryOpRuleNegativeNumbers(TestCase):
         self.assertEqual(rule.serialize(options=opts), "${-3}")
 
     def test_boolean_operand_is_not_treated_as_a_number(self):
-        rule = self._make_unary("-", True)
-        self.assertEqual(rule.serialize(), "${-True}")
+        """`bool` subclasses `int`, so without the guard `-true` would serialize to -1.
+
+        Asserted against the helper rather than `serialize()`: no HCL input can
+        route a Python bool here, because `UnaryOpRule` serializes its operand
+        with `inside_dollar_string` set, and `LiteralValueRule` yields the string
+        "true" in that context. See `TestNegatedKeywords` for the parsed path.
+        """
+        options = SerializationOptions()
+        self.assertIsNone(UnaryOpRule._negate_numeric_literal("-", True, options))
+        self.assertIsNone(UnaryOpRule._negate_numeric_literal("-", False, options))
+
+    def test_zero_operand_returns_zero_not_none(self):
+        """The caller must test `is not None`; plain truthiness would drop `-0`."""
+        result = UnaryOpRule._negate_numeric_literal("-", 0, SerializationOptions())
+        self.assertEqual(result, 0)
+        self.assertIsNotNone(result)
 
 
 # --- ExpressionRule._wrap_into_parentheses tests ---
