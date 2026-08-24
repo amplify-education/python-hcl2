@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Restore `py.typed` marker so type checkers recognize `hcl2` (and `cli`) as typed packages. ([#298](https://github.com/amplify-education/python-hcl2/issues/298))
+- Parse files with CRLF (`\r\n`) line endings, including heredocs. A `\r` acting as part of a line ending is ignored, so a CRLF file reconstructs with LF endings; a `\r` that is content — inside a quoted string or a heredoc body — is preserved. ([#315](https://github.com/amplify-education/python-hcl2/issues/315))
 
 ## \[8.1.2\] - 2026-04-10
 

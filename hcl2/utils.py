@@ -4,8 +4,11 @@ import re
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 
-HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
-HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\n([\s\S]*)\1", re.S)
+# \r? mirrors the heredoc terminals in hcl2.lark: these run against a token the
+# grammar already accepted, so failing to match a CRLF heredoc here would raise
+# on input that parsed cleanly.
+HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\r?\n([\s\S]*)\1", re.S)
+HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\r?\n([\s\S]*)\1", re.S)
 
 
 @dataclass
