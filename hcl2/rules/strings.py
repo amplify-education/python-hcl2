@@ -147,7 +147,9 @@ class HeredocTemplateRule(LarkRule):
     """Rule for heredoc template strings (<<MARKER)."""
 
     _children_layout: Tuple[HEREDOC_TEMPLATE]
-    _trim_chars = "\n\t "
+    # \r is trimmed alongside \n so a CRLF heredoc does not leave a stray
+    # carriage return hanging off the closing marker.
+    _trim_chars = "\r\n\t "
 
     @staticmethod
     def lark_name() -> str:
