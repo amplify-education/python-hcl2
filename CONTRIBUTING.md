@@ -9,8 +9,10 @@ The workflow below exists because this parser is bidirectional: almost every cha
 1. Make your change, with tests.
 1. Get the **full test suite** and **pre-commit** passing locally.
 1. Open a **draft** PR.
-1. Run `/review-pr <number>` against it and act on the findings.
+1. Self-review it against [the checklist](#5-self-review-before-asking-for-review) — by hand, or automatically if you use Claude Code.
 1. Mark it ready for review.
+
+No particular tooling is required. Step 4 has an automated shortcut for Claude Code users, but the checklist is the actual requirement and doing it by hand is perfectly fine.
 
 ## 1. Set up
 
@@ -70,32 +72,40 @@ gh pr create --draft --fill
 
 In the description, explain **why** the change is needed, not just what it does — the diff already shows the what. Link the issue it fixes (`Fixes #123`) and include a short test plan.
 
-## 5. Verify with `/review-pr`
+## 5. Self-review before asking for review
+
+Go through this before marking the PR ready. Every item is something that has actually slipped through on this repo.
+
+- **Does the linked issue's exact snippet now behave correctly?** Not a paraphrase of it — copy the code block from the issue and run it.
+- **Does your test fail without your source change?** Stash or revert just the source edit, run the new test, confirm it fails, restore. A test that passes either way is not testing your fix. This is the highest-value check on the list.
+- **Round-trip holds?** Parse → serialize → deserialize → serialize must produce identical output. If you added golden files, `json_serialized/` and `json_reserialized/` should be byte-identical for your suite.
+- **Both directions updated?** A new serialization path needs its deserialization counterpart. A language construct needs `transformer.py`, `deserializer.py`, `formatter.py` and `reconstructor.py`.
+- **Full suite green**, not just the tests you touched.
+- **Edge cases**: empty bodies, nested constructs of the same type, interaction with interpolation, and the construct in a container (tuple element, object value, function argument).
+
+If the change touches the grammar, also check that no existing terminal can now match in a context it previously could not.
+
+### If you use Claude Code
+
+The [`/review-pr`](https://claude.com/claude-code) skill in `.claude/skills/review-pr/` automates the checklist:
 
 ```
 /review-pr <number>
 ```
 
-This is a [Claude Code](https://claude.com/claude-code) skill defined in `.claude/skills/review-pr/`. It runs autonomously and then reports; it does not change your branch or post anything to GitHub without asking.
+It fetches the PR and its linked issue, reproduces the issue, checks the `CLAUDE.md` rules, reviews each changed area, runs the suite plus edge cases it derives from what it finds, and reports findings graded Critical / Warning / Info. It asks before changing anything or posting to GitHub. `--skip-tests` skips the test phase if you have just run it.
 
-What it does:
+Treat it as a first reviewer, not a verdict — it is good at the mechanical checks and it can also be wrong, so push back where you disagree.
 
-| Phase | What it checks |
-|---|---|
-| Issue validation | Reproduces the linked issue's exact snippet and confirms your change actually fixes it |
-| CLAUDE.md compliance | The hard rules above, plus the full checklist when a language construct is added |
-| Code review | Per-area review of grammar, transformer, rule classes, reconstructor, deserializer and test coverage |
-| Tests | Full suite, plus edge cases derived from what the review found |
+### If you don't
 
-It finishes with findings graded Critical / Warning / Info, and asks how you want to proceed. Add `--skip-tests` to skip the test phase if you have just run it yourself.
+Work the checklist by hand; that is the whole requirement. Nothing in this project needs Claude Code, and a PR is never held up for lacking it.
 
-Treat the output as a first reviewer, not a verdict. It is good at the mechanical checks — a missing deserializer path, a test that passes without the fix applied, an edge case the change does not cover — and those are exactly the things that otherwise get caught late. It can also be wrong, so push back where you disagree.
-
-Fix what it finds, push, and re-run it if the changes were substantial.
+For reference, maintainers may run `/review-pr` on your PR during review. The checklist above is what it looks for, so working through it yourself means fewer round trips either way.
 
 ## 6. Mark ready for review
 
-Once the suite is green, pre-commit is clean and you have addressed the review findings, mark the PR ready. Note that CI does not run automatically on pull requests from forks until a maintainer approves the workflow, so your local run may be the only signal for a while — which is why step 3 matters.
+Once the suite is green, pre-commit is clean and you have worked the checklist, mark the PR ready. Note that CI does not run automatically on pull requests from forks until a maintainer approves the workflow, so your local run may be the only signal for a while — which is why step 3 matters.
 
 ## Notes on conflicts
 

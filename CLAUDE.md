@@ -201,7 +201,7 @@ Hooks are defined in `.pre-commit-config.yaml` (includes ruff, mypy, and others)
 
 Run the hooks against staged files (`git add -A && pre-commit run`) rather than `--files $(git diff ...)`, which skips untracked files. `no-commit-to-branch` fails by design during `--all-files` while `main` is checked out.
 
-`CONTRIBUTING.md` documents the end-to-end contributor workflow this feeds into: local suite + pre-commit green, then a draft PR, then `/review-pr` before requesting human review.
+`CONTRIBUTING.md` documents the end-to-end contributor workflow this feeds into: local suite + pre-commit green, then a draft PR, then a self-review checklist before requesting human review. Run `/review-pr` to work that checklist — for contributors it is optional, since it requires Claude Code, but here it is the expected path.
 
 ## Keeping Docs Current
 

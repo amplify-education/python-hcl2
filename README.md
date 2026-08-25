@@ -150,7 +150,9 @@ We welcome pull requests! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full wo
 
 - For any sizable change, first open a GitHub issue to discuss your idea.
 - Get the test suite and pre-commit passing locally.
-- Open a draft pull request, verify it with `/review-pr`, then mark it ready.
+- Open a draft pull request, self-review it against the checklist in the guide, then mark it ready.
+
+No particular tooling is required. If you happen to use [Claude Code](https://claude.com/claude-code), the repo ships a `/review-pr` skill that automates that self-review, but it is a convenience and not a requirement.
 
 We'll try to answer any PR's promptly.
 
