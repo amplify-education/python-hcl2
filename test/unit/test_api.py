@@ -534,3 +534,36 @@ class TestStripStringQuotes(TestCase):
     def test_default_options_still_preserve_source_form(self):
         """Without the option, the source form is kept for reconstruction."""
         self.assertEqual(loads(r'a = "line1\nline2"' + "\n"), {"a": r'"line1\nline2"'})
+
+
+class TestSingleCharacterHeredocDelimiter(TestCase):
+    """`<<E` is a valid heredoc; the delimiter may be one character.
+
+    The spec defines the delimiter as an Identifier — `ID_Start (ID_Continue |
+    '-')*` — whose trailing `*` permits a single character. The grammar used
+    `+`, which required a second one, so `<<E` fell through to STRING_CHARS and
+    the parse failed.
+    """
+
+    def test_single_character_delimiter(self):
+        self.assertEqual(loads("a = <<E\nx\nE\n"), {"a": '"<<E\nx\nE"'})
+
+    def test_single_character_delimiter_trimmed(self):
+        self.assertEqual(loads("a = <<-E\n  x\n  E\n"), {"a": '"<<-E\n  x\n  E"'})
+
+    def test_single_character_delimiter_empty_body(self):
+        self.assertEqual(loads("a = <<E\nE\n"), {"a": '"<<E\nE"'})
+
+    def test_single_character_delimiter_flattens(self):
+        options = SerializationOptions(preserve_heredocs=False)
+        self.assertEqual(loads("a = <<E\nx\nE\n", serialization_options=options), {"a": '"x"'})
+
+    def test_single_character_delimiter_does_not_swallow_what_follows(self):
+        self.assertEqual(loads("a = <<E\nx\nE\nb = 1\n"), {"a": '"<<E\nx\nE"', "b": 1})
+
+    def test_body_line_ending_in_the_delimiter_still_safe(self):
+        """A one-character delimiter makes an accidental match likelier."""
+        self.assertEqual(loads("a = <<E\nsayE\nE\n"), {"a": '"<<E\nsayE\nE"'})
+
+    def test_multi_character_delimiter_unaffected(self):
+        self.assertEqual(loads("a = <<EOF\nx\nEOF\n"), {"a": '"<<EOF\nx\nEOF"'})
