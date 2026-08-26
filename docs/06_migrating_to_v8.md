@@ -217,3 +217,13 @@ hcl2.loads('x = <<-EOT\n  line1\n  line2\n  EOT\n', serialization_options=V7_COM
 ```
 
 Note that `preserve_heredocs=False` on its own — without `strip_string_quotes` — produces the quoted *source* form with escaped newlines (`'"line1\\nline2"'`), because that output is meant to be reconstructable.
+
+Two details of heredoc values are easy to trip over, and both match how HCL itself behaves:
+
+- **Backslash escapes are not interpreted in heredocs.** `strip_string_quotes` resolves `\n` inside a *quoted* string, but a heredoc body containing the two characters `\n` keeps them verbatim. HCL only processes escape sequences in quoted templates.
+- **Line endings come through as written.** A heredoc in a CRLF file yields a body with `\r\n`, because a carriage return inside the body is content rather than structure. Normalize on your side if you need `\n`.
+
+```python
+hcl2.loads('x = <<EOT\na\\nb\nEOT\n', serialization_options=V7_COMPAT)
+# {'x': 'a\\nb'}  — the backslash and the "n" are two literal characters
+```
