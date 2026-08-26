@@ -201,9 +201,19 @@ V7_COMPAT = SerializationOptions(
     strip_string_quotes=True,
     explicit_blocks=False,
     with_comments=False,
+    preserve_heredocs=False,
 )
 
 data = hcl2.load(f, serialization_options=V7_COMPAT)
 ```
 
 This restores the v7 dict shape but disables round-trip support and comment preservation.
+
+`preserve_heredocs=False` matters if your configuration uses heredocs. Left at its default, a heredoc value keeps its `<<-EOT` / `EOT` markers embedded in the string. Turned off alongside `strip_string_quotes`, you get the body as a plain multi-line string with real line breaks, which is what v7 returned:
+
+```python
+hcl2.loads('x = <<-EOT\n  line1\n  line2\n  EOT\n', serialization_options=V7_COMPAT)
+# {'x': 'line1\nline2'}
+```
+
+Note that `preserve_heredocs=False` on its own — without `strip_string_quotes` — produces the quoted *source* form with escaped newlines (`'"line1\\nline2"'`), because that output is meant to be reconstructable.

@@ -534,3 +534,59 @@ class TestStripStringQuotes(TestCase):
     def test_default_options_still_preserve_source_form(self):
         """Without the option, the source form is kept for reconstruction."""
         self.assertEqual(loads(r'a = "line1\nline2"' + "\n"), {"a": r'"line1\nline2"'})
+
+
+class TestHeredocFlattenedToValue(TestCase):
+    """`strip_string_quotes` + `preserve_heredocs=False` yields real newlines.
+
+    The flatten path escapes the body to build a quoted-string *source* form
+    (`'"a\\nb"'`). That escaping ran before the `strip_string_quotes` early
+    return, so asking for the value handed back escaped source instead: every
+    line break arrived as a literal backslash-n. Before this fix no combination
+    of options reproduced v7's plain multi-line string.
+    """
+
+    _VALUE = SerializationOptions(strip_string_quotes=True, preserve_heredocs=False)
+    _SOURCE = SerializationOptions(preserve_heredocs=False)
+
+    def test_value_has_real_newlines(self):
+        result = loads("a = <<EOT\nline1\nline2\nEOT\n", serialization_options=self._VALUE)
+        self.assertEqual(result, {"a": "line1\nline2"})
+
+    def test_trimmed_value_has_real_newlines(self):
+        source = "a = <<-EOT\n  line1\n  line2\n  EOT\n"
+        result = loads(source, serialization_options=self._VALUE)
+        self.assertEqual(result, {"a": "line1\nline2"})
+
+    def test_multiline_secret_survives_intact(self):
+        """The reported case: a heredoc-defined key block must stay multi-line."""
+        source = (
+            "keys = {\n"
+            "  private = <<-EOT\n"
+            "  -----BEGIN PGP PRIVATE KEY BLOCK-----\n"
+            "  line1\n"
+            "  -----END PGP PRIVATE KEY BLOCK-----\n"
+            "  EOT\n"
+            "}\n"
+        )
+        value = loads(source, serialization_options=self._VALUE)["keys"]["private"]
+        self.assertEqual(value.count("\n"), 2)
+        self.assertNotIn("\\n", value)
+        self.assertTrue(value.startswith("-----BEGIN"))
+        self.assertTrue(value.endswith("KEY BLOCK-----"))
+
+    def test_quoted_form_still_escapes(self):
+        """Without strip_string_quotes the result is source and must escape."""
+        result = loads("a = <<EOT\nline1\nline2\nEOT\n", serialization_options=self._SOURCE)
+        self.assertEqual(result, {"a": '"line1\\nline2"'})
+
+    def test_embedded_quote_and_backslash_only_escaped_in_source_form(self):
+        source = 'a = <<EOT\nsay "hi"\nback\\slash\nEOT\n'
+        self.assertEqual(
+            loads(source, serialization_options=self._VALUE),
+            {"a": 'say "hi"\nback\\slash'},
+        )
+        self.assertEqual(
+            loads(source, serialization_options=self._SOURCE),
+            {"a": '"say \\"hi\\"\\nback\\\\slash"'},
+        )
