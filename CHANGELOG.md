@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+- Nothing yet.
+
+## \[8.1.3\] - 2026-08-26
+
+Several fixes below change the values `loads()` returns for input that already
+parsed without error in 8.1.x — negative integer literals, both
+`strip_string_quotes` behaviours, and the two heredoc body fixes. The previous
+result was a bug in each case, so this stays a patch release; re-check your
+expectations if you built around the old values.
+
 ### Fixed
 
 - Restore `py.typed` marker so type checkers recognize `hcl2` (and `cli`) as typed packages. ([#299](https://github.com/amplify-education/python-hcl2/pull/299))
