@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `strip_string_quotes` now resolves escape sequences, so the values it yields match what the option documents. Escapes naming a codepoint outside the Unicode range, or a lone surrogate, are preserved verbatim rather than raising. Thanks, @livingstaccato ([#313](https://github.com/amplify-education/python-hcl2/pull/313))
 - Parse files with CRLF (`\r\n`) line endings, including heredocs. A `\r` acting as part of a line ending is ignored, so a CRLF file reconstructs with LF endings; a `\r` that is content — inside a quoted string or a heredoc body — is preserved. Thanks, @agu2347 ([#317](https://github.com/amplify-education/python-hcl2/pull/317))
 - Flattened heredoc bodies keep their trailing blank lines and trailing spaces instead of being right-stripped away, for both `<<MARKER` and `<<-MARKER`. The closing marker line's own indentation is still removed, and a blank line no longer cancels the `<<-` dedent. Thanks, @agu2347 ([#318](https://github.com/amplify-education/python-hcl2/pull/318))
+- Parse heredocs whose delimiter is a single character, such as `<<E`. The spec defines the delimiter as an Identifier, which permits one character. ([#323](https://github.com/amplify-education/python-hcl2/pull/323))
+- `preserve_heredocs=False` combined with `strip_string_quotes` now returns the heredoc body as a plain multi-line string instead of escaping every newline to a literal `\n`. The escaping is still applied to the quoted source form produced without `strip_string_quotes`. ([#324](https://github.com/amplify-education/python-hcl2/pull/324))
 
 ## \[8.1.2\] - 2026-04-10
 

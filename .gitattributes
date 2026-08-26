@@ -1,0 +1,9 @@
+# Every change adds a bullet to the same "Unreleased / Fixed" list, so parallel
+# PRs conflict on CHANGELOG.md even though they never touch the same entry.
+# The built-in union driver keeps both sides instead.
+#
+# This applies to merges and rebases performed with git. GitHub's web UI does
+# not honour .gitattributes merge drivers, so the merge button and the
+# "this branch has conflicts" banner are unaffected -- resolve locally to get
+# the benefit.
+CHANGELOG.md merge=union

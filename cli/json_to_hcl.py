@@ -8,8 +8,6 @@ import sys
 from io import StringIO
 from typing import TextIO
 
-from hcl2.version import __version__
-
 import hcl2
 from cli.helpers import (
     EXIT_DIFF,
@@ -29,6 +27,7 @@ from hcl2.deserializer import DeserializerOptions
 from hcl2.formatter import FormatterOptions
 from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
 from hcl2.utils import SerializationOptions
+from hcl2.version import __version__
 
 
 def _json_to_hcl(
