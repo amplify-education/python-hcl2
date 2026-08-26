@@ -5,11 +5,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import Optional, Tuple
 
-# \r? mirrors the heredoc terminals in hcl2.lark: these run against a token the
-# grammar already accepted, so failing to match a CRLF heredoc here would raise
-# on input that parsed cleanly.
-HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]+)\r?\n([\s\S]*)\1", re.S)
-HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]+)\r?\n([\s\S]*)\1", re.S)
+# These mirror the heredoc terminals in hcl2.lark and must track them. They run
+# against a token the grammar has already accepted, so any delimiter or line
+# ending the grammar admits but these reject raises RuntimeError on input that
+# parsed cleanly: hence `\r?` for CRLF, and `*` rather than `+` so a
+# single-character delimiter is matched here too.
+HEREDOC_PATTERN = re.compile(r"<<([a-zA-Z][a-zA-Z0-9._-]*)\r?\n([\s\S]*)\1", re.S)
+HEREDOC_TRIM_PATTERN = re.compile(r"<<-([a-zA-Z][a-zA-Z0-9._-]*)\r?\n([\s\S]*)\1", re.S)
 
 
 @dataclass
