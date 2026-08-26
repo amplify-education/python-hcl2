@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Restore `py.typed` marker so type checkers recognize `hcl2` (and `cli`) as typed packages. ([#298](https://github.com/amplify-education/python-hcl2/issues/298))
+- `preserve_heredocs=False` combined with `strip_string_quotes` now returns the heredoc body as a plain multi-line string instead of escaping every newline to a literal `\n`. The escaping is still applied to the quoted source form produced without `strip_string_quotes`. ([#303](https://github.com/amplify-education/python-hcl2/issues/303))
 - Parse heredocs whose delimiter is a single character, such as `<<E`. The spec defines the delimiter as an Identifier, which permits one character. ([#314](https://github.com/amplify-education/python-hcl2/issues/314))
 - Parse heredocs with an empty body again. A marker immediately followed by its closing delimiter failed to match, and the lexer then ran on to a later delimiter, silently absorbing the attributes in between. ([#309](https://github.com/amplify-education/python-hcl2/issues/309))
 - Negative integer literals load as numbers again instead of `${-N}` expression strings, matching negative floats and the pre-8.x behaviour. ([#307](https://github.com/amplify-education/python-hcl2/issues/307))

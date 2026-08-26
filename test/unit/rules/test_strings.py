@@ -280,10 +280,18 @@ class TestHeredocTemplateRule(TestCase):
         self.assertEqual(rule.serialize(opts), "<<EOF\nhello world\nEOF")
 
     def test_serialize_strip_string_quotes_no_preserve(self):
+        """Asking for the value yields real newlines, not escaped ones."""
         token = HEREDOC_TEMPLATE("<<EOF\nline1\nline2\nEOF")
         rule = HeredocTemplateRule([token])
         opts = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
-        self.assertEqual(rule.serialize(opts), "line1\\nline2")
+        self.assertEqual(rule.serialize(opts), "line1\nline2")
+
+    def test_serialize_no_preserve_keeps_escaping_for_the_quoted_form(self):
+        """Without strip_string_quotes the result is source, so escapes stay."""
+        token = HEREDOC_TEMPLATE("<<EOF\nline1\nline2\nEOF")
+        rule = HeredocTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        self.assertEqual(rule.serialize(opts), '"line1\\nline2"')
 
 
 # --- HeredocTrimTemplateRule tests ---
@@ -366,7 +374,15 @@ class TestHeredocTrimTemplateRule(TestCase):
         self.assertEqual(rule.serialize(opts), "<<-EOF\n    line1\n    line2\nEOF")
 
     def test_serialize_strip_string_quotes_no_preserve(self):
+        """Asking for the value yields real newlines, not escaped ones."""
         token = HEREDOC_TRIM_TEMPLATE("<<-EOF\n    line1\n    line2\nEOF")
         rule = HeredocTrimTemplateRule([token])
         opts = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
-        self.assertEqual(rule.serialize(opts), "line1\\nline2")
+        self.assertEqual(rule.serialize(opts), "line1\nline2")
+
+    def test_serialize_no_preserve_keeps_escaping_for_the_quoted_form(self):
+        """Without strip_string_quotes the result is source, so escapes stay."""
+        token = HEREDOC_TRIM_TEMPLATE("<<-EOF\n    line1\n    line2\nEOF")
+        rule = HeredocTrimTemplateRule([token])
+        opts = SerializationOptions(preserve_heredocs=False)
+        self.assertEqual(rule.serialize(opts), '"line1\\nline2"')

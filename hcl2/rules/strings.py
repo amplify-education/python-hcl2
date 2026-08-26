@@ -170,9 +170,12 @@ class HeredocTemplateRule(LarkRule):
             if not match:
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
             heredoc = _strip_closing_marker_line(match.group(2))
-            heredoc = heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             if options.strip_string_quotes:
+                # The caller asked for the value, so hand back the body as-is:
+                # real newlines, no escaping. The escaping below exists only to
+                # build the quoted-string *source* form returned otherwise.
                 return heredoc
+            heredoc = heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             return f'"{heredoc}"'
 
         result = heredoc.rstrip(self._trim_chars)
@@ -229,10 +232,13 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
         if not options.preserve_heredocs:
             lines = [line.replace("\\", "\\\\").replace('"', '\\"') for line in lines]
 
+        if options.strip_string_quotes:
+            # Value, not source: join with real newlines regardless of
+            # preserve_heredocs, and skip the escaping done for the quoted form.
+            return "\n".join(lines)
+
         sep = "\\n" if not options.preserve_heredocs else "\n"
         inner = sep.join(lines)
-        if options.strip_string_quotes:
-            return inner
         return '"' + inner + '"'
 
 
