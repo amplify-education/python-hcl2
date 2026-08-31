@@ -20,7 +20,9 @@ class SerializationOptions:
 
     # Include __comments__ and __inline_comments__ keys in the output.
     with_comments: bool = True
-    # Add __start_line__ and __end_line__ metadata to each block/attribute.
+    # Add __start_line__ and __end_line__ metadata to each block. Attributes get
+    # none: an attribute serializes to its own {name: value} pair, which has
+    # nowhere to hang the keys without changing the shape of the value.
     with_meta: bool = False
     # Serialize nested objects as inline HCL strings (e.g. "${{key = value}}")
     # instead of Python dicts.

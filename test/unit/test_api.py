@@ -48,8 +48,11 @@ class TestLoads(TestCase):
     def test_with_meta_option(self):
         result = loads(BLOCK_HCL, serialization_options=SerializationOptions(with_meta=True))
         self.assertIn("resource", result)
-        # Verify the option is accepted and produces a dict with expected content
-        self.assertIsInstance(result, dict)
+        # Assert on the metadata itself, not just that the option is accepted:
+        # this test passed throughout #291, when the option emitted nothing.
+        body = result["resource"][0]['"aws_instance"']['"example"']
+        self.assertEqual(body["__start_line__"], 1)
+        self.assertEqual(body["__end_line__"], 3)
 
     def test_block_parsing(self):
         result = loads(BLOCK_HCL)

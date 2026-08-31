@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Fixed
+
+- `with_meta` emits `__start_line__` and `__end_line__` again. The option, the `hcl2tojson --with-meta` flag and the migration guide's promise that the v7 keys are "still available" all survived the v8 rewrite; the code that produced the keys did not, leaving the option read nowhere in the package. Blocks are annotated with the same spans 7.3.1 produced for the same input. ([#291](https://github.com/amplify-education/python-hcl2/issues/291))
 
 ## \[8.1.3\] - 2026-08-26
 

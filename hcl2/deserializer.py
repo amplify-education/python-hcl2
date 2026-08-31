@@ -9,7 +9,7 @@ from typing import Any, List, Optional, TextIO, Union
 
 from regex import regex
 
-from hcl2.const import COMMENTS_KEY, INLINE_COMMENTS_KEY, IS_BLOCK
+from hcl2.const import COMMENTS_KEY, END_LINE, INLINE_COMMENTS_KEY, IS_BLOCK, START_LINE
 from hcl2.parser import parser as _get_parser
 from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
@@ -369,7 +369,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
     def _is_reserved_key(self, key: str) -> bool:
         """Check if a key is a reserved metadata key that should be skipped during deserialization."""
-        return key in (IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY)
+        return key in (IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY, START_LINE, END_LINE)
 
     def _is_expression(self, value: Any) -> bool:
         return isinstance(value, str) and value.startswith("${") and value.endswith("}")
