@@ -1,10 +1,14 @@
 """DocumentView and BodyView facades."""
 
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from hcl2.query._base import NodeView, register_view
 from hcl2.rules.base import AttributeRule, BlockRule, BodyRule, StartRule
 from hcl2.rules.whitespace import NewLineOrCommentRule
+
+if TYPE_CHECKING:  # imported at runtime inside the methods, to break the cycle
+    from hcl2.query.attributes import AttributeView
+    from hcl2.query.blocks import BlockView
 
 
 def _collect_leading_comments(body: BodyRule, child_index: int) -> List[dict]:
@@ -59,15 +63,15 @@ class DocumentView(NodeView):
         node: StartRule = self._node  # type: ignore[assignment]
         return BodyView(node.body)
 
-    def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["NodeView"]:
+    def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["BlockView"]:
         """Return matching blocks, delegating to body."""
         return self.body.blocks(block_type, *labels)
 
-    def attributes(self, name: Optional[str] = None) -> List["NodeView"]:
+    def attributes(self, name: Optional[str] = None) -> List["AttributeView"]:
         """Return matching attributes, delegating to body."""
         return self.body.attributes(name)
 
-    def attribute(self, name: str) -> Optional["NodeView"]:
+    def attribute(self, name: str) -> Optional["AttributeView"]:
         """Return a single attribute by name, or None."""
         return self.body.attribute(name)
 
@@ -76,12 +80,12 @@ class DocumentView(NodeView):
 class BodyView(NodeView):
     """View over an HCL2 body (BodyRule)."""
 
-    def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["NodeView"]:
+    def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["BlockView"]:
         """Return blocks, optionally filtered by type and labels."""
         from hcl2.query.blocks import BlockView
 
         node: BodyRule = self._node  # type: ignore[assignment]
-        results: List[NodeView] = []
+        results: List["BlockView"] = []
         for child in node.children:
             if not isinstance(child, BlockRule):
                 continue
@@ -98,12 +102,12 @@ class BodyView(NodeView):
             results.append(block_view)
         return results
 
-    def attributes(self, name: Optional[str] = None) -> List["NodeView"]:
+    def attributes(self, name: Optional[str] = None) -> List["AttributeView"]:
         """Return attributes, optionally filtered by name."""
         from hcl2.query.attributes import AttributeView
 
         node: BodyRule = self._node  # type: ignore[assignment]
-        results: List[NodeView] = []
+        results: List["AttributeView"] = []
         for child in node.children:
             if not isinstance(child, AttributeRule):
                 continue
@@ -114,7 +118,7 @@ class BodyView(NodeView):
             results.append(attr_view)
         return results
 
-    def attribute(self, name: str) -> Optional["NodeView"]:
+    def attribute(self, name: str) -> Optional["AttributeView"]:
         """Return a single attribute by name, or None."""
         attrs = self.attributes(name)
         return attrs[0] if attrs else None

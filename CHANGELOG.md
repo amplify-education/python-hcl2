@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Changed
+
+- `blocks()` and `attributes()` on the query views are annotated as returning `List[BlockView]` and `List[AttributeView]` rather than `List[NodeView]`, and `BlockView.body` as `BodyView`. Each only ever returns the concrete class; the wider annotation put `block_type`, `labels`, `name_labels` and `AttributeView.name` behind an `isinstance` narrowing or a cast for callers under a strict type checker. Annotation-only, no runtime change.
 
 ## \[8.1.3\] - 2026-08-26
 
