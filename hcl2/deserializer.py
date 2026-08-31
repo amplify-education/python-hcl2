@@ -64,6 +64,19 @@ from hcl2.transformer import RuleTransformer
 from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
 
 
+def _unescape_heredoc_body(inner: str) -> str:
+    r"""Resolve the escapes a heredoc body carries literally: \n, \" and \\.
+
+    Single-pass, so an escaped backslash cannot combine with the character
+    after it.
+    """
+    return re.sub(
+        r'\\(n|"|\\)',
+        lambda m: "\n" if m.group(1) == "n" else m.group(1),
+        inner,
+    )
+
+
 @dataclass
 class DeserializerOptions:
     """Options controlling how Python dicts are deserialized into LarkElement trees."""
@@ -71,8 +84,10 @@ class DeserializerOptions:
     # Convert heredoc values (<<EOF...EOF) to regular escaped strings during
     # deserialization. When False, heredoc syntax is preserved as-is.
     heredocs_to_strings: bool = False
-    # Convert multi-line escaped strings (containing \n) back into heredoc
-    # syntax (<<EOF...EOF) during deserialization.
+    # Convert newline-terminated escaped strings back into heredoc syntax
+    # (<<EOF...EOF) during deserialization. A value that does not end in a
+    # newline is left quoted: a heredoc body always does, so writing one as a
+    # heredoc would hand back a different value on the next read.
     strings_to_heredocs: bool = False
     # Use colon (:) instead of equals (=) as the separator in object elements.
     object_elements_colon: bool = False
@@ -179,9 +194,13 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                         return self._deserialize_heredoc(value[1:-1], False)
 
                 if self.options.strings_to_heredocs:
-                    inner = value[1:-1]
-                    if "\\n" in inner:
-                        return self._deserialize_string_as_heredoc(inner)
+                    content = _unescape_heredoc_body(value[1:-1])
+                    # A heredoc's closing marker sits on a line of its own, so
+                    # its body always ends with a newline. A value that does not
+                    # cannot be written as one without gaining that character,
+                    # so it stays a quoted string.
+                    if content.endswith("\n"):
+                        return self._deserialize_string_as_heredoc(content)
 
                 return self._deserialize_string(value)
 
@@ -259,15 +278,9 @@ class BaseDeserializer(LarkElementTreeDeserializer):
             return HeredocTrimTemplateRule([HEREDOC_TRIM_TEMPLATE(value)])
         return HeredocTemplateRule([HEREDOC_TEMPLATE(value)])
 
-    def _deserialize_string_as_heredoc(self, inner: str) -> HeredocTemplateRule:
-        """Convert a quoted string with escaped newlines back into a heredoc."""
-        # Single-pass unescape: \\n → \n, \\" → ", \\\\ → \
-        content = re.sub(
-            r'\\(n|"|\\)',
-            lambda m: "\n" if m.group(1) == "n" else m.group(1),
-            inner,
-        )
-        heredoc = f"<<EOF\n{content}\nEOF"
+    def _deserialize_string_as_heredoc(self, content: str) -> HeredocTemplateRule:
+        """Wrap an unescaped body, already newline-terminated, in heredoc syntax."""
+        heredoc = f"<<EOF\n{content}EOF"
         return HeredocTemplateRule([HEREDOC_TEMPLATE(heredoc)])
 
     def _deserialize_expression(self, value: str) -> ExprTermRule:

@@ -105,15 +105,19 @@ class TestCrlfHeredocs(TestCase):
         self.assertTrue(result["a"].endswith('EOF"'), result["a"])
 
     def test_flattening_a_crlf_heredoc_does_not_raise(self):
-        """The heredoc patterns in utils.py run on an already-parsed token."""
+        """The heredoc patterns in utils.py run on an already-parsed token.
+
+        Every body line keeps its own `\\r\\n`, the last one included: OpenTofu
+        evaluates this source to `"x\\r\\ny\\r\\n"`.
+        """
         options = SerializationOptions(preserve_heredocs=False)
         result = loads("a = <<EOF\r\nx\r\ny\r\nEOF\r\n", serialization_options=options)
-        self.assertEqual(result, {"a": '"x' + CR + '\\ny"'})
+        self.assertEqual(result, {"a": '"x' + CR + "\\ny" + CR + '\\n"'})
 
     def test_trimmed_heredoc_flattens(self):
         options = SerializationOptions(preserve_heredocs=False)
         result = loads("a = <<-EOF\r\n  x\r\n  EOF\r\n", serialization_options=options)
-        self.assertEqual(result, {"a": '"x"'})
+        self.assertEqual(result, {"a": '"x' + CR + '\\n"'})
 
 
 class TestCrlfReconstruction(TestCase):
