@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Fixed
+
+- Concurrent calls to `load`/`loads` no longer corrupt each other's values. `serialize()` declared `context=SerializationContext()` as a default argument, which Python evaluates once at import, so every rule in the process shared one mutable context — and the expression, function and indexing rules mutate it in place via `context.modify(inside_dollar_string=True)`. A thread serializing a function call therefore set that flag for every other thread, and a tuple or object being serialized elsewhere came back as its inline HCL source (`'[1, 2, 3]'`) rather than a list, with no exception raised. Measured before the fix: 400 of 400 interleaved parses corrupted.
 
 ## \[8.1.3\] - 2026-08-26
 
