@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Added
+
+- `BlockView.start_line` and `BlockView.end_line`, so a block's span can be read from the query API without serializing it. `with_meta` puts the numbers in the output dict, which meant reaching them through the label nesting, or through the rule's private `_meta`. Both are `None` for a tree built by the deserializer, which carries no positions. `hq` picks them up through its property accessors: `hq 'resource[*] | .start_line' main.tf`.
+
+### Fixed
+
+- `with_meta` emits `__start_line__` and `__end_line__` again. The option, the `hcl2tojson --with-meta` flag and the migration guide's promise that the v7 keys are "still available" all survived the v8 rewrite; the code that produced the keys did not, leaving the option read nowhere in the package. Blocks are annotated with the same spans 7.3.1 produced for the same input. ([#291](https://github.com/amplify-education/python-hcl2/issues/291))
 
 ## \[8.1.3\] - 2026-08-26
 

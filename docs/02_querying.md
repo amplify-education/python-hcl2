@@ -56,6 +56,8 @@ block.block_type    # "resource"
 block.labels        # ["resource", "aws_instance", "main"]
 block.name_labels   # ["aws_instance", "main"]
 block.body          # BodyView
+block.start_line    # 1
+block.end_line      # 12
 ```
 
 | Property / Method | Returns | Description |
@@ -64,6 +66,8 @@ block.body          # BodyView
 | `labels` | `List[str]` | All labels as plain strings |
 | `name_labels` | `List[str]` | Labels after the block type (`labels[1:]`) |
 | `body` | `BodyView` | The block body |
+| `start_line` | `int \| None` | Line the block opens on; `None` for a tree with no positions |
+| `end_line` | `int \| None` | Line the block closes on; `None` for a tree with no positions |
 | `blocks(...)` | `List[BlockView]` | Nested blocks (delegates to body) |
 | `attributes(...)` | `List[AttributeView]` | Nested attributes (delegates to body) |
 | `attribute(name)` | `AttributeView \| None` | Single nested attribute |
