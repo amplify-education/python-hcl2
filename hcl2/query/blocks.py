@@ -1,18 +1,15 @@
 """BlockView facade."""
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import Any, List, Optional
 
 from hcl2.const import COMMENTS_KEY
 from hcl2.query._base import NodeView, register_view
+from hcl2.query.attributes import AttributeView
 from hcl2.rules.abstract import LarkElement
 from hcl2.rules.base import BlockRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.strings import StringRule
 from hcl2.utils import SerializationOptions
-
-if TYPE_CHECKING:  # imported at runtime inside the methods, to break the cycle
-    from hcl2.query.attributes import AttributeView
-    from hcl2.query.body import BodyView
 
 
 def _label_to_str(label) -> str:
@@ -60,8 +57,6 @@ class BlockView(NodeView):
     @property
     def body(self) -> "BodyView":
         """Return the block body as a BodyView."""
-        from hcl2.query.body import BodyView
-
         node: BlockRule = self._node  # type: ignore[assignment]
         return BodyView(node.body)
 
@@ -82,21 +77,21 @@ class BlockView(NodeView):
 
     def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["BlockView"]:
         """Delegate to body."""
-        from hcl2.query.body import BodyView
-
         node: BlockRule = self._node  # type: ignore[assignment]
         return BodyView(node.body).blocks(block_type, *labels)
 
     def attributes(self, name: Optional[str] = None) -> List["AttributeView"]:
         """Delegate to body."""
-        from hcl2.query.body import BodyView
-
         node: BlockRule = self._node  # type: ignore[assignment]
         return BodyView(node.body).attributes(name)
 
     def attribute(self, name: str) -> Optional["AttributeView"]:
         """Delegate to body."""
-        from hcl2.query.body import BodyView
-
         node: BlockRule = self._node  # type: ignore[assignment]
         return BodyView(node.body).attribute(name)
+
+
+# See the note in `hcl2/query/body.py`: the two modules name each other in their
+# annotations, and binding the name here rather than inside each method is what
+# lets `typing.get_type_hints` resolve them.
+from hcl2.query.body import BodyView  # noqa: E402  pylint: disable=wrong-import-position,cyclic-import

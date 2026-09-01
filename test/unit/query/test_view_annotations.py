@@ -9,26 +9,24 @@ that is never anything else.
 
 These assert the annotations rather than the runtime types, because a runtime
 check passes either way -- it is only the declaration that was wrong.
+
+They resolve them the way a consumer does: a bare `get_type_hints`, with no
+namespace supplied. Passing one would hide a name the annotation cannot reach
+on its own, which is the failure mode a forward reference invites.
 """
 
 from typing import List, Optional, get_type_hints
 from unittest import TestCase
 
+from hcl2.query import blocks as blocks_module
+from hcl2.query import body as body_module
 from hcl2.query.attributes import AttributeView
 from hcl2.query.blocks import BlockView
 from hcl2.query.body import BodyView, DocumentView
 
-# `blocks()` and `attributes()` import their view classes inside the method to
-# break an import cycle, so the annotations resolve only against this mapping.
-_NAMESPACE = {
-    "AttributeView": AttributeView,
-    "BlockView": BlockView,
-    "BodyView": BodyView,
-}
-
 
 def _returns(method):
-    return get_type_hints(method, localns=_NAMESPACE)["return"]
+    return get_type_hints(method)["return"]
 
 
 class TestBodyViewAnnotations(TestCase):
@@ -86,3 +84,37 @@ class TestAnnotationsMatchRuntime(TestCase):
     def test_block_body_is_a_body_view(self):
         doc = DocumentView.parse(self.SOURCE)
         self.assertIsInstance(doc.blocks("resource")[0].body, BodyView)
+
+
+class TestAnnotationsResolveUnaided(TestCase):
+    """The names the annotations use have to live in the defining module.
+
+    `get_type_hints` reads a function's own globals. While the view classes were
+    imported inside the methods, every one of these annotations raised
+    `NameError` for anyone who introspected them -- pydantic, a documentation
+    builder, a runtime validator -- even though the classes were importable.
+    """
+
+    def test_body_module_binds_block_view(self):
+        self.assertIs(body_module.BlockView, BlockView)
+
+    def test_blocks_module_binds_body_view(self):
+        self.assertIs(blocks_module.BodyView, BodyView)
+
+    def test_every_annotated_member_resolves_without_a_namespace(self):
+        members = [
+            BodyView.blocks,
+            BodyView.attributes,
+            BodyView.attribute,
+            DocumentView.blocks,
+            DocumentView.attributes,
+            DocumentView.attribute,
+            DocumentView.body.fget,
+            BlockView.blocks,
+            BlockView.attributes,
+            BlockView.attribute,
+            BlockView.body.fget,
+        ]
+        for member in members:
+            with self.subTest(member=member.__qualname__):
+                self.assertIn("return", get_type_hints(member))

@@ -1,14 +1,11 @@
 """DocumentView and BodyView facades."""
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
 from hcl2.query._base import NodeView, register_view
+from hcl2.query.attributes import AttributeView
 from hcl2.rules.base import AttributeRule, BlockRule, BodyRule, StartRule
 from hcl2.rules.whitespace import NewLineOrCommentRule
-
-if TYPE_CHECKING:  # imported at runtime inside the methods, to break the cycle
-    from hcl2.query.attributes import AttributeView
-    from hcl2.query.blocks import BlockView
 
 
 def _collect_leading_comments(body: BodyRule, child_index: int) -> List[dict]:
@@ -82,8 +79,6 @@ class BodyView(NodeView):
 
     def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["BlockView"]:
         """Return blocks, optionally filtered by type and labels."""
-        from hcl2.query.blocks import BlockView
-
         node: BodyRule = self._node  # type: ignore[assignment]
         results: List["BlockView"] = []
         for child in node.children:
@@ -104,8 +99,6 @@ class BodyView(NodeView):
 
     def attributes(self, name: Optional[str] = None) -> List["AttributeView"]:
         """Return attributes, optionally filtered by name."""
-        from hcl2.query.attributes import AttributeView
-
         node: BodyRule = self._node  # type: ignore[assignment]
         results: List["AttributeView"] = []
         for child in node.children:
@@ -122,3 +115,11 @@ class BodyView(NodeView):
         """Return a single attribute by name, or None."""
         attrs = self.attributes(name)
         return attrs[0] if attrs else None
+
+
+# `BlockView` subclasses nothing here but names `BodyView` in its own annotations,
+# so the two modules refer to each other. Importing at the bottom -- after both
+# classes exist -- breaks the cycle while still binding the name in this module's
+# globals, which is where `typing.get_type_hints` looks. Deferring it into the
+# methods instead would leave the public annotations unresolvable to any caller.
+from hcl2.query.blocks import BlockView  # noqa: E402  pylint: disable=wrong-import-position,cyclic-import
