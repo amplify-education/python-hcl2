@@ -15,7 +15,7 @@ so the values are v7's, not merely self-consistent.
 from unittest import TestCase
 
 from hcl2.api import dumps, from_dict, loads, serialize
-from hcl2.const import END_LINE, IS_BLOCK, START_LINE
+from hcl2.const import COMMENTS_KEY, END_LINE, INLINE_COMMENTS_KEY, IS_BLOCK, START_LINE
 from hcl2.utils import SerializationOptions
 
 _META = SerializationOptions(with_meta=True)
@@ -94,3 +94,40 @@ class TestWithMetaRoundTrip(TestCase):
         body = result["resource"][0]["aws_instance"]["web"]
         self.assertNotIn(START_LINE, body)
         self.assertNotIn(END_LINE, body)
+
+
+class TestUserAttributesNamedLikeMetadata(TestCase):
+    """An attribute genuinely named `__start_line__` collides with the metadata.
+
+    The keys are carried in-band, in the same dict as the block's attributes,
+    which is where v7 put them and what the migration guide promises. That has
+    a cost: the deserializer cannot tell a metadata key it wrote from an
+    attribute the document really declared, so it drops both -- exactly as it
+    already dropped `__is_block__` and `__comments__` before these two keys
+    existed. `with_meta` additionally overwrites such an attribute.
+
+    These pin the behaviour rather than bless it. Anything that made the
+    metadata unambiguous would have to move all five keys out of band, which is
+    a breaking change to the serialized shape, not a fix to this option.
+    """
+
+    RESERVED = (START_LINE, END_LINE, IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY)
+
+    def test_a_reserved_name_does_not_survive_a_round_trip(self):
+        for key in self.RESERVED:
+            with self.subTest(key=key):
+                hcl = f'block "a" {{\n  {key} = 99\n  keep = 1\n}}\n'
+                written = dumps(loads(hcl))
+                self.assertNotIn(key, written)
+                self.assertIn("keep", written)
+
+    def test_with_meta_overwrites_an_attribute_of_the_same_name(self):
+        hcl = 'block "a" {\n  __start_line__ = 99\n}\n'
+        body = loads(hcl, serialization_options=_META)["block"][0]['"a"']
+        self.assertEqual(body[START_LINE], 1)
+
+    def test_an_ordinary_dunder_attribute_is_untouched(self):
+        # Only the five names are reserved; nothing about the leading
+        # underscores makes an attribute metadata.
+        hcl = 'block "a" {\n  __line__ = 99\n}\n'
+        self.assertIn("__line__", dumps(loads(hcl)))
