@@ -105,19 +105,21 @@ class TestCrlfHeredocs(TestCase):
         self.assertTrue(result["a"].endswith('EOF"'), result["a"])
 
     def test_flattening_a_crlf_heredoc_does_not_raise(self):
-        """The heredoc patterns in utils.py run on an already-parsed token.
+        r"""The heredoc patterns in utils.py run on an already-parsed token.
 
-        Every body line keeps its own `\\r\\n`, the last one included: OpenTofu
-        evaluates this source to `"x\\r\\ny\\r\\n"`.
+        Every body line keeps its own `\r\n`, the last one included: OpenTofu
+        evaluates this source to `"x\r\ny\r\n"`. Both characters are written
+        escaped, because this form is quoted-string *source* -- see
+        `TestFlattenedCrlfHeredocsStayValidHcl`.
         """
         options = SerializationOptions(preserve_heredocs=False)
         result = loads("a = <<EOF\r\nx\r\ny\r\nEOF\r\n", serialization_options=options)
-        self.assertEqual(result, {"a": '"x' + CR + "\\ny" + CR + '\\n"'})
+        self.assertEqual(result, {"a": r'"x\r\ny\r\n"'})
 
     def test_trimmed_heredoc_flattens(self):
         options = SerializationOptions(preserve_heredocs=False)
         result = loads("a = <<-EOF\r\n  x\r\n  EOF\r\n", serialization_options=options)
-        self.assertEqual(result, {"a": '"x' + CR + '\\n"'})
+        self.assertEqual(result, {"a": r'"x\r\n"'})
 
 
 class TestCrlfReconstruction(TestCase):
@@ -132,3 +134,39 @@ class TestCrlfReconstruction(TestCase):
         source = "a = 1\nb = 2\n"
         output = reconstruct(transform(parses_to_tree(source)).to_lark())
         self.assertEqual(output, source)
+
+
+class TestFlattenedCrlfHeredocsStayValidHcl(TestCase):
+    r"""`preserve_heredocs=False` writes a quoted string, which cannot hold a CR.
+
+    The flattened form is source, not a value: it is the string another parser
+    -- or this one, on the next pass -- has to read back. A raw carriage return
+    inside quotes is not valid there. OpenTofu rejects `"a<CR>b"` with "No
+    closing marker was found for the string", while `"a\rb"` evaluates to a
+    carriage return, which is what the heredoc body actually held.
+
+    The value form is unaffected: it hands back the body, so its newlines and
+    carriage returns stay real characters.
+    """
+
+    FLAT = SerializationOptions(preserve_heredocs=False)
+    VALUE = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
+
+    def test_heredoc_source_form_escapes_carriage_returns(self):
+        source = loads("a = <<EOF\r\nx\r\ny\r\nEOF\r\n", serialization_options=self.FLAT)["a"]
+        self.assertNotIn(CR, source)
+        self.assertEqual(source, r'"x\r\ny\r\n"')
+
+    def test_trim_heredoc_source_form_escapes_carriage_returns(self):
+        source = loads("a = <<-EOF\r\n  x\r\n  y\r\nEOF\r\n", serialization_options=self.FLAT)["a"]
+        self.assertNotIn(CR, source)
+        self.assertEqual(source, r'"x\r\ny\r\n"')
+
+    def test_value_form_keeps_real_carriage_returns(self):
+        value = loads("a = <<EOF\r\nx\r\ny\r\nEOF\r\n", serialization_options=self.VALUE)["a"]
+        self.assertEqual(value, "x\r\ny\r\n")
+
+    def test_a_lone_cr_inside_a_line_is_escaped_too(self):
+        # Not a line ending: a carriage return the body carries mid-line.
+        source = loads("a = <<EOF\nx\ry\nEOF\n", serialization_options=self.FLAT)["a"]
+        self.assertEqual(source, r'"x\ry\n"')

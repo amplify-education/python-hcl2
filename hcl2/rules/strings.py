@@ -177,7 +177,12 @@ class HeredocTemplateRule(LarkRule):
                 # real newlines, no escaping. The escaping below exists only to
                 # build the quoted-string *source* form returned otherwise.
                 return heredoc
-            heredoc = heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+            # A carriage return is escaped alongside the newline: raw, it would
+            # break the quoted string it is being written into. OpenTofu rejects
+            # `"a<CR>b"` with "No closing marker was found for the string".
+            heredoc = (
+                heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "\\r").replace("\n", "\\n")
+            )
             return f'"{heredoc}"'
 
         result = heredoc.rstrip(self._trim_chars)
@@ -211,7 +216,7 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
             if options.strip_string_quotes:
                 # The caller asked for the value: real newlines, no escaping.
                 return "\n".join(lines)
-            escaped = [line.replace("\\", "\\\\").replace('"', '\\"') for line in lines]
+            escaped = [line.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "\\r") for line in lines]
             return '"' + "\\n".join(escaped) + '"'
 
         result = heredoc.rstrip(self._trim_chars)
