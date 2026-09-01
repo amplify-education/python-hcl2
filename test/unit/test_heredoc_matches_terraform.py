@@ -3,7 +3,12 @@ r"""Flattened heredoc bodies match what Terraform/OpenTofu evaluate.
 
 Every expectation in this file was produced by evaluating the same source with
 OpenTofu v1.12.5 (`tofu console`, `jsonencode` of the resulting local), not by
-reading the spec. Three things used to differ:
+reading the spec. `bin/heredoc_ground_truth` re-derives the `CASES` table below
+from whatever Terraform-compatible binary is on PATH, so that provenance can be
+checked rather than taken on trust. It is deliberately not part of the test run:
+the suite must not need a Terraform binary to pass.
+
+Three things used to differ:
 
 1. The newline before the closing marker was dropped, so `<<EOT\nline\nEOT`
    came back as `"line"` rather than `"line\n"`. The spec ends the template
