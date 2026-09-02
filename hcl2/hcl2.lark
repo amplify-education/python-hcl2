@@ -89,8 +89,8 @@ COLONS: "::"
 // to a later marker. The delimiter itself is `[a-zA-Z][a-zA-Z0-9._-]*` — the
 // trailing `*` rather than `+` because the spec's Identifier permits a single
 // character, so `<<E` is valid.
-HEREDOC_TEMPLATE : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]*)\r?\n(?:(?:.|\n)*?\r?\n)??\s*(?P=heredoc)\r?\n/
-HEREDOC_TEMPLATE_TRIM : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]*)\r?\n(?:(?:.|\n)*?\r?\n)??\s*(?P=heredoc_trim)\r?\n/
+HEREDOC_TEMPLATE : /<<(?P<heredoc>[a-zA-Z][a-zA-Z0-9._-]*)\r?\n(?:(?:.|\n)*?\r?\n)??\s*(?P=heredoc)[ \t]*\r?\n/
+HEREDOC_TEMPLATE_TRIM : /<<-(?P<heredoc_trim>[a-zA-Z][a-zA-Z0-9._-]*)\r?\n(?:(?:.|\n)*?\r?\n)??\s*(?P=heredoc_trim)[ \t]*\r?\n/
 
 // Ignore whitespace (but not newlines, as they're significant in HCL).
 // \r is ignored too so CRLF line endings (\r\n) parse the same as LF: the
