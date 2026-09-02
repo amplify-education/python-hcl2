@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Added
+
+- `SerializationOptions.metadata_sidecar`, which carries `__is_block__`, `__comments__` and `__inline_comments__` beside the mapping rather than among its keys. HCL reserves none of those names, so a document may declare an attribute called any of them -- and in-band one of the two has to lose: on read the marker overwrites the attribute, on write the deserializer drops it, and by then the dict holds a single value with no way to tell which happened. With the option set, `loads` returns an `HclDict`, a `dict` subclass whose `hcl_meta` holds the three, so the mapping contains attributes and nothing else. `dumps` accepts either form, including a hand-built dict using the old keys. Off by default: the keys are a documented part of the output shape, and JSON cannot carry a sidecar. ([#331](https://github.com/amplify-education/python-hcl2/issues/331))
 
 ## \[8.1.3\] - 2026-08-26
 
