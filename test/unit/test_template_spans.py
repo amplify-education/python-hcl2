@@ -95,7 +95,7 @@ class TestTheWriterResolvesEveryEscape(TestCase):
     def test_a_tab_becomes_a_tab(self):
         self.assertEqual(self._body(r'"a\tb\n"'), "a = <<EOF\na\tb\nEOF\n")
 
-    def test_a_unicode_escape_becomes_its_character(self):
+    def test_a_literal_non_ascii_character_survives(self):
         self.assertEqual(self._body(r'"café\n"'), "a = <<EOF\ncafé\nEOF\n")
 
     def test_a_wide_unicode_escape_becomes_its_character(self):
@@ -263,7 +263,11 @@ class TestTheEscaperMatchesTheResolver(TestCase):
 
 
 class TestTheWriterResolvesUnicodeEscapes(TestCase):
-    r"""The earlier test used a literal e-acute, which passes without the fix."""
+    r"""`\uNNNN` and `\UNNNNNNNN`, written as escapes rather than as the character.
+
+    `TestTheWriterResolvesEveryEscape` covers a literal non-ASCII character, which
+    the writer passed through even before it resolved the escape forms.
+    """
 
     def test_a_bmp_escape_becomes_its_character(self):
         source = '"' + chr(92) + "u00e9" + chr(92) + "n" + '"'
