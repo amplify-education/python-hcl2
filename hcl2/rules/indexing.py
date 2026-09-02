@@ -44,8 +44,12 @@ class ShortIndexRule(LarkRule):
         """Return the index token."""
         return self.children[1]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to '.N' string."""
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
         return f".{self.index.serialize(options, context)}"
 
 
@@ -70,8 +74,12 @@ class SqbIndexRule(InlineCommentMixIn):
         """Return the index expression inside the brackets."""
         return self.children[2]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to '[expr]' string."""
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
         return f"[{self.index_expression.serialize(options, context)}]"
 
     def __init__(self, children, meta: Optional[Meta] = None):
@@ -89,12 +97,16 @@ class IndexExprTermRule(ExpressionRule):
         """Return the grammar rule name."""
         return "index_expr_term"
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to 'expr[index]' string."""
-        with context.modify(inside_dollar_string=True):
-            expr = self.children[0].serialize(options, context)
-            index = self.children[1].serialize(options, context)
-            result = f"{expr}{index}"
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
+        inner = context.replace(inside_dollar_string=True)
+        expr = self.children[0].serialize(options, inner)
+        index = self.children[1].serialize(options, inner)
+        result = f"{expr}{index}"
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
         return result
@@ -118,8 +130,12 @@ class GetAttrRule(LarkRule):
         """Return the accessed identifier."""
         return self._children[1]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to '.identifier' string."""
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
         return f".{self.identifier.serialize(options, context)}"
 
 
@@ -146,12 +162,16 @@ class GetAttrExprTermRule(ExpressionRule):
         """Return the attribute access rule."""
         return self._children[1]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to 'expr.attr' string."""
-        with context.modify(inside_dollar_string=True):
-            expr = self.expr_term.serialize(options, context)
-            attr = self.get_attr.serialize(options, context)
-            result = f"{expr}{attr}"
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
+        inner = context.replace(inside_dollar_string=True)
+        expr = self.expr_term.serialize(options, inner)
+        attr = self.get_attr.serialize(options, inner)
+        result = f"{expr}{attr}"
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
         return result
@@ -177,8 +197,12 @@ class AttrSplatRule(LarkRule):
         """Return the trailing accessor chain."""
         return self._children[1:]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to '.*...' string."""
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
         return ".*" + "".join(get_attr.serialize(options, context) for get_attr in self.get_attrs)
 
 
@@ -202,12 +226,16 @@ class AttrSplatExprTermRule(ExpressionRule):
         """Return the attribute splat rule."""
         return self._children[1]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to 'expr.*...' string."""
-        with context.modify(inside_dollar_string=True):
-            expr = self.expr_term.serialize(options, context)
-            splat = self.attr_splat.serialize(options, context)
-            result = f"{expr}{splat}"
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
+        inner = context.replace(inside_dollar_string=True)
+        expr = self.expr_term.serialize(options, inner)
+        splat = self.attr_splat.serialize(options, inner)
+        result = f"{expr}{splat}"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
@@ -234,8 +262,12 @@ class FullSplatRule(LarkRule):
         """Return the trailing accessor chain."""
         return self._children[1:]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to '[*]...' string."""
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
         return "[*]" + "".join(get_attr.serialize(options, context) for get_attr in self.get_attrs)
 
 
@@ -259,12 +291,16 @@ class FullSplatExprTermRule(ExpressionRule):
         """Return the full splat rule."""
         return self._children[1]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to 'expr[*]...' string."""
-        with context.modify(inside_dollar_string=True):
-            expr = self.expr_term.serialize(options, context)
-            splat = self.attr_splat.serialize(options, context)
-            result = f"{expr}{splat}"
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
+        inner = context.replace(inside_dollar_string=True)
+        expr = self.expr_term.serialize(options, inner)
+        splat = self.attr_splat.serialize(options, inner)
+        result = f"{expr}{splat}"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)

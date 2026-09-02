@@ -6,7 +6,6 @@ from hcl2.rules.expressions import ExpressionRule, ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
 from hcl2.rules.tokens import EQ, LBRACE, NAME, NL_OR_COMMENT, RBRACE
 from hcl2.rules.whitespace import NewLineOrCommentRule
-from hcl2.utils import SerializationContext, SerializationOptions
 from hcl2.walk import (
     ancestors,
     find_all,
@@ -23,7 +22,7 @@ class StubExpression(ExpressionRule):
         self._stub_value = value
         super().__init__([], None)
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+    def serialize(self, options=None, context=None):
         return self._stub_value
 
 
