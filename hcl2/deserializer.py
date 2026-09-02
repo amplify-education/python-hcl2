@@ -63,16 +63,24 @@ from hcl2.rules.tokens import (
 from hcl2.transformer import RuleTransformer
 from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
 
+_HEREDOC_BODY_ESCAPES = {"n": "\n", "r": "\r"}
+
 
 def _unescape_heredoc_body(inner: str) -> str:
-    r"""Resolve the escapes a heredoc body carries literally: \n, \" and \\.
+    r"""Resolve the escapes a heredoc body carries literally: \n, \r, \" and \\.
+
+    A heredoc interprets no backslash sequence -- its body is the characters
+    themselves -- so anything the quoted form spelled as an escape has to be
+    resolved before it is written into one. `\r` is here because the flattened
+    form escapes carriage returns: without it, a heredoc read out of a CRLF
+    file and written back came out holding a literal backslash and an `r`.
 
     Single-pass, so an escaped backslash cannot combine with the character
     after it.
     """
     return re.sub(
-        r'\\(n|"|\\)',
-        lambda m: "\n" if m.group(1) == "n" else m.group(1),
+        r'\\(n|r|"|\\)',
+        lambda m: _HEREDOC_BODY_ESCAPES.get(m.group(1), m.group(1)),
         inner,
     )
 

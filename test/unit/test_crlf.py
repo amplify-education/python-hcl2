@@ -15,7 +15,8 @@ in `hcl2/rules/strings.py`.
 
 from unittest import TestCase
 
-from hcl2.api import loads, parses_to_tree, reconstruct, transform
+from hcl2.api import dumps, loads, parses_to_tree, reconstruct, transform
+from hcl2.deserializer import DeserializerOptions
 from hcl2.utils import SerializationOptions
 
 CR = "\r"
@@ -170,3 +171,48 @@ class TestFlattenedCrlfHeredocsStayValidHcl(TestCase):
         # Not a line ending: a carriage return the body carries mid-line.
         source = loads("a = <<EOF\nx\ry\nEOF\n", serialization_options=self.FLAT)["a"]
         self.assertEqual(source, r'"x\ry\n"')
+
+
+class TestCrlfSurvivesFlattenAndRestore(TestCase):
+    r"""Flattening a CRLF heredoc and writing it back preserves the value.
+
+    The two halves have to be each other's inverse. The flattened form writes
+    a carriage return as `\r`, because it is quoted-string source; the writer
+    then has to resolve `\r` back into the character, because a heredoc
+    interprets no escape at all -- a body holding a backslash and an `r` is
+    those two characters, and OpenTofu reads it that way.
+
+    The target value is not this implementation's opinion: OpenTofu evaluates
+    a CRLF file containing `<<EOF\r\nx\r\ny\r\nEOF\r\n` to `"x\r\ny\r\n"`,
+    checked with `tofu console` against v1.12.5.
+
+    Each half was already covered on its own -- flattening a CRLF heredoc, and
+    restoring an LF string -- which is exactly why the combination could break
+    without a test noticing.
+    """
+
+    FLAT = SerializationOptions(preserve_heredocs=False)
+    VALUE = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
+    HEREDOCS = DeserializerOptions(strings_to_heredocs=True)
+
+    def _restore(self, source: str) -> str:
+        flattened = loads(source, serialization_options=self.FLAT)
+        return dumps(flattened, deserializer_options=self.HEREDOCS)
+
+    def _round_trip(self, source: str) -> str:
+        restored = self._restore(source)
+        return loads(restored, serialization_options=self.VALUE)["a"]
+
+    def test_the_value_is_unchanged(self):
+        self.assertEqual(self._round_trip("a = <<EOF\r\nx\r\ny\r\nEOF\r\n"), "x\r\ny\r\n")
+
+    def test_the_written_body_holds_real_carriage_returns(self):
+        restored = self._restore("a = <<EOF\r\nx\r\ny\r\nEOF\r\n")
+        self.assertNotIn("\\r", restored)
+        self.assertEqual(restored, "a = <<EOF\nx\r\ny\r\nEOF\n")
+
+    def test_a_trimmed_heredoc_survives_too(self):
+        self.assertEqual(self._round_trip("a = <<-EOF\r\n  x\r\n  y\r\nEOF\r\n"), "x\r\ny\r\n")
+
+    def test_a_lone_mid_line_carriage_return_survives(self):
+        self.assertEqual(self._round_trip("a = <<EOF\nx\ry\nEOF\n"), "x\ry\n")
