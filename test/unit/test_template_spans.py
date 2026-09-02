@@ -305,3 +305,48 @@ class TestADirectiveDoesNotHideTheMarkers(TestCase):
 
     def test_an_interpolation_is_still_left_alone(self):
         self.assertEqual(self._quoted("pre${var.x}post"), "pre${var.x}post")
+
+
+class TestAStringInsideAnExpressionIsItselfATemplate(TestCase):
+    r"""A `${` in a nested string literal opens an expression of its own.
+
+    Every expected value below was evaluated by OpenTofu v1.12.5 rather than
+    read off the spec. Scanning for the next quote ended the outer literal at
+    the one that *opens* the innermost one, so the brace that followed was
+    counted as structural and the whole span came back unbalanced -- which
+    hands expression source to the literal path, where its quotes get escaped.
+    """
+
+    def _kinds(self, body: str) -> list:
+        return [kind for kind, _ in split_template(body)]
+
+    def _spans(self, body: str) -> list:
+        return list(split_template(body))
+
+    def test_a_brace_in_a_nested_expressions_string(self):
+        # tofu: "a ${upper("v${ "{" }w")} b" -> a V{W b
+        body = 'a ${upper("v${ "{" }w")} b'
+        self.assertEqual(self._kinds(body), [LITERAL, INTERPOLATION, LITERAL])
+
+    def test_that_span_covers_the_whole_expression(self):
+        body = 'a ${upper("v${ "{" }w")} b'
+        self.assertEqual(self._spans(body)[1], (INTERPOLATION, '${upper("v${ "{" }w")}'))
+
+    def test_three_levels_of_nesting(self):
+        # tofu: "a ${upper("p${ lower("Q${ "{" }R") }s")} b" -> a PQ{RS b
+        body = 'a ${upper("p${ lower("Q${ "{" }R") }s")} b'
+        self.assertEqual(self._kinds(body), [LITERAL, INTERPOLATION, LITERAL])
+
+    def test_an_escape_in_a_nested_string_opens_nothing(self):
+        # tofu: "a ${upper("v$${x}w")} b" -> a V${X}W b
+        body = 'a ${upper("v$${x}w")} b'
+        self.assertEqual(self._spans(body)[1], (INTERPOLATION, '${upper("v$${x}w")}'))
+
+    def test_a_directive_nested_in_a_string(self):
+        # tofu: "a ${upper("v%{ if true }y%{ endif }w")} b" -> a VYW b
+        body = 'a ${upper("v%{ if true }y%{ endif }w")} b'
+        self.assertEqual(self._kinds(body), [LITERAL, INTERPOLATION, LITERAL])
+
+    def test_an_unterminated_nested_expression_is_still_literal(self):
+        # No closing brace anywhere, so nothing is an interpolation.
+        self.assertEqual(self._kinds('a ${upper("v${ x") b'), [LITERAL])

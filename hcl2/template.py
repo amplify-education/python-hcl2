@@ -26,14 +26,37 @@ _ESCAPES = {"$": "$${", "%": "%%{"}
 
 
 def _skip_string(text: str, index: int) -> int:
-    """Return the index just past the string literal opening at *index*."""
+    """Return the index just past the string literal opening at *index*.
+
+    A string literal inside an expression is itself a template, so a `${` or
+    `%{` in it opens a nested expression whose own literals may hold quotes
+    and braces. OpenTofu evaluates `"a ${upper("v${ "{" }w")} b"` to
+    `a V{W b`, so taking the next quote as the terminator ended this literal
+    at the one that *opens* the innermost one, and the brace after it was
+    then counted as structural.
+
+    The escapes stay escapes here: `"a ${upper("v$${x}w")} b"` is `a V${X}W b`,
+    so `$${` does not open anything.
+    """
     length = len(text)
     index += 1
     while index < length:
-        if text[index] == "\\":
+        char = text[index]
+        if char == "\\":
             index += 2
             continue
-        if text[index] == '"':
+        if char in _OPENERS:
+            if text.startswith(_ESCAPES[char], index):
+                index += len(_ESCAPES[char])
+                continue
+            if text.startswith(_OPENERS[char], index):
+                end = _scan_expression(text, index + 1)
+                if end == -1:
+                    # Unbalanced, so there is no literal to close either.
+                    return length
+                index = end
+                continue
+        if char == '"':
             return index + 1
         index += 1
     return length
