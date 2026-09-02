@@ -92,8 +92,8 @@ class TemplateIfStartRule(LarkRule):
         """Serialize to %{ if EXPR } or %{~ if EXPR ~}."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
-        with context.modify(inside_dollar_string=True):
-            cond_str = self.condition.serialize(options, context)
+        inner = context.replace(inside_dollar_string=True)
+        cond_str = self.condition.serialize(options, inner)
         prefix = _strip_prefix(self.strip_open)
         suffix = _strip_suffix(self.strip_close)
         return f"%{{{prefix}if {cond_str}{suffix}}}"
@@ -263,11 +263,11 @@ class TemplateForStartRule(LarkRule):
         context = context if context is not None else SerializationContext()
         prefix = _strip_prefix(self.strip_open)
         suffix = _strip_suffix(self.strip_close)
-        with context.modify(inside_dollar_string=True):
-            iter_str = self.iterator.serialize(options, context)
-            if self.key_iterator is not None:
-                iter_str += f", {self.key_iterator.serialize(options, context)}"
-            coll_str = self.collection.serialize(options, context)
+        inner = context.replace(inside_dollar_string=True)
+        iter_str = self.iterator.serialize(options, inner)
+        if self.key_iterator is not None:
+            iter_str += f", {self.key_iterator.serialize(options, inner)}"
+        coll_str = self.collection.serialize(options, inner)
         return f"%{{{prefix}for {iter_str} in {coll_str}{suffix}}}"
 
 

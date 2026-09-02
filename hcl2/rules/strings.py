@@ -71,8 +71,8 @@ class InterpolationRule(LarkRule):
         """Serialize to ${expression} string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
-        with context.modify(inside_dollar_string=True):
-            return to_dollar_string(self.expression.serialize(options, context))
+        inner = context.replace(inside_dollar_string=True)
+        return to_dollar_string(self.expression.serialize(options, inner))
 
 
 class StringPartRule(LarkRule):

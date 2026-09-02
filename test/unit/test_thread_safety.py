@@ -3,8 +3,8 @@
 
 `serialize()` declared `context=SerializationContext()` as a default argument.
 Python evaluates that once, at import, so every rule in the process shared one
-mutable context -- and `expressions.py`, `functions.py` and `indexing.py` mutate
-it in place through `context.modify(inside_dollar_string=True)`.
+mutable context -- and `expressions.py`, `functions.py` and `indexing.py` mutated
+it in place to descend into a nested expression.
 
 A thread serializing a function call therefore set `inside_dollar_string` for
 every other thread, and any tuple or object those threads were serializing came
@@ -15,6 +15,7 @@ The structural rules now thread the context they were given and build a fresh
 one when called without it, so a parse can no longer see another parse's state.
 """
 
+import dataclasses
 import inspect
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -23,6 +24,7 @@ from unittest import TestCase
 
 from hcl2.api import loads, parses, serialize
 from hcl2.rules.base import AttributeRule
+from hcl2.rules.containers import TupleRule
 from hcl2.utils import SerializationContext, SerializationOptions
 
 # Serializing a function call is what sets `inside_dollar_string`; the plain
@@ -127,7 +129,7 @@ class TestNoDefaultContextIsShared(TestCase):
         """`None` only works if the body builds one, and mypy has to see that.
 
         The default alone is not the invariant: a rule written `context=None`
-        whose body calls `context.modify(...)` passes the check above and then
+        whose body calls `context.replace(...)` passes the check above and then
         raises `AttributeError` for the direct caller this all exists to
         protect. Annotated, mypy reports `union-attr` on the missing guard --
         verified by deleting one.
@@ -180,17 +182,24 @@ class TestIsolationWithoutRelyingOnScheduling(TestCase):
         self.assertEqual(len(seen), 2)
         self.assertIsNot(seen[0], seen[1])
 
-    def test_a_held_mutation_is_invisible_to_a_concurrent_parse(self):
+    def test_a_mutation_cannot_be_held_across_a_concurrent_parse(self):
+        """Isolation no longer rests on the two contexts merely being distinct.
+
+        This used to hold a flag set in one thread across the other's
+        serialization and assert the other never saw it. There is now no way to
+        set one: the context is frozen, so the write this guards against is
+        refused where it is made rather than contained after the fact.
+        """
         barrier = threading.Barrier(2, timeout=30)
         observed = {}
 
         def hook(context):
             role = threading.current_thread().name
             if role == "mutator":
-                # Hold the flag set across the other thread's serialization.
-                context.inside_dollar_string = True
+                with self.assertRaises(dataclasses.FrozenInstanceError):
+                    context.inside_dollar_string = True
                 barrier.wait()
-                observed["mutator-kept-its-own"] = context.inside_dollar_string
+                observed["mutator-could-not-set"] = context.inside_dollar_string
             else:
                 barrier.wait()
                 observed["observer-saw"] = context.inside_dollar_string
@@ -207,7 +216,7 @@ class TestIsolationWithoutRelyingOnScheduling(TestCase):
         for thread in threads:
             thread.join(timeout=30)
 
-        self.assertEqual(observed, {"mutator-kept-its-own": True, "observer-saw": False})
+        self.assertEqual(observed, {"mutator-could-not-set": False, "observer-saw": False})
 
 
 class TestNoDefaultOptionsIsShared(TestCase):
@@ -239,3 +248,64 @@ class TestNoDefaultOptionsIsShared(TestCase):
             if parameter.default is None and parameter.annotation is parameter.empty
         ]
         self.assertEqual(unannotated, [])
+
+
+class TestOneContextCanBeSharedDeliberately(TestCase):
+    """The half a fresh default per call does not reach: a caller's own context.
+
+    Defaulting the parameter to `None` stops the *package* from sharing one
+    context between threads, but a consumer that builds a context and hands it
+    to concurrent calls was still giving one mutable object to several writers.
+    Nothing warned them, and the corruption looked exactly like the one the
+    shared default caused.
+
+    Racing two threads does not demonstrate this: `modify` set the flag and
+    restored it within one call, so the window is far too small to land on by
+    repetition -- a test that tried came back green against the unfixed code.
+    What settles it is reading the caller's own context from inside the scope
+    that used to mutate it.
+    """
+
+    SOURCE = TOGGLES_CONTEXT
+
+    def _observe_during_a_nested_serialization(self, shared):
+        """Record `shared.inside_dollar_string` from inside the `${...}` scope.
+
+        `TupleRule` serializes the `[1, 2, 3]` argument, which happens while
+        `FunctionCallRule` is in the scope that used to set the flag on
+        whatever context it was handed.
+        """
+        seen = []
+        original = TupleRule.serialize
+
+        def spy(rule, options=None, context=None):
+            seen.append(shared.inside_dollar_string)
+            return original(rule, options, context)
+
+        TupleRule.serialize = spy  # type: ignore[method-assign]
+        self.addCleanup(setattr, TupleRule, "serialize", original)
+        return seen
+
+    def test_a_nested_scope_does_not_write_to_the_callers_context(self):
+        shared = SerializationContext()
+        seen = self._observe_during_a_nested_serialization(shared)
+
+        parses(self.SOURCE).serialize(SerializationOptions(), shared)
+
+        # The spy has to have run, or this asserts nothing.
+        self.assertEqual(len(seen), 1)
+        # Was True here before the context became immutable.
+        self.assertEqual(seen, [False])
+        self.assertEqual(shared, SerializationContext())
+
+    def test_the_same_context_serves_several_calls(self):
+        shared = SerializationContext()
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            produced = list(
+                pool.map(
+                    lambda src: repr(parses(src).serialize(SerializationOptions(), shared)),
+                    [TOGGLES_CONTEXT, PLAIN] * 8,
+                )
+            )
+        self.assertEqual(set(produced[1::2]), {repr(EXPECTED)})
+        self.assertEqual(shared, SerializationContext())

@@ -69,10 +69,10 @@ class TupleRule(InlineCommentMixIn):
         if not options.wrap_tuples and not context.inside_dollar_string:
             return [element.serialize(options, context) for element in self.elements]
 
-        with context.modify(inside_dollar_string=True):
-            result = "["
-            result += ", ".join(str(element.serialize(options, context)) for element in self.elements)
-            result += "]"
+        inner = context.replace(inside_dollar_string=True)
+        result = "["
+        result += ", ".join(str(element.serialize(options, inner)) for element in self.elements)
+        result += "]"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
@@ -137,8 +137,8 @@ class ObjectElemKeyExpressionRule(LarkRule):
         """Serialize to '${expression}' string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
-        with context.modify(inside_dollar_string=True):
-            result = str(self.expression.serialize(options, context))
+        inner = context.replace(inside_dollar_string=True)
+        result = str(self.expression.serialize(options, inner))
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
         return result
@@ -214,15 +214,13 @@ class ObjectRule(InlineCommentMixIn):
                 dict_result.update(element.serialize(options, context))
             return dict_result
 
-        with context.modify(inside_dollar_string=True):
-            str_result = "{"
-            str_result += ", ".join(
-                f"{element.key.serialize(options, context)}"
-                f" = "
-                f"{element.expression.serialize(options, context)}"
-                for element in self.elements
-            )
-            str_result += "}"
+        inner = context.replace(inside_dollar_string=True)
+        str_result = "{"
+        str_result += ", ".join(
+            f"{element.key.serialize(options, inner)} = {element.expression.serialize(options, inner)}"
+            for element in self.elements
+        )
+        str_result += "}"
 
         if not context.inside_dollar_string:
             str_result = to_dollar_string(str_result)
