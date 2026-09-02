@@ -74,7 +74,7 @@ data = loads(text, serialization_options=SerializationOptions(
 | `wrap_objects` | `bool` | `False` | Wrap object values as inline HCL2 strings                                                                                                       |
 | `wrap_tuples` | `bool` | `False` | Wrap tuple values as inline HCL2 strings                                                                                                        |
 | `explicit_blocks` | `bool` | `True` | Add `__is_block__: True` markers to blocks. **Mandatory for JSON->HCL2 deserialization and reconstruction.**                                    |
-| `preserve_heredocs` | `bool` | `True` | Keep heredocs in their original form, markers included. When `False`, a heredoc becomes a quoted string with its newlines escaped (`'"a\nb"'`); combine with `strip_string_quotes` to get the body as a plain multi-line value instead. |
+| `preserve_heredocs` | `bool` | `True` | Keep heredocs in their original form, markers included. When `False`, a heredoc becomes a quoted string with its newlines escaped (`'"a\nb\n"'`); combine with `strip_string_quotes` to get the body as a plain multi-line value instead. Either way the body keeps the newline that terminates its last line, as Terraform's does. |
 | `force_operation_parentheses` | `bool` | `False` | Force parentheses around all operations                                                                                                         |
 | `preserve_scientific_notation` | `bool` | `True` | Keep scientific notation as-is                                                                                                                  |
 | `strip_string_quotes` | `bool` | `False` | Yield string *values* rather than source text: remove surrounding quotes (e.g. `"hello"` instead of `'"hello"'`) and resolve escape sequences (`"a\nb"` becomes a real newline). String literals inside expressions keep their quotes, so `upper("x")` stays `'${upper("x")}'`. **Breaks JSON->HCL2 deserialization and reconstruction.** |
@@ -127,7 +127,7 @@ text = dumps(data, deserializer_options=DeserializerOptions(
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `heredocs_to_strings` | `bool` | `False` | Convert heredocs to plain strings |
-| `strings_to_heredocs` | `bool` | `False` | Convert strings with `\n` to heredocs |
+| `strings_to_heredocs` | `bool` | `False` | Convert newline-terminated strings to heredocs. A value that does not end in a newline is left as a quoted string, because a heredoc body always ends in one and writing it as a heredoc would change the value. |
 | `object_elements_colon` | `bool` | `False` | Use `:` instead of `=` in object elements |
 | `object_elements_trailing_comma` | `bool` | `True` | Add trailing commas in object elements |
 

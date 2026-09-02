@@ -63,6 +63,75 @@ from hcl2.rules.tokens import (
 from hcl2.transformer import RuleTransformer
 from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
 
+_HEREDOC_BODY_ESCAPES = {"n": "\n", "r": "\r"}
+
+# A line that could end a heredoc: the delimiter word alone, give or take
+# surrounding spaces and tabs -- and a carriage return, because the body is
+# split on "\n" and a CRLF line hands back its own `\r`. OpenTofu ends a
+# heredoc on `EOF\r` exactly as it does on `EOF `, so a CRLF body carrying
+# the delimiter has to count. This grammar is stricter than Terraform, whose
+# scanner ends the heredoc on `EOF  ` while `HEREDOC_TEMPLATE` here requires
+# the newline to follow the word itself. The looser reading is the safe one to
+# pick a delimiter against: emitting a body that only Terraform would treat as
+# closed writes a file this library can read and Terraform cannot.
+_CLOSING_MARKER_LINE = re.compile(r"[ \t]*([a-zA-Z][a-zA-Z0-9._-]*)[ \t\r]*")
+
+
+def _heredoc_delimiter(content: str) -> str:
+    """Return a delimiter the body does not close on its own.
+
+    `EOF` unless the body holds a line that would end the heredoc there, in
+    which case a numbered variant is used. The word matters: a log excerpt, a
+    shell script or an embedded config is exactly the sort of value people put
+    in a heredoc, and `EOF` is exactly the word such a payload tends to
+    contain. Writing one blindly produced a file that no longer parsed.
+    """
+    occupied = set()
+    for line in content.split("\n"):
+        match = _CLOSING_MARKER_LINE.fullmatch(line)
+        if match is not None:
+            occupied.add(match.group(1))
+
+    if "EOF" not in occupied:
+        return "EOF"
+
+    suffix = 1
+    while f"EOF_{suffix}" in occupied:
+        suffix += 1
+    return f"EOF_{suffix}"
+
+
+def _expressible_as_heredoc(content: str) -> bool:
+    """Whether *content* can be a heredoc body without changing.
+
+    A heredoc body is read literally, so it can hold a carriage return only
+    where one ends a line. A lone `\r` makes the file unreadable rather than
+    merely different: OpenTofu rejects `<<EOF\nx\ry\nEOF` with "No closing
+    marker was found for the string", while the quoted `"x\ry\n"` it came
+    from is valid and evaluates to that carriage return. Such a value stays
+    quoted, for the same reason one that does not end in a newline does.
+    """
+    return "\r" not in content.replace("\r\n", "")
+
+
+def _unescape_heredoc_body(inner: str) -> str:
+    r"""Resolve the escapes a heredoc body carries literally: \n, \r, \" and \\.
+
+    A heredoc interprets no backslash sequence -- its body is the characters
+    themselves -- so anything the quoted form spelled as an escape has to be
+    resolved before it is written into one. `\r` is here because the flattened
+    form escapes carriage returns: without it, a heredoc read out of a CRLF
+    file and written back came out holding a literal backslash and an `r`.
+
+    Single-pass, so an escaped backslash cannot combine with the character
+    after it.
+    """
+    return re.sub(
+        r'\\(n|r|"|\\)',
+        lambda m: _HEREDOC_BODY_ESCAPES.get(m.group(1), m.group(1)),
+        inner,
+    )
+
 
 @dataclass
 class DeserializerOptions:
@@ -71,8 +140,10 @@ class DeserializerOptions:
     # Convert heredoc values (<<EOF...EOF) to regular escaped strings during
     # deserialization. When False, heredoc syntax is preserved as-is.
     heredocs_to_strings: bool = False
-    # Convert multi-line escaped strings (containing \n) back into heredoc
-    # syntax (<<EOF...EOF) during deserialization.
+    # Convert newline-terminated escaped strings back into heredoc syntax
+    # (<<EOF...EOF) during deserialization. A value that does not end in a
+    # newline is left quoted: a non-empty heredoc body always does, so writing
+    # one as a heredoc would hand back a different value on the next read.
     strings_to_heredocs: bool = False
     # Use colon (:) instead of equals (=) as the separator in object elements.
     object_elements_colon: bool = False
@@ -179,9 +250,18 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                         return self._deserialize_heredoc(value[1:-1], False)
 
                 if self.options.strings_to_heredocs:
-                    inner = value[1:-1]
-                    if "\\n" in inner:
-                        return self._deserialize_string_as_heredoc(inner)
+                    content = _unescape_heredoc_body(value[1:-1])
+                    # A heredoc's closing marker sits on a line of its own, so
+                    # any body with content in it ends with a newline. A value
+                    # that does not cannot be written as one without gaining
+                    # that character, so it stays a quoted string.
+                    #
+                    # The empty string is the one value this excludes that a
+                    # heredoc could in fact express -- `<<EOF\nEOF` evaluates
+                    # to "" in Terraform and here. It stays quoted anyway,
+                    # because `x = ""` says the same thing in one line.
+                    if content.endswith("\n") and _expressible_as_heredoc(content):
+                        return self._deserialize_string_as_heredoc(content)
 
                 return self._deserialize_string(value)
 
@@ -259,15 +339,10 @@ class BaseDeserializer(LarkElementTreeDeserializer):
             return HeredocTrimTemplateRule([HEREDOC_TRIM_TEMPLATE(value)])
         return HeredocTemplateRule([HEREDOC_TEMPLATE(value)])
 
-    def _deserialize_string_as_heredoc(self, inner: str) -> HeredocTemplateRule:
-        """Convert a quoted string with escaped newlines back into a heredoc."""
-        # Single-pass unescape: \\n → \n, \\" → ", \\\\ → \
-        content = re.sub(
-            r'\\(n|"|\\)',
-            lambda m: "\n" if m.group(1) == "n" else m.group(1),
-            inner,
-        )
-        heredoc = f"<<EOF\n{content}\nEOF"
+    def _deserialize_string_as_heredoc(self, content: str) -> HeredocTemplateRule:
+        """Wrap an unescaped body, already newline-terminated, in heredoc syntax."""
+        delimiter = _heredoc_delimiter(content)
+        heredoc = f"<<{delimiter}\n{content}{delimiter}"
         return HeredocTemplateRule([HEREDOC_TEMPLATE(heredoc)])
 
     def _deserialize_expression(self, value: str) -> ExprTermRule:
