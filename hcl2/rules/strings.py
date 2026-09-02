@@ -65,8 +65,9 @@ class InterpolationRule(LarkRule):
         """Return the interpolated expression."""
         return self.children[1]
 
-    def serialize(self, options=SerializationOptions(), context=None) -> Any:
+    def serialize(self, options=None, context=None) -> Any:
         """Serialize to ${expression} string."""
+        options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
         with context.modify(inside_dollar_string=True):
             return to_dollar_string(self.expression.serialize(options, context))
@@ -93,8 +94,9 @@ class StringPartRule(LarkRule):
         """Return the content element (string chars, escape, interpolation, or directive)."""
         return self._children[0]
 
-    def serialize(self, options=SerializationOptions(), context=None) -> Any:
+    def serialize(self, options=None, context=None) -> Any:
         """Serialize this string part."""
+        options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
         return self.content.serialize(options, context)
 
@@ -114,7 +116,7 @@ class StringRule(LarkRule):
         """Return the list of string parts between quotes."""
         return self.children[1:-1]
 
-    def serialize(self, options=SerializationOptions(), context=None) -> Any:
+    def serialize(self, options=None, context=None) -> Any:
         """Serialize to a quoted string.
 
         `strip_string_quotes` asks for the string's value rather than its
@@ -123,6 +125,7 @@ class StringRule(LarkRule):
         and unquoting it there would produce something that is no longer valid
         HCL (`upper("x")` becoming `upper(x)`).
         """
+        options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
         if options.strip_string_quotes and not context.inside_dollar_string:
             return "".join(
@@ -164,8 +167,9 @@ class HeredocTemplateRule(LarkRule):
         """Return the raw heredoc token."""
         return self.children[0]
 
-    def serialize(self, options=SerializationOptions(), context=None) -> Any:
+    def serialize(self, options=None, context=None) -> Any:
         """Serialize the heredoc, optionally stripping to a plain string."""
+        options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
         heredoc = self.heredoc.serialize(options, context)
 
@@ -198,8 +202,9 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
         """Return the grammar rule name."""
         return "heredoc_template_trim"
 
-    def serialize(self, options=SerializationOptions(), context=None) -> Any:
+    def serialize(self, options=None, context=None) -> Any:
         """Serialize the trim heredoc, stripping common leading whitespace."""
+        options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
         # See https://github.com/hashicorp/hcl2/blob/master/hcl/hclsyntax/spec.md#template-expressions
         # This is a special version of heredocs that are declared with "<<-"
@@ -271,13 +276,14 @@ class TemplateStringRule(LarkRule):
             return raw[2:-2]
         return raw
 
-    def serialize(self, options=SerializationOptions(), context=None) -> Any:
+    def serialize(self, options=None, context=None) -> Any:
         """Serialize preserving escaped-quote delimiters for round-trip fidelity.
 
         Inside template directive expressions, strings are delimited by \\"
         rather than plain ". We preserve these as \\" in serialized form so
         the deserializer can reconstruct them correctly.
         """
+        options = options if options is not None else SerializationOptions()
         raw = self.raw_value
         if options.strip_string_quotes:
             return self.inner_value

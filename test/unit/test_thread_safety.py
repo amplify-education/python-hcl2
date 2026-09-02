@@ -18,12 +18,11 @@ one when called without it, so a parse can no longer see another parse's state.
 import inspect
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict
 from importlib import import_module
 from unittest import TestCase
 
 from hcl2.api import loads, parses, serialize
-from hcl2.rules.base import AttributeRule, BlockRule
+from hcl2.rules.base import AttributeRule
 from hcl2.utils import SerializationContext, SerializationOptions
 
 # Serializing a function call is what sets `inside_dollar_string`; the plain
@@ -32,6 +31,31 @@ TOGGLES_CONTEXT = "z = f([1, 2, 3], {a = 1})\n"
 PLAIN = "x = [1, 2, 3]\ny = {a = 1}\n"
 EXPECTED = {"x": [1, 2, 3], "y": {"a": 1}}
 BLOCK = 'resource "aws_instance" "web" {\n  ami = "ami-1"\n}\n'
+
+
+def _parameters_named(*names):
+    """Yield every parameter with one of *names* across the shipped rule modules.
+
+    Walking the modules rather than naming methods means a rule added later is
+    covered without anyone remembering to come back here.
+    """
+    import pkgutil
+
+    import hcl2.rules
+
+    for module_info in pkgutil.iter_modules(hcl2.rules.__path__):
+        module = import_module(f"hcl2.rules.{module_info.name}")
+        for class_name, cls in vars(module).items():
+            if not inspect.isclass(cls) or cls.__module__ != module.__name__:
+                continue
+            for method_name, method in vars(cls).items():
+                if not inspect.isfunction(method):
+                    continue
+                parameters = inspect.signature(method).parameters
+                for name in names:
+                    parameter = parameters.get(name)
+                    if parameter is not None:
+                        yield f"{module.__name__}.{class_name}.{method_name}({name})", parameter
 
 
 class TestConcurrentLoads(TestCase):
@@ -69,28 +93,10 @@ class TestNoDefaultContextIsShared(TestCase):
     added later is covered without anyone remembering to add it here.
     """
 
-    def _context_parameters(self):
-        import inspect
-        import pkgutil
-
-        import hcl2.rules
-
-        for module_info in pkgutil.iter_modules(hcl2.rules.__path__):
-            module = import_module(f"hcl2.rules.{module_info.name}")
-            for class_name, cls in vars(module).items():
-                if not inspect.isclass(cls) or cls.__module__ != module.__name__:
-                    continue
-                for method_name, method in vars(cls).items():
-                    if not inspect.isfunction(method):
-                        continue
-                    parameter = inspect.signature(method).parameters.get("context")
-                    if parameter is not None:
-                        yield f"{module.__name__}.{class_name}.{method_name}", parameter
-
     def test_every_context_parameter_defaults_to_none(self):
         offenders = [
             name
-            for name, parameter in self._context_parameters()
+            for name, parameter in _parameters_named("context")
             if parameter.default is not None and parameter.default is not parameter.empty
         ]
         self.assertEqual(offenders, [])
@@ -98,7 +104,7 @@ class TestNoDefaultContextIsShared(TestCase):
     def test_the_walk_actually_found_the_methods(self):
         # A test that asserts "no offenders" over an empty list would pass
         # while inspecting nothing at all.
-        self.assertGreater(len(list(self._context_parameters())), 30)
+        self.assertGreater(len(list(_parameters_named("context"))), 30)
 
 
 class TestIsolationWithoutRelyingOnScheduling(TestCase):
@@ -169,46 +175,24 @@ class TestIsolationWithoutRelyingOnScheduling(TestCase):
         self.assertEqual(observed, {"mutator-kept-its-own": True, "observer-saw": False})
 
 
-class TestTheSharedOptionsDefaultIsNeverWritten(TestCase):
-    """`options` keeps a shared default, and that is only safe while it is read-only.
+class TestNoDefaultOptionsIsShared(TestCase):
+    """`options` carried the same declaration, and loses it for the same reason.
 
-    The context had to stop being a default argument because the rules mutate
-    it in place. `SerializationOptions` is the same kind of object in the same
-    position, and the same reasoning would condemn it -- except that nothing
-    in the package assigns to it. This pins that difference, so the day
-    something does write to `options`, this fails rather than the shared
-    default quietly becoming a second cross-thread channel.
+    Nothing in the package assigns to a `SerializationOptions`, so the shared
+    default was not a live defect the way the context was. It was still the
+    same construct in the same position: one mutable object handed to every
+    caller that omits the argument, reachable by any subclass or hook a
+    consumer writes. Keeping it would have meant defending a distinction that
+    rests on nobody ever writing to it.
     """
 
-    def _default_options(self):
-        return inspect.signature(AttributeRule.serialize).parameters["options"].default
+    def test_every_options_parameter_defaults_to_none(self):
+        offenders = [
+            name
+            for name, parameter in _parameters_named("options", "_options")
+            if parameter.default is not None and parameter.default is not parameter.empty
+        ]
+        self.assertEqual(offenders, [])
 
-    def test_every_call_that_omits_options_gets_the_same_object(self):
-        # Not an endorsement -- the premise the test below is guarding. Each
-        # method evaluates its own default once, at import, so the sharing is
-        # per method rather than global; either way two parses that omit
-        # `options` are handed one object between them.
-        seen = []
-        original = BlockRule.serialize
-
-        def spy(rule, options=SerializationOptions(), context=None):
-            seen.append(options)
-            return original(rule, options, context)
-
-        BlockRule.serialize = spy  # type: ignore[method-assign]
-        self.addCleanup(setattr, BlockRule, "serialize", original)
-
-        loads(BLOCK)
-        loads(BLOCK)
-
-        self.assertEqual(len(seen), 2)
-        self.assertIs(seen[0], seen[1])
-
-    def test_parsing_does_not_write_to_it(self):
-        before = asdict(self._default_options())
-
-        loads(PLAIN)
-        loads(TOGGLES_CONTEXT)
-        loads(PLAIN, serialization_options=SerializationOptions(with_meta=True))
-
-        self.assertEqual(asdict(self._default_options()), before)
+    def test_the_walk_actually_found_the_methods(self):
+        self.assertGreater(len(list(_parameters_named("options", "_options"))), 30)

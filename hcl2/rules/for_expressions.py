@@ -92,8 +92,9 @@ class ForIntroRule(InlineCommentMixIn):
         """Return the collection expression being iterated over."""
         return self._children[8]
 
-    def serialize(self, options=SerializationOptions(), context=None) -> str:
+    def serialize(self, options=None, context=None) -> str:
         """Serialize to 'for key, value in collection : ' string."""
+        options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
         result = "for "
 
@@ -128,8 +129,9 @@ class ForCondRule(InlineCommentMixIn):
         """Return the condition expression."""
         return self._children[2]
 
-    def serialize(self, options=SerializationOptions(), context=None) -> str:
+    def serialize(self, options=None, context=None) -> str:
         """Serialize to 'if condition' string."""
+        options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
         return f"if {self.condition_expr.serialize(options, context)}"
 
@@ -193,8 +195,9 @@ class ForTupleExprRule(ExpressionRule):
         """Return the optional condition rule."""
         return self._children[6]
 
-    def serialize(self, options=SerializationOptions(), context=None) -> Any:
+    def serialize(self, options=None, context=None) -> Any:
         """Serialize to '[for ... : expr]' string."""
+        options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
         result = "["
 
@@ -290,8 +293,9 @@ class ForObjectExprRule(ExpressionRule):
         """Return the optional condition rule."""
         return self._children[11]
 
-    def serialize(self, options=SerializationOptions(), context=None) -> Any:
+    def serialize(self, options=None, context=None) -> Any:
         """Serialize to '{for ... : key => value}' string."""
+        options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
         result = "{"
         with context.modify(inside_dollar_string=True):
