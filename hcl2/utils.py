@@ -31,12 +31,6 @@ class SerializationOptions:
     # Add __is_block__ markers to distinguish blocks from plain objects.
     # Note: round-trip through from_dict/dumps is NOT supported WITHOUT this option.
     explicit_blocks: bool = True
-    # Carry the metadata keys beside the mapping instead of among its keys, as
-    # `HclDict.hcl_meta`. The in-band keys collide with any attribute a document
-    # happens to name `__is_block__`, `__comments__` or `__inline_comments__`;
-    # the sidecar cannot. Off by default because the keys are a documented part
-    # of the output shape, and because JSON cannot carry the sidecar.
-    metadata_sidecar: bool = False
     # Keep heredoc syntax (<<EOF...EOF) in output. When False, heredocs are
     # converted to regular escaped strings.
     preserve_heredocs: bool = True
@@ -49,6 +43,16 @@ class SerializationOptions:
     # producing backwards-compatible output (e.g. "hello" instead of '"hello"').
     # Note: round-trip through from_dict/dumps is NOT supported WITH this option.
     strip_string_quotes: bool = False
+    # Appended rather than grouped with the other block options on purpose:
+    # this dataclass is not `kw_only`, so inserting a field anywhere else
+    # silently changes what every positional argument after it means.
+    #
+    # Carry the metadata keys beside the mapping instead of among its keys, as
+    # `HclDict.hcl_meta`. The in-band keys collide with any attribute a document
+    # happens to name `__is_block__`, `__comments__` or `__inline_comments__`;
+    # the sidecar cannot. Off by default because the keys are a documented part
+    # of the output shape, and because JSON cannot carry the sidecar.
+    metadata_sidecar: bool = False
 
 
 _SIMPLE_ESCAPES = {

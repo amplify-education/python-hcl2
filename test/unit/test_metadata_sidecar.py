@@ -12,6 +12,7 @@ holds attributes and nothing else, so there is nothing to collide with.
 """
 
 import copy
+import dataclasses
 import json
 import pickle
 from unittest import TestCase
@@ -165,3 +166,77 @@ class TestCopyingCarriesTheSidecar(TestCase):
         plain = dict(self.body)
         self.assertIsNone(meta_of(plain))
         self.assertEqual(plain, {"x": 1})
+
+
+class TestAnObjectLiteralIsCoveredToo(TestCase):
+    """The collision is not specific to block bodies.
+
+    Only `BodyRule` was taught the sidecar at first, so `x = { __is_block__ =
+    true }` still tripped the in-band branch: the object was read as a block
+    and `dumps` emitted `x = keep = 1`, which is not HCL at all. An object
+    literal carries no metadata of its own, but it has to say so in the same
+    form a body does.
+    """
+
+    def _round_trip(self, source: str) -> str:
+        return dumps(loads(source, serialization_options=SIDECAR))
+
+    def test_each_reserved_name_survives_as_a_key(self):
+        for key in RESERVED:
+            with self.subTest(key=key):
+                written = self._round_trip(f"x = {{\n  {key} = 99\n  keep = 1\n}}\n")
+                self.assertIn(key, written)
+                self.assertIn("keep", written)
+
+    def test_an_ordinary_object_is_unchanged(self):
+        self.assertEqual(self._round_trip("x = {\n  a = 1\n}\n"), "x = {\n  a = 1,\n}\n")
+
+
+class TestTheOptionDidNotMoveTheOtherOnes(TestCase):
+    """`SerializationOptions` is not `kw_only`, so field order is a contract.
+
+    Inserting the new field among the block options changed what every
+    positional argument after it meant -- silently, with no exception and no
+    test to catch it. It is appended instead.
+    """
+
+    def test_metadata_sidecar_is_last(self):
+        names = [f.name for f in dataclasses.fields(SerializationOptions)]
+        self.assertEqual(names[-1], "metadata_sidecar")
+
+    def test_the_earlier_fields_keep_their_positions(self):
+        options = SerializationOptions(True, False, False, False, True, False, False, True, False)
+        self.assertFalse(options.force_operation_parentheses)
+        self.assertTrue(options.preserve_scientific_notation)
+        self.assertFalse(options.metadata_sidecar)
+
+
+class TestTheQueryLayerWritesToTheSidecar(TestCase):
+    """`BlockView.to_dict` merges adjacent comments, and has to pick the form.
+
+    Writing the in-band key onto a dict carrying a sidecar put it back among
+    the attributes, where nothing reserves it any more -- so `dumps` emitted
+    `__comments__ = [...]` as real HCL, which does not re-parse. Reading the
+    in-band key there also found nothing, because the block's own comments had
+    moved to the meta, so neither list was complete.
+    """
+
+    SOURCE = '# lead comment\nterraform {\n  required_version = ">= 1.0"\n}\n'
+
+    def _to_dict(self, options):
+        from hcl2.query import DocumentView
+
+        return DocumentView.parse(self.SOURCE).blocks("terraform")[0].to_dict(options=options)
+
+    def test_the_comment_lands_in_the_meta(self):
+        body = self._to_dict(SerializationOptions(metadata_sidecar=True, with_comments=True))
+        self.assertEqual(meta_of(body).comments, [{"value": "lead comment"}])
+        self.assertNotIn(COMMENTS_KEY, body)
+
+    def test_the_block_still_writes_as_a_block(self):
+        body = self._to_dict(SerializationOptions(metadata_sidecar=True, with_comments=True))
+        self.assertEqual(dumps({"terraform": [body]}), 'terraform {\n  required_version = ">= 1.0"\n}\n')
+
+    def test_the_in_band_form_is_unchanged(self):
+        body = self._to_dict(SerializationOptions(with_comments=True))
+        self.assertEqual(body[COMMENTS_KEY], [{"value": "lead comment"}])
