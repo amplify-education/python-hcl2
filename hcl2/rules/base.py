@@ -5,7 +5,8 @@ from typing import Any, List, Optional, Tuple, Union
 
 from lark.tree import Meta
 
-from hcl2.const import INLINE_COMMENTS_KEY, IS_BLOCK
+from hcl2.const import COMMENTS_KEY, INLINE_COMMENTS_KEY, IS_BLOCK
+from hcl2.meta import HclDict, HclMeta, meta_of
 from hcl2.rules.abstract import LarkRule, LarkToken
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
@@ -87,9 +88,16 @@ class BodyRule(LarkRule):
                 if child_comments:
                     comments.extend(child_comments)
 
+        if options.metadata_sidecar:
+            meta = HclMeta()
+            if options.with_comments:
+                meta.comments = comments
+                meta.inline_comments = inline_comments
+            return HclDict(result.items(), meta=meta)
+
         if options.with_comments:
             if comments:
-                result["__comments__"] = comments
+                result[COMMENTS_KEY] = comments
             if inline_comments:
                 result[INLINE_COMMENTS_KEY] = inline_comments
 
@@ -151,7 +159,11 @@ class BlockRule(LarkRule):
         """Serialize to a nested dict with labels as keys."""
         result = self._body.serialize(options)
         if options.explicit_blocks:
-            result.update({IS_BLOCK: True})
+            meta = meta_of(result)
+            if meta is not None:
+                meta.is_block = True
+            else:
+                result.update({IS_BLOCK: True})
 
         labels = self._labels
         for label in reversed(labels[1:]):

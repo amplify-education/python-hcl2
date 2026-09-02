@@ -3,6 +3,7 @@
 from typing import Any, List, Optional
 
 from hcl2.const import COMMENTS_KEY
+from hcl2.meta import meta_of
 from hcl2.query._base import NodeView, register_view
 from hcl2.rules.abstract import LarkElement
 from hcl2.rules.base import BlockRule
@@ -72,8 +73,18 @@ class BlockView(NodeView):
         ):
             # Place adjacent comments at the outer level of the block dict,
             # alongside the label keys — not drilled into the body dict.
-            existing = result.get(COMMENTS_KEY, [])
-            result[COMMENTS_KEY] = self._adjacent_comments + existing
+            #
+            # Whichever form the serializer used: writing the in-band key onto
+            # a dict carrying a sidecar would put it back among the attributes,
+            # where nothing reserves it any more, and `dumps` would emit it as
+            # real HCL. Reading `result.get(COMMENTS_KEY)` there would also
+            # find nothing, because the block's own comments are in the meta.
+            meta = meta_of(result)
+            if meta is not None:
+                meta.comments = self._adjacent_comments + meta.comments
+            else:
+                existing = result.get(COMMENTS_KEY, [])
+                result[COMMENTS_KEY] = self._adjacent_comments + existing
         return result
 
     def blocks(self, block_type: Optional[str] = None, *labels: str) -> List["NodeView"]:
