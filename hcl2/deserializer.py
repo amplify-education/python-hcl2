@@ -65,6 +65,38 @@ from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
 
 _HEREDOC_BODY_ESCAPES = {"n": "\n", "r": "\r"}
 
+# A line that could end a heredoc: the delimiter word alone, give or take
+# surrounding spaces and tabs. This grammar is stricter than Terraform, whose
+# scanner ends the heredoc on `EOF  ` while `HEREDOC_TEMPLATE` here requires
+# the newline to follow the word itself. The looser reading is the safe one to
+# pick a delimiter against: emitting a body that only Terraform would treat as
+# closed writes a file this library can read and Terraform cannot.
+_CLOSING_MARKER_LINE = re.compile(r"[ \t]*([a-zA-Z][a-zA-Z0-9._-]*)[ \t]*")
+
+
+def _heredoc_delimiter(content: str) -> str:
+    """Return a delimiter the body does not close on its own.
+
+    `EOF` unless the body holds a line that would end the heredoc there, in
+    which case a numbered variant is used. The word matters: a log excerpt, a
+    shell script or an embedded config is exactly the sort of value people put
+    in a heredoc, and `EOF` is exactly the word such a payload tends to
+    contain. Writing one blindly produced a file that no longer parsed.
+    """
+    occupied = set()
+    for line in content.split("\n"):
+        match = _CLOSING_MARKER_LINE.fullmatch(line)
+        if match is not None:
+            occupied.add(match.group(1))
+
+    if "EOF" not in occupied:
+        return "EOF"
+
+    suffix = 1
+    while f"EOF_{suffix}" in occupied:
+        suffix += 1
+    return f"EOF_{suffix}"
+
 
 def _unescape_heredoc_body(inner: str) -> str:
     r"""Resolve the escapes a heredoc body carries literally: \n, \r, \" and \\.
@@ -288,7 +320,8 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
     def _deserialize_string_as_heredoc(self, content: str) -> HeredocTemplateRule:
         """Wrap an unescaped body, already newline-terminated, in heredoc syntax."""
-        heredoc = f"<<EOF\n{content}EOF"
+        delimiter = _heredoc_delimiter(content)
+        heredoc = f"<<{delimiter}\n{content}{delimiter}"
         return HeredocTemplateRule([HEREDOC_TEMPLATE(heredoc)])
 
     def _deserialize_expression(self, value: str) -> ExprTermRule:

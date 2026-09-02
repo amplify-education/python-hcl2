@@ -26,7 +26,8 @@ are new expectations rather than restored ones.
 
 from unittest import TestCase
 
-from hcl2.api import loads
+from hcl2.api import dumps, loads
+from hcl2.deserializer import DeserializerOptions
 from hcl2.utils import SerializationOptions
 
 _VALUE = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
@@ -121,3 +122,49 @@ class TestQuotedSourceFormAgrees(TestCase):
         # Re-read the quoted form as HCL and it yields the value back.
         reread = loads(f"x = {quoted}\n", serialization_options=_VALUE)["x"]
         self.assertEqual(reread, value)
+
+
+class TestWrittenDelimiterCannotCloseEarly(TestCase):
+    r"""The delimiter is chosen against the body, not assumed to be `EOF`.
+
+    A log excerpt, a shell script, an embedded config -- the payloads people
+    put in heredocs -- are exactly the values that contain the word `EOF`.
+    Writing `<<EOF` over one produced a file that closed at the body's own
+    line and no longer parsed, here or in Terraform.
+
+    The lines that count as closing markers are Terraform's, which are looser
+    than this grammar's: OpenTofu v1.12.5 ends a heredoc on `EOF  ` and
+    evaluates `<<EOF\nbody\nEOF  \n` to `"body\n"`, while `HEREDOC_TEMPLATE`
+    here requires the newline to follow the word. Choosing against the looser
+    reading is what keeps the written file readable by both.
+    """
+
+    HEREDOCS = DeserializerOptions(strings_to_heredocs=True)
+    VALUE = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
+
+    def _write(self, value: str) -> str:
+        return dumps({"x": value}, deserializer_options=self.HEREDOCS)
+
+    def _round_trip(self, value: str) -> str:
+        return loads(self._write(value), serialization_options=self.VALUE)["x"]
+
+    def test_an_ordinary_body_still_uses_eof(self):
+        self.assertEqual(self._write(r'"plain\n"'), "x = <<EOF\nplain\nEOF\n")
+
+    def test_a_body_holding_the_delimiter_gets_another_one(self):
+        self.assertEqual(self._write(r'"first\nEOF\nlast\n"'), "x = <<EOF_1\nfirst\nEOF\nlast\nEOF_1\n")
+
+    def test_an_indented_marker_line_counts(self):
+        self.assertEqual(self._write('"  EOF\\nx\\n"'), "x = <<EOF_1\n  EOF\nx\nEOF_1\n")
+
+    def test_a_trailing_space_marker_line_counts_because_terraform_ends_there(self):
+        self.assertEqual(self._write('"EOF  \\nkeeps\\n"'), "x = <<EOF_1\nEOF  \nkeeps\nEOF_1\n")
+
+    def test_the_search_continues_past_a_taken_variant(self):
+        self.assertEqual(self._write(r'"EOF\nEOF_1\ny\n"'), "x = <<EOF_2\nEOF\nEOF_1\ny\nEOF_2\n")
+
+    def test_every_case_survives_the_round_trip(self):
+        for value in (r'"plain\n"', r'"first\nEOF\nlast\n"', '"  EOF\\nx\\n"', r'"EOF\nEOF_1\ny\n"'):
+            with self.subTest(value=value):
+                original = loads(f"x = {value}\n", serialization_options=self.VALUE)["x"]
+                self.assertEqual(self._round_trip(value), original)
