@@ -39,7 +39,9 @@ class AttributeRule(LarkRule):
         """Return the attribute value expression."""
         return self._children[2]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to a single-entry dict."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -62,7 +64,9 @@ class BodyRule(LarkRule):
         """Return the grammar rule name."""
         return "body"
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to a dict, grouping blocks under their type name."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -115,7 +119,9 @@ class StartRule(LarkRule):
         """Return the grammar rule name."""
         return "start"
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize by delegating to the body."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -153,7 +159,9 @@ class BlockRule(LarkRule):
         """Return the block body."""
         return self._body
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to a nested dict with labels as keys."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()

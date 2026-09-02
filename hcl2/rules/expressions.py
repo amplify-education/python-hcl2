@@ -37,8 +37,8 @@ class ExpressionRule(InlineCommentMixIn, ABC):
     def _wrap_into_parentheses(
         self,
         value: str,
-        _options=None,
-        context=None,
+        _options: Optional[SerializationOptions] = None,
+        context: Optional[SerializationContext] = None,
     ) -> str:
         """Wrap value in parentheses if inside a nested expression."""
         context = context if context is not None else SerializationContext()
@@ -99,7 +99,9 @@ class ExprTermRule(ExpressionRule):
         """Return the inner expression."""
         return self._children[2]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize, handling parenthesized expression wrapping."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -153,7 +155,9 @@ class ConditionalRule(ExpressionRule):
         """Return the false-branch expression."""
         return self._children[8]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to ternary expression string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -202,7 +206,9 @@ class BinaryTermRule(ExpressionRule):
         """Return the right-hand operand."""
         return self._children[3]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to 'operator operand' string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -271,7 +277,9 @@ class BinaryOpRule(ExpressionRule):
             return trailing.to_list() or []
         return []
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to 'lhs operator rhs' string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -310,7 +318,9 @@ class UnaryOpRule(ExpressionRule):
         """Return the operand."""
         return self._children[1]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to 'operator operand' string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()

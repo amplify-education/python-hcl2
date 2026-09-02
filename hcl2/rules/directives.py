@@ -86,7 +86,9 @@ class TemplateIfStartRule(LarkRule):
         """Check if there's a strip marker before }."""
         return self._children[4] is not None
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to %{ if EXPR } or %{~ if EXPR ~}."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -127,7 +129,9 @@ class TemplateElseRule(LarkRule):
         """Check if there's a strip marker before }."""
         return self._children[3] is not None
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to %{ else } or %{~ else ~}."""
         prefix = _strip_prefix(self.strip_open)
         suffix = _strip_suffix(self.strip_close)
@@ -164,7 +168,9 @@ class TemplateEndifRule(LarkRule):
         """Check if there's a strip marker before }."""
         return self._children[3] is not None
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to %{ endif } or %{~ endif ~}."""
         prefix = _strip_prefix(self.strip_open)
         suffix = _strip_suffix(self.strip_close)
@@ -249,7 +255,9 @@ class TemplateForStartRule(LarkRule):
         """Return the collection expression after IN."""
         return self._children[7]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to %{ for VAR in EXPR } or %{~ for VAR in EXPR ~}."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -293,7 +301,9 @@ class TemplateEndforRule(LarkRule):
         """Check if there's a strip marker before }."""
         return self._children[3] is not None
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to %{ endfor } or %{~ endfor ~}."""
         prefix = _strip_prefix(self.strip_open)
         suffix = _strip_suffix(self.strip_close)
@@ -343,7 +353,9 @@ class TemplateIfRule(LarkRule):
         children.append(endif)
         super().__init__(children, meta)
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize the full if/else/endif directive."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -401,7 +413,9 @@ class TemplateForRule(LarkRule):
         children = [for_start, *body, endfor]
         super().__init__(children, meta)
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize the full for/endfor directive."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()

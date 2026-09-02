@@ -2,7 +2,7 @@
 
 import re
 import sys
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from hcl2.rules.abstract import LarkRule
 from hcl2.rules.expressions import ExpressionRule
@@ -65,7 +65,9 @@ class InterpolationRule(LarkRule):
         """Return the interpolated expression."""
         return self.children[1]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to ${expression} string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -94,7 +96,9 @@ class StringPartRule(LarkRule):
         """Return the content element (string chars, escape, interpolation, or directive)."""
         return self._children[0]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize this string part."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -116,7 +120,9 @@ class StringRule(LarkRule):
         """Return the list of string parts between quotes."""
         return self.children[1:-1]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to a quoted string.
 
         `strip_string_quotes` asks for the string's value rather than its
@@ -167,7 +173,9 @@ class HeredocTemplateRule(LarkRule):
         """Return the raw heredoc token."""
         return self.children[0]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize the heredoc, optionally stripping to a plain string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -202,7 +210,9 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
         """Return the grammar rule name."""
         return "heredoc_template_trim"
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize the trim heredoc, stripping common leading whitespace."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -276,7 +286,9 @@ class TemplateStringRule(LarkRule):
             return raw[2:-2]
         return raw
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize preserving escaped-quote delimiters for round-trip fidelity.
 
         Inside template directive expressions, strings are delimited by \\"

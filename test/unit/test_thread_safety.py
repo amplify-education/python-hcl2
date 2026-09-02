@@ -34,21 +34,36 @@ BLOCK = 'resource "aws_instance" "web" {\n  ami = "ami-1"\n}\n'
 
 
 def _parameters_named(*names):
-    """Yield every parameter with one of *names* across the shipped rule modules.
+    """Yield every parameter with one of *names* across the shipped package.
 
     Walking the modules rather than naming methods means a rule added later is
-    covered without anyone remembering to come back here.
+    covered without anyone remembering to come back here. Three things it has
+    to get right, each of which it did not at first:
+
+    * `walk_packages`, not `iter_modules`, so a future subpackage is not
+      invisible.
+    * the whole of `hcl2`, not `hcl2.rules` alone -- the defaults are a
+      package-wide pattern, and the serializer is not the only place they can
+      appear.
+    * `__func__` unwrapped before the function test, because `vars(cls)` hands
+      back the descriptor for a staticmethod or classmethod and
+      `inspect.isfunction` is False for those. `StringRule._serialize_part_as_value`
+      takes a context and is a staticmethod, and was missed until this did.
     """
     import pkgutil
 
-    import hcl2.rules
+    import hcl2
 
-    for module_info in pkgutil.iter_modules(hcl2.rules.__path__):
-        module = import_module(f"hcl2.rules.{module_info.name}")
+    for module_info in pkgutil.walk_packages(hcl2.__path__, prefix="hcl2."):
+        try:
+            module = import_module(module_info.name)
+        except ImportError:  # pragma: no cover - nothing optional ships today
+            continue
         for class_name, cls in vars(module).items():
             if not inspect.isclass(cls) or cls.__module__ != module.__name__:
                 continue
-            for method_name, method in vars(cls).items():
+            for method_name, member in vars(cls).items():
+                method = getattr(member, "__func__", member)
                 if not inspect.isfunction(method):
                     continue
                 parameters = inspect.signature(method).parameters
@@ -103,8 +118,28 @@ class TestNoDefaultContextIsShared(TestCase):
 
     def test_the_walk_actually_found_the_methods(self):
         # A test that asserts "no offenders" over an empty list would pass
-        # while inspecting nothing at all.
-        self.assertGreater(len(list(_parameters_named("context"))), 30)
+        # while inspecting nothing at all. The floor sits just under the real
+        # count, so losing a module's worth of coverage fails here rather than
+        # passing quietly.
+        self.assertGreaterEqual(len(list(_parameters_named("context"))), 50)
+
+    def test_every_context_parameter_is_annotated_optional(self):
+        """`None` only works if the body builds one, and mypy has to see that.
+
+        The default alone is not the invariant: a rule written `context=None`
+        whose body calls `context.modify(...)` passes the check above and then
+        raises `AttributeError` for the direct caller this all exists to
+        protect. Annotated, mypy reports `union-attr` on the missing guard --
+        verified by deleting one.
+        """
+        # Only the ones that default to None: a required parameter cannot be
+        # None, and calling it Optional would say something untrue.
+        unannotated = [
+            name
+            for name, parameter in _parameters_named("context")
+            if parameter.default is None and parameter.annotation is parameter.empty
+        ]
+        self.assertEqual(unannotated, [])
 
 
 class TestIsolationWithoutRelyingOnScheduling(TestCase):
@@ -195,4 +230,12 @@ class TestNoDefaultOptionsIsShared(TestCase):
         self.assertEqual(offenders, [])
 
     def test_the_walk_actually_found_the_methods(self):
-        self.assertGreater(len(list(_parameters_named("options", "_options"))), 30)
+        self.assertGreaterEqual(len(list(_parameters_named("options", "_options"))), 55)
+
+    def test_every_options_parameter_is_annotated_optional(self):
+        unannotated = [
+            name
+            for name, parameter in _parameters_named("options", "_options")
+            if parameter.default is None and parameter.annotation is parameter.empty
+        ]
+        self.assertEqual(unannotated, [])

@@ -6,6 +6,8 @@ from typing import Any, Callable, List, Optional, Union
 from lark import Token, Tree
 from lark.tree import Meta
 
+from hcl2.utils import SerializationContext, SerializationOptions
+
 
 class LarkElement(ABC):
     """Base class for all elements in the LarkElement tree."""
@@ -34,7 +36,9 @@ class LarkElement(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize this element to a Python object (dict, list, str, etc.)."""
         raise NotImplementedError()
 
@@ -61,7 +65,9 @@ class LarkToken(LarkElement, ABC):
         """Set the raw value of this token."""
         self._value = value
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize this token using its serialize_conversion callable."""
         return self.serialize_conversion(self.value)
 
@@ -87,7 +93,9 @@ class LarkRule(LarkElement, ABC):
     """
 
     @abstractmethod
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize this rule and its children to a Python object."""
         raise NotImplementedError()
 

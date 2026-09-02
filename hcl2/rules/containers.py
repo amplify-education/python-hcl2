@@ -60,7 +60,9 @@ class TupleRule(InlineCommentMixIn):
         """Return the expression elements of the tuple."""
         return [child for child in self.children[1:-1] if isinstance(child, ExpressionRule)]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to a Python list or bracketed string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -95,7 +97,9 @@ class ObjectElemKeyRule(LarkRule):
         """Return the key value (identifier, string, or number)."""
         return self._children[0]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize the key, coercing numbers to strings."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -127,7 +131,9 @@ class ObjectElemKeyExpressionRule(LarkRule):
         """Return the key expression."""
         return self._children[0]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to '${expression}' string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -162,7 +168,9 @@ class ObjectElemRule(LarkRule):
         """Return the value expression."""
         return self._children[2]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to a single-entry dict."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -194,7 +202,9 @@ class ObjectRule(InlineCommentMixIn):
         """Return the list of object element rules."""
         return [child for child in self.children[1:-1] if isinstance(child, ObjectElemRule)]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to a Python dict or braced string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()

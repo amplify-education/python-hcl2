@@ -50,7 +50,9 @@ class ArgumentsRule(InlineCommentMixIn):
         """Return the list of expression arguments."""
         return [child for child in self._children if isinstance(child, ExpressionRule)]
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to a comma-separated argument string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
@@ -92,7 +94,9 @@ class FunctionCallRule(InlineCommentMixIn):
                 return child
         return None
 
-    def serialize(self, options=None, context=None) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to 'func(args)' string."""
         options = options if options is not None else SerializationOptions()
         context = context if context is not None else SerializationContext()
