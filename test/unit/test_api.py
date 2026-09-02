@@ -528,8 +528,21 @@ class TestStripStringQuotes(TestCase):
     def test_interpolation_is_left_alone(self):
         self.assertEqual(self._load('a = "pre${var.x}post"\n'), {"a": "pre${var.x}post"})
 
-    def test_escaped_interpolation_marker_is_left_alone(self):
-        self.assertEqual(self._load('a = "lit $${x}"\n'), {"a": "lit $${x}"})
+    def test_escaped_interpolation_marker_resolves_to_one_sigil(self):
+        r"""`$${` is an escape, so the value carries a single `${`.
+
+        This asserted the doubled form until GH #336. `$${` and `%%{` are what
+        HCL provides for writing a literal `${` and `%{`, exactly as `\"` is
+        for a quote: OpenTofu v1.12.5 evaluates `"$${esc}"` to the six
+        characters `${esc}`. Leaving them doubled made the value differ from
+        the one Terraform reads, in the one mode that promises the value.
+        """
+        self.assertEqual(self._load('a = "lit $${x}"\n'), {"a": "lit ${x}"})
+        self.assertEqual(self._load('a = "lit %%{x}"\n'), {"a": "lit %{x}"})
+
+    def test_a_doubled_sigil_without_a_brace_is_not_an_escape(self):
+        """`$$` and `%%` are only escapes in front of `{`."""
+        self.assertEqual(self._load('a = "$$notbrace %%either"\n'), {"a": "$$notbrace %%either"})
 
     def test_default_options_still_preserve_source_form(self):
         """Without the option, the source form is kept for reconstruction."""

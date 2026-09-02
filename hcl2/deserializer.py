@@ -60,20 +60,33 @@ from hcl2.rules.tokens import (
     FloatLiteral,
     IntLiteral,
 )
+from hcl2.template import map_literal_spans
 from hcl2.transformer import RuleTransformer
-from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
+from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN, process_escape_sequences
 
-_HEREDOC_BODY_ESCAPES = {"n": "\n", "r": "\r"}
+
+def _unescape_heredoc_body(inner: str) -> str:
+    r"""Resolve a quoted string's escapes for a body that interprets none.
+
+    A heredoc body is read literally, so anything the quoted form spelled as
+    an escape has to become the character itself: `\t` a tab, `\u00e9` an
+    accented e. `process_escape_sequences` is the package's one implementation
+    of that alphabet, and using it here is what stops this path from resolving
+    a shorter list than the reader does.
+
+    Only in literal spans. Inside `${...}` the text is expression source, and
+    an escape there belongs to a string literal written inside the expression:
+    OpenTofu reads `"${upper("a\"b")}"` as `A"B`, so resolving that `\"` would
+    close the nested literal early and change what the expression says.
+    """
+    return map_literal_spans(inner, process_escape_sequences)
+
 
 # A line that could end a heredoc: the delimiter word alone, give or take
 # surrounding spaces and tabs -- and a carriage return, because the body is
 # split on "\n" and a CRLF line hands back its own `\r`. OpenTofu ends a
 # heredoc on `EOF\r` exactly as it does on `EOF `, so a CRLF body carrying
-# the delimiter has to count. This grammar is stricter than Terraform, whose
-# scanner ends the heredoc on `EOF  ` while `HEREDOC_TEMPLATE` here requires
-# the newline to follow the word itself. The looser reading is the safe one to
-# pick a delimiter against: emitting a body that only Terraform would treat as
-# closed writes a file this library can read and Terraform cannot.
+# the delimiter has to count.
 _CLOSING_MARKER_LINE = re.compile(r"[ \t]*([a-zA-Z][a-zA-Z0-9._-]*)[ \t\r]*")
 
 
@@ -112,25 +125,6 @@ def _expressible_as_heredoc(content: str) -> bool:
     quoted, for the same reason one that does not end in a newline does.
     """
     return "\r" not in content.replace("\r\n", "")
-
-
-def _unescape_heredoc_body(inner: str) -> str:
-    r"""Resolve the escapes a heredoc body carries literally: \n, \r, \" and \\.
-
-    A heredoc interprets no backslash sequence -- its body is the characters
-    themselves -- so anything the quoted form spelled as an escape has to be
-    resolved before it is written into one. `\r` is here because the flattened
-    form escapes carriage returns: without it, a heredoc read out of a CRLF
-    file and written back came out holding a literal backslash and an `r`.
-
-    Single-pass, so an escaped backslash cannot combine with the character
-    after it.
-    """
-    return re.sub(
-        r'\\(n|r|"|\\)',
-        lambda m: _HEREDOC_BODY_ESCAPES.get(m.group(1), m.group(1)),
-        inner,
-    )
 
 
 @dataclass

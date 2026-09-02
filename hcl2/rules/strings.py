@@ -17,6 +17,7 @@ from hcl2.rules.tokens import (
     STRING_CHARS,
     TEMPLATE_STRING,
 )
+from hcl2.template import map_literal_spans, resolve_escaped_markers
 from hcl2.utils import (
     HEREDOC_PATTERN,
     HEREDOC_TRIM_PATTERN,
@@ -51,6 +52,16 @@ def _strip_closing_marker_indent(text: str) -> str:
     and leaving those characters in place appended them to the value.
     """
     return re.sub(r"[^\S\n]*\Z", "", text)
+
+
+def _escape_for_quoted_source(text: str) -> str:
+    r"""Escape literal text so it can sit inside a quoted string.
+
+    A carriage return is escaped alongside the newline: raw, it would break the
+    quoted string it is being written into. OpenTofu rejects `"a<CR>b"` with
+    "No closing marker was found for the string".
+    """
+    return text.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "\\r").replace("\n", "\\n")
 
 
 class InterpolationRule(LarkRule):
@@ -138,15 +149,22 @@ class StringRule(LarkRule):
 
     @staticmethod
     def _serialize_part_as_value(part, options, context) -> str:
-        """Serialize one part, resolving escapes in literal text only.
+        """Serialize one part into what the reader sees, by its terminal.
 
-        Interpolations and escaped interpolation/directive markers are passed
-        through untouched: their text is expression source, not literal
-        content, so an escape inside them is not this string's to resolve.
+        Literal text has its escapes resolved. An interpolation is passed
+        through untouched: its text is expression source, not literal content,
+        so an escape inside it is not this string's to resolve.
+
+        `$${` and `%%{` are neither. They are escapes for a literal `${` and
+        `%{`, so the value carries the single sigil -- `"$${esc}"` is the six
+        characters `${esc}` to Terraform, not seven.
         """
         serialized = part.serialize(options, context)
-        if part.content.lark_name() == "STRING_CHARS":
+        terminal = part.content.lark_name()
+        if terminal == "STRING_CHARS":
             return process_escape_sequences(serialized)
+        if terminal in ("ESCAPED_INTERPOLATION", "ESCAPED_DIRECTIVE"):
+            return serialized[1:]
         return serialized
 
 
@@ -178,17 +196,15 @@ class HeredocTemplateRule(LarkRule):
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
             heredoc = _strip_closing_marker_indent(match.group(2))
             if options.strip_string_quotes:
-                # The caller asked for the value, so hand back the body as-is:
-                # real newlines, no escaping. The escaping below exists only to
-                # build the quoted-string *source* form returned otherwise.
-                return heredoc
-            # A carriage return is escaped alongside the newline: raw, it would
-            # break the quoted string it is being written into. OpenTofu rejects
-            # `"a<CR>b"` with "No closing marker was found for the string".
-            heredoc = (
-                heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "\\r").replace("\n", "\\n")
-            )
-            return f'"{heredoc}"'
+                # The caller asked for the value: real newlines, no escaping.
+                # `$${` and `%%{` are resolved, being escapes for a literal
+                # `${` and `%{` rather than characters of the value.
+                return resolve_escaped_markers(heredoc)
+            # Only the literal spans are escaped. Inside `${...}` the text is
+            # expression source, and escaping a quote there rewrites someone
+            # else's code: `${upper("a")}` would become `${upper(\\"a\\")}`,
+            # which OpenTofu rejects outright.
+            return '"' + map_literal_spans(heredoc, _escape_for_quoted_source) + '"'
 
         result = heredoc.rstrip(self._trim_chars)
         if options.strip_string_quotes:
@@ -217,12 +233,11 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
             match = HEREDOC_TRIM_PATTERN.match(heredoc)
             if not match:
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
-            lines = self._dedent(_strip_closing_marker_indent(match.group(2)))
+            body = "\n".join(self._dedent(_strip_closing_marker_indent(match.group(2))))
             if options.strip_string_quotes:
                 # The caller asked for the value: real newlines, no escaping.
-                return "\n".join(lines)
-            escaped = [line.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "\\r") for line in lines]
-            return '"' + "\\n".join(escaped) + '"'
+                return resolve_escaped_markers(body)
+            return '"' + map_literal_spans(body, _escape_for_quoted_source) + '"'
 
         result = heredoc.rstrip(self._trim_chars)
         if options.strip_string_quotes:
