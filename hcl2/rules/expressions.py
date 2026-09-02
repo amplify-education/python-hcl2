@@ -100,7 +100,13 @@ class ExprTermRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize, handling parenthesized expression wrapping."""
-        with context.modify(inside_parentheses=self.parentheses or context.inside_parentheses):
+        # Not `or context.inside_parentheses`: the flag answers "did my
+        # immediate parent already wrap me", which `_wrap_into_parentheses`
+        # reads to avoid doubling them. Carrying it down made it mean "some
+        # ancestor is parenthesised", so `force_operation_parentheses` stopped
+        # adding any inside `(b + c * d)`. Each inner term sets it from its own
+        # `self.parentheses`, so a genuinely wrapped one still says so.
+        with context.modify(inside_parentheses=self.parentheses):
             result = self.expression.serialize(options, context)
 
         if self.parentheses:
@@ -152,7 +158,7 @@ class ConditionalRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to ternary expression string."""
-        with context.modify(inside_dollar_string=True):
+        with context.modify(inside_dollar_string=True, inside_parentheses=False):
             result = (
                 f"{self.condition.serialize(options, context)} "
                 f"? {self.if_true.serialize(options, context)} "
@@ -266,7 +272,7 @@ class BinaryOpRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'lhs operator rhs' string."""
-        with context.modify(inside_dollar_string=True):
+        with context.modify(inside_dollar_string=True, inside_parentheses=False):
             lhs = self.expr_term.serialize(options, context)
             operator = str(self.binary_term.binary_operator.serialize(options, context)).strip()
             rhs = self.binary_term.expr_term.serialize(options, context)
@@ -303,7 +309,7 @@ class UnaryOpRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'operator operand' string."""
-        with context.modify(inside_dollar_string=True):
+        with context.modify(inside_dollar_string=True, inside_parentheses=False):
             operator = self.operator.rstrip()
             operand = self.expr_term.serialize(options, context)
             result = f"{operator}{operand}"

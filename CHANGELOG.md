@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Fixed
+
+- `force_operation_parentheses` adds parentheses inside a parenthesised expression again. `inside_parentheses` answers "did my immediate container already wrap me", which is what stops the option doubling them, but two places made it mean "some ancestor is parenthesised": `ExprTermRule` carried it down with `or`, and the operation rules passed it to their operands, which nothing directly wraps. `(b + c * d)` therefore came back unchanged, so the documents most likely to want explicit precedence got the least of it. ([#342](https://github.com/amplify-education/python-hcl2/issues/342))
 
 ## \[8.1.3\] - 2026-08-26
 
