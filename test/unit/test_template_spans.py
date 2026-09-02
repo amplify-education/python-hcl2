@@ -56,25 +56,21 @@ class TestSplitTemplate(TestCase):
             ],
         )
 
-    def test_an_unbalanced_span_is_not_an_error(self):
-        # A serializer is the wrong place to reject what the parser accepted.
-        self.assertEqual(list(split_template("x ${a")), [(LITERAL, "x "), (INTERPOLATION, "${a")])
+    def test_an_unbalanced_span_is_literal(self):
+        """Nothing closes it, so it is text -- and text is what gets escaped.
 
+        Calling it an expression meant nothing escaped it, and the heredoc
+        paths then wrote raw newlines and unescaped quotes into what the API
+        calls quoted-string source. A serializer is still the wrong place to
+        reject what the parser accepted, so this does not raise; it produces
+        something well-formed instead.
+        """
+        self.assertEqual(list(split_template("x ${a")), [(LITERAL, "x ${a")])
 
-class TestTheValueResolvesTheTemplateEscapes(TestCase):
-    """`$${` and `%%{` stand for a literal `${` and `%{`, so the value has one."""
-
-    def test_in_a_quoted_string(self):
-        self.assertEqual(loads('a = "$${esc}"\n', serialization_options=QUOTED_VALUE)["a"], "${esc}")
-        self.assertEqual(loads('a = "%%{d}"\n', serialization_options=QUOTED_VALUE)["a"], "%{d}")
-
-    def test_in_a_heredoc(self):
-        self.assertEqual(loads("a = <<EOT\n$${esc}\nEOT\n", serialization_options=VALUE)["a"], "${esc}\n")
-        self.assertEqual(loads("a = <<EOT\n%%{d}\nEOT\n", serialization_options=VALUE)["a"], "%{d}\n")
-
-    def test_in_a_trimmed_heredoc(self):
+    def test_an_unbalanced_span_still_gets_escaped(self):
         self.assertEqual(
-            loads("a = <<-EOT\n  $${esc}\n  EOT\n", serialization_options=VALUE)["a"], "${esc}\n"
+            loads('x = <<EOT\nlone ${ open\nsay "hi"\nEOT\n', serialization_options=FLAT)["x"],
+            '"lone ${ open\\nsay \\"hi\\"\\n"',
         )
 
     def test_a_real_interpolation_is_left_alone(self):
@@ -154,9 +150,7 @@ class TestBracesThatAreNotStructural(TestCase):
     """
 
     def test_a_brace_in_a_block_comment(self):
-        self.assertEqual(
-            list(split_template("${1 /* } */ + 2}")), [(INTERPOLATION, "${1 /* } */ + 2}")]
-        )
+        self.assertEqual(list(split_template("${1 /* } */ + 2}")), [(INTERPOLATION, "${1 /* } */ + 2}")])
 
     def test_a_brace_in_a_hash_comment(self):
         self.assertEqual(
@@ -165,20 +159,71 @@ class TestBracesThatAreNotStructural(TestCase):
         )
 
     def test_a_brace_in_a_slash_comment(self):
-        self.assertEqual(
-            list(split_template("${ a // }\n }")), [(INTERPOLATION, "${ a // }\n }")]
-        )
+        self.assertEqual(list(split_template("${ a // }\n }")), [(INTERPOLATION, "${ a // }\n }")])
 
     def test_a_brace_in_a_string_literal(self):
-        self.assertEqual(
-            list(split_template('${ {k = "}"} }')), [(INTERPOLATION, '${ {k = "}"} }')]
-        )
+        self.assertEqual(list(split_template('${ {k = "}"} }')), [(INTERPOLATION, '${ {k = "}"} }')])
 
     def test_an_unterminated_comment_does_not_hang(self):
-        self.assertEqual(list(split_template("${ a /* } ")), [(INTERPOLATION, "${ a /* } ")])
+        # The comment swallows the closing brace, so nothing closes the span
+        # and it is literal by the rule above -- what matters here is that
+        # the scan terminates.
+        self.assertEqual(list(split_template("${ a /* } ")), [(LITERAL, "${ a /* } ")])
 
     def test_flattening_leaves_a_commented_expression_alone(self):
         self.assertEqual(
-            loads('a = <<EOT\n${1 /* } */ + 2}\nEOT\n', serialization_options=FLAT)["a"],
+            loads("a = <<EOT\n${1 /* } */ + 2}\nEOT\n", serialization_options=FLAT)["a"],
             '"${1 /* } */ + 2}\\n"',
         )
+
+
+class TestEscapeResolutionCannotChangeWhatIsCode(TestCase):
+    r"""Resolving escapes can spell a sigil that was not in the source.
+
+    `"${foo}"` is the six literal characters `${foo}` to
+    Terraform -- escapes resolve at token level and the result is not
+    rescanned. Written into a heredoc body, which is not escaped at all, those
+    characters are a live interpolation. The reverse happens too:
+    `"$${b}"` resolves to `$${b}`, demoting an interpolation to escaped
+    text. Either way the value changes, so the conversion is refused and the
+    value stays quoted -- as it already does for a lone carriage return.
+    """
+
+    def _written(self, value: str) -> str:
+        return dumps({"x": value}, deserializer_options=HEREDOCS)
+
+    def test_a_synthesised_sigil_keeps_the_value_quoted(self):
+        # The value is `\u0024\u007bfoo\u007d\n`, spelled with chr() so this
+        # test's own source cannot be confused with the characters it means.
+        esc = chr(92) + "u"
+        source = '"' + esc + "0024" + esc + "007bfoo" + esc + "007d" + chr(92) + "n" + '"'
+        self.assertEqual(self._written(source), "x = " + source + "\n")
+
+    def test_a_demoted_interpolation_keeps_the_value_quoted(self):
+        source = '"' + chr(92) + "u0024" + "${b}" + chr(92) + "n" + '"'
+        self.assertEqual(self._written(source), "x = " + source + "\n")
+
+    def test_a_real_interpolation_still_converts(self):
+        self.assertEqual(self._written(r'"${b}\n"'), "x = <<EOF\n${b}\nEOF\n")
+
+    def test_an_ordinary_escape_still_converts(self):
+        self.assertEqual(self._written(r'"a\tb\n"'), "x = <<EOF\na\tb\nEOF\n")
+
+
+class TestABackslashPairIsOneUnit(TestCase):
+    r"""The scan must not enter string mode at the quote of a `\"`.
+
+    It did, then read the real closing quote as another escape and ran to the
+    end of the text -- so a span containing the grammar's own `\"..\"` form
+    swallowed everything after it into one interpolation, and the trailing
+    newline never reached the writer's newline check.
+    """
+
+    def test_an_escaped_quote_does_not_open_a_string(self):
+        self.assertEqual(
+            list(split_template(r"a\"${f(\"a\")}b")),
+            [(LITERAL, r"a\""), (INTERPOLATION, r"${f(\"a\")}"), (LITERAL, "b")],
+        )
+
+    def test_an_escaped_quote_inside_a_nested_literal(self):
+        self.assertEqual(list(split_template(r'${ "a\"b" }')), [(INTERPOLATION, r'${ "a\"b" }')])

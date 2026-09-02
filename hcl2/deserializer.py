@@ -60,7 +60,7 @@ from hcl2.rules.tokens import (
     FloatLiteral,
     IntLiteral,
 )
-from hcl2.template import map_literal_spans
+from hcl2.template import INTERPOLATION, map_literal_spans, split_template
 from hcl2.transformer import RuleTransformer
 from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN, process_escape_sequences
 
@@ -114,7 +114,12 @@ def _heredoc_delimiter(content: str) -> str:
     return f"EOF_{suffix}"
 
 
-def _expressible_as_heredoc(content: str) -> bool:
+def _interpolation_spans(text: str) -> List[str]:
+    """The `${...}` and `%{...}` spans of *text*, in order."""
+    return [chunk for kind, chunk in split_template(text) if kind == INTERPOLATION]
+
+
+def _expressible_as_heredoc(content: str, source: str) -> bool:
     """Whether *content* can be a heredoc body without changing.
 
     A heredoc body is read literally, so it can hold a carriage return only
@@ -124,7 +129,17 @@ def _expressible_as_heredoc(content: str) -> bool:
     from is valid and evaluates to that carriage return. Such a value stays
     quoted, for the same reason one that does not end in a newline does.
     """
-    return "\r" not in content.replace("\r\n", "")
+    if "\r" in content.replace("\r\n", ""):
+        return False
+
+    # Resolving escapes can spell a sigil that was not there. `"\u0024\u007bfoo\u007d"`
+    # is the six literal characters `${foo}` to Terraform -- escapes resolve at
+    # token level and the result is not rescanned -- but written into a heredoc
+    # body, which is not escaped at all, those characters are a live
+    # interpolation. The reverse happens too: `\u0024${b}` resolves to `$${b}`,
+    # demoting an interpolation to escaped text. Either way the value changes,
+    # so it stays quoted.
+    return _interpolation_spans(source) == _interpolation_spans(content)
 
 
 @dataclass
@@ -254,7 +269,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                     # heredoc could in fact express -- `<<EOF\nEOF` evaluates
                     # to "" in Terraform and here. It stays quoted anyway,
                     # because `x = ""` says the same thing in one line.
-                    if content.endswith("\n") and _expressible_as_heredoc(content):
+                    if content.endswith("\n") and _expressible_as_heredoc(content, value[1:-1]):
                         return self._deserialize_string_as_heredoc(content)
 
                 return self._deserialize_string(value)

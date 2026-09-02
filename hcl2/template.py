@@ -70,6 +70,13 @@ def _scan_expression(text: str, start: int) -> int:
     length = len(text)
     while index < length:
         char = text[index]
+        if char == "\\":
+            # A backslash pair is one unit. Without this the scan enters string
+            # mode at the quote of a `\\"`, then reads the real closing quote as
+            # another escape and runs to the end of the text, swallowing
+            # everything after the expression into one span.
+            index += 2
+            continue
         if char == '"':
             index = _skip_string(text, index)
             continue
@@ -85,9 +92,11 @@ def _scan_expression(text: str, start: int) -> int:
             if depth == 0:
                 return index + 1
         index += 1
-    # Unbalanced: the caller gets the rest as one span rather than an error,
-    # because a serializer is the wrong place to reject what the parser took.
-    return length
+    # Unbalanced. Reported as such rather than swallowed: handing the rest
+    # back as an expression means nothing escapes it, and the heredoc paths
+    # then emit raw newlines and unescaped quotes into what is supposed to be
+    # quoted-string source. Treated as literal it is at least well-formed.
+    return -1
 
 
 def split_template(text: str) -> Iterator[Tuple[str, str]]:
@@ -97,12 +106,23 @@ def split_template(text: str) -> Iterator[Tuple[str, str]]:
     the `$${` and `%%{` escapes themselves, and `INTERPOLATION` for a `${...}`
     or `%{...}` span, whose content is expression source.
     """
+    if "$" not in text and "%" not in text:
+        # The overwhelmingly common case, and the one this used to make
+        # expensive: a per-character loop where a scan for two characters
+        # answers the question. `process_escape_sequences` has the same guard.
+        if text:
+            yield LITERAL, text
+        return
+
     index = 0
     literal_start = 0
     length = len(text)
 
     while index < length:
         char = text[index]
+        if char == "\\":
+            index += 2
+            continue
         if char in _OPENERS:
             escape = _ESCAPES[char]
             if text.startswith(escape, index):
@@ -111,9 +131,14 @@ def split_template(text: str) -> Iterator[Tuple[str, str]]:
                 index += len(escape)
                 continue
             if text.startswith(_OPENERS[char], index):
+                end = _scan_expression(text, index + 1)
+                if end == -1:
+                    # Nothing closes it, so the rest is literal text -- and the
+                    # leading run has to stay unyielded, or the tail below
+                    # repeats it.
+                    break
                 if literal_start != index:
                     yield LITERAL, text[literal_start:index]
-                end = _scan_expression(text, index + 1)
                 yield INTERPOLATION, text[index:end]
                 index = end
                 literal_start = index
