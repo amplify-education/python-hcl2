@@ -141,3 +141,44 @@ class TestEscapesDoNotCrossIntoAnExpression(TestCase):
             loads(restored, serialization_options=VALUE)["a"],
             loads(source, serialization_options=VALUE)["a"],
         )
+
+
+class TestBracesThatAreNotStructural(TestCase):
+    r"""Three things inside an expression may carry a brace that does not nest.
+
+    A string literal was handled from the start. Comments were not, and HCL
+    writes them three ways: OpenTofu evaluates `${1 /* } */ + 2}` to 3, so a
+    scan that counts that brace closes the expression inside itself and hands
+    the rest back as literal text -- which flattening then escapes, rewriting
+    expression source.
+    """
+
+    def test_a_brace_in_a_block_comment(self):
+        self.assertEqual(
+            list(split_template("${1 /* } */ + 2}")), [(INTERPOLATION, "${1 /* } */ + 2}")]
+        )
+
+    def test_a_brace_in_a_hash_comment(self):
+        self.assertEqual(
+            list(split_template('${ foo( # }\n  "a") }')),
+            [(INTERPOLATION, '${ foo( # }\n  "a") }')],
+        )
+
+    def test_a_brace_in_a_slash_comment(self):
+        self.assertEqual(
+            list(split_template("${ a // }\n }")), [(INTERPOLATION, "${ a // }\n }")]
+        )
+
+    def test_a_brace_in_a_string_literal(self):
+        self.assertEqual(
+            list(split_template('${ {k = "}"} }')), [(INTERPOLATION, '${ {k = "}"} }')]
+        )
+
+    def test_an_unterminated_comment_does_not_hang(self):
+        self.assertEqual(list(split_template("${ a /* } ")), [(INTERPOLATION, "${ a /* } ")])
+
+    def test_flattening_leaves_a_commented_expression_alone(self):
+        self.assertEqual(
+            loads('a = <<EOT\n${1 /* } */ + 2}\nEOT\n', serialization_options=FLAT)["a"],
+            '"${1 /* } */ + 2}\\n"',
+        )

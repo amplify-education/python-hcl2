@@ -25,11 +25,45 @@ _OPENERS = {"$": "${", "%": "%{"}
 _ESCAPES = {"$": "$${", "%": "%%{"}
 
 
+def _skip_string(text: str, index: int) -> int:
+    """Return the index just past the string literal opening at *index*."""
+    length = len(text)
+    index += 1
+    while index < length:
+        if text[index] == "\\":
+            index += 2
+            continue
+        if text[index] == '"':
+            return index + 1
+        index += 1
+    return length
+
+
+def _skip_comment(text: str, index: int) -> int:
+    """Return the index just past the comment opening at *index*, or *index*.
+
+    HCL writes them three ways, and all three may hold a brace: `#` and `//`
+    run to the end of the line, `/* */` to its terminator. OpenTofu evaluates
+    `${1 /* } */ + 2}` to 3, so a scan that counts that brace closes the
+    expression in the middle of itself.
+    """
+    if text.startswith("/*", index):
+        end = text.find("*/", index + 2)
+        return len(text) if end == -1 else end + 2
+    if text.startswith("//", index) or text[index] == "#":
+        end = text.find("\n", index)
+        return len(text) if end == -1 else end
+    return index
+
+
 def _scan_expression(text: str, start: int) -> int:
     """Return the index just past the `}` closing the span opened at *start*.
 
-    Braces nest, and a string literal inside may contain braces of its own or
-    an escaped quote, so neither can be found by counting alone.
+    Braces nest, and three things inside an expression may carry one that is
+    not structural: a string literal, a comment, and the body of a heredoc
+    written inline. The first two are skipped here. A brace in a heredoc body
+    is not, which is a known gap rather than an oversight -- recognising one
+    means matching its delimiter, and the case has not been seen in the wild.
     """
     depth = 0
     index = start
@@ -37,16 +71,13 @@ def _scan_expression(text: str, start: int) -> int:
     while index < length:
         char = text[index]
         if char == '"':
-            index += 1
-            while index < length:
-                if text[index] == "\\":
-                    index += 2
-                    continue
-                if text[index] == '"':
-                    break
-                index += 1
-            index += 1
+            index = _skip_string(text, index)
             continue
+        if char == "#" or text.startswith("//", index) or text.startswith("/*", index):
+            skipped = _skip_comment(text, index)
+            if skipped != index:
+                index = skipped
+                continue
         if char == "{":
             depth += 1
         elif char == "}":
