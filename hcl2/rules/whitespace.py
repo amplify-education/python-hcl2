@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 from hcl2.rules.abstract import LarkRule
 from hcl2.rules.literal_rules import TokenRule
 from hcl2.rules.tokens import NL_OR_COMMENT
-from hcl2.utils import SerializationContext, SerializationOptions
+from hcl2.utils import SerializationOptions
 
 
 class NewLineOrCommentRule(TokenRule):
@@ -22,7 +22,7 @@ class NewLineOrCommentRule(TokenRule):
         """Create an instance from a raw comment or newline string."""
         return cls([NL_OR_COMMENT(string)])  # type: ignore[abstract]  # pylint: disable=abstract-class-instantiated
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(self, options=SerializationOptions(), context=None) -> Any:
         """Serialize to the raw comment/newline string."""
         return "".join(child.serialize() for child in self._children)
 

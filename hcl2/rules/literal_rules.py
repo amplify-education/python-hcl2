@@ -17,7 +17,7 @@ class TokenRule(LarkRule, ABC):
         """Return the single token child."""
         return self._children[0]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(self, options=SerializationOptions(), context=None) -> Any:
         """Serialize by delegating to the token's own serialization."""
         return self.token.serialize()
 
@@ -41,8 +41,9 @@ class LiteralValueRule(TokenRule):
         """Return the grammar rule name."""
         return "literal_value"
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(self, options=SerializationOptions(), context=None) -> Any:
         """Serialize to Python True, False, or None."""
+        context = context if context is not None else SerializationContext()
         value = self.token.value
         if context.inside_dollar_string:
             return str(value)
@@ -75,8 +76,9 @@ class FloatLitRule(TokenRule):
         """Return the grammar rule name."""
         return "float_lit"
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(self, options=SerializationOptions(), context=None) -> Any:
         """Serialize, preserving scientific notation when configured."""
+        context = context if context is not None else SerializationContext()
         value = self.token.value
         # Scientific notation (e.g. 1.23e5) cannot survive a Python float()
         # round-trip, so preserve it as a ${...} expression string.

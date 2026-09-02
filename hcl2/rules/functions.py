@@ -50,8 +50,9 @@ class ArgumentsRule(InlineCommentMixIn):
         """Return the list of expression arguments."""
         return [child for child in self._children if isinstance(child, ExpressionRule)]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(self, options=SerializationOptions(), context=None) -> Any:
         """Serialize to a comma-separated argument string."""
+        context = context if context is not None else SerializationContext()
         result = ", ".join(str(argument.serialize(options, context)) for argument in self.arguments)
         if self.has_ellipsis:
             result += " ..."
@@ -90,8 +91,9 @@ class FunctionCallRule(InlineCommentMixIn):
                 return child
         return None
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(self, options=SerializationOptions(), context=None) -> Any:
         """Serialize to 'func(args)' string."""
+        context = context if context is not None else SerializationContext()
         with context.modify(inside_dollar_string=True):
             name = "::".join(identifier.serialize(options, context) for identifier in self.identifiers)
             args = self.arguments
