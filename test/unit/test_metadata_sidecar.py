@@ -298,3 +298,46 @@ class TestMergingKeepsTheSidecar(TestCase):
         # `{**body}` always builds a plain dict and there is no hook for it.
         # Stated rather than left to be discovered.
         self.assertIsNone(meta_of({**self.body}))
+
+
+class TestDeepcopyHandlesACycle(TestCase):
+    """`dict` copies a self-referencing mapping; a subclass that did not would
+    make cyclic structures worse than the mapping it replaces.
+
+    `copy.deepcopy` passes a memo so that a value reached twice is copied once.
+    Registering the duplicate in it has to happen before the children are
+    copied: a child holding a reference back to this dict otherwise arrives
+    with nothing memoised, and the descent does not terminate.
+    """
+
+    def test_a_self_reference_is_copied_rather_than_recursed(self):
+        body = HclDict({"x": 1}, meta=HclMeta(is_block=True))
+        body["self"] = body
+
+        duplicate = copy.deepcopy(body)
+
+        self.assertIsNot(duplicate, body)
+        self.assertIs(duplicate["self"], duplicate)
+        self.assertEqual(duplicate["x"], 1)
+        self.assertTrue(meta_of(duplicate).is_block)
+
+    def test_two_dicts_referring_to_each_other(self):
+        first = HclDict({"name": "first"}, meta=HclMeta(is_block=True))
+        second = HclDict({"name": "second"})
+        first["other"] = second
+        second["other"] = first
+
+        duplicate = copy.deepcopy(first)
+
+        self.assertIs(duplicate["other"]["other"], duplicate)
+        self.assertEqual(duplicate["other"]["name"], "second")
+        self.assertTrue(meta_of(duplicate).is_block)
+
+    def test_a_dict_reached_twice_is_copied_once(self):
+        shared = HclDict({"n": 1})
+        body = HclDict({"a": shared, "b": shared}, meta=HclMeta(is_block=True))
+
+        duplicate = copy.deepcopy(body)
+
+        self.assertIs(duplicate["a"], duplicate["b"])
+        self.assertIsNot(duplicate["a"], shared)

@@ -83,12 +83,20 @@ class HclDict(Dict[str, Any]):
         return self.copy()
 
     def __deepcopy__(self, memo: dict) -> "HclDict":
-        """Same for `copy.deepcopy`, metadata included."""
-        duplicate = HclDict(
-            {key: copy_module.deepcopy(value, memo) for key, value in self.items()},
-            meta=copy_module.deepcopy(self.hcl_meta, memo),
-        )
+        """Same for `copy.deepcopy`, metadata included.
+
+        The duplicate is recorded in *memo* before anything inside it is
+        copied. A mapping may hold a reference back to itself, and copying
+        the children first means the recursion reaches this dict again with
+        nothing recorded, which does not terminate. `dict` registers its own
+        copy first for that reason; a subclass that did not would make a
+        cyclic document worse than the plain mapping it replaces.
+        """
+        duplicate = HclDict()
         memo[id(self)] = duplicate
+        duplicate.hcl_meta = copy_module.deepcopy(self.hcl_meta, memo)
+        for key, value in self.items():
+            duplicate[copy_module.deepcopy(key, memo)] = copy_module.deepcopy(value, memo)
         return duplicate
 
     def __reduce__(self) -> Tuple[Any, ...]:
