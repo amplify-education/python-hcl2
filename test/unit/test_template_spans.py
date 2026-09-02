@@ -272,3 +272,32 @@ class TestTheWriterResolvesUnicodeEscapes(TestCase):
     def test_a_wide_escape_becomes_its_character(self):
         source = '"' + chr(92) + "U0001F600" + chr(92) + "n" + '"'
         self.assertEqual(dumps({"a": source}, deserializer_options=HEREDOCS), "a = <<EOF\n\U0001f600\nEOF\n")
+
+
+class TestADirectiveDoesNotHideTheMarkers(TestCase):
+    """A directive and everything it encloses arrive as one part.
+
+    So a `$${` written between `%{ if }` and `%{ endif }` never reached the
+    branch that resolves markers, and stayed doubled -- while the same content
+    in a heredoc resolved, because that path works on text rather than parts.
+    The two source forms disagreed for identical content.
+    """
+
+    def _quoted(self, body: str) -> str:
+        return loads(f'a = "{body}"\n', serialization_options=QUOTED_VALUE)["a"]
+
+    def _heredoc(self, body: str) -> str:
+        return loads(f"a = <<EOT\n{body}\nEOT\n", serialization_options=VALUE)["a"]
+
+    def test_a_marker_inside_a_directive_resolves(self):
+        self.assertEqual(self._quoted("%{ if true }$${lit}%{ endif }"), "%{ if true }${lit}%{ endif }")
+
+    def test_the_two_forms_agree(self):
+        body = "%{ if true }$${lit}%{ endif }"
+        self.assertEqual(self._quoted(body), self._heredoc(body).rstrip("\n"))
+
+    def test_a_directive_without_a_marker_is_unchanged(self):
+        self.assertEqual(self._quoted("%{ if x }t%{ endif }"), "%{ if x }t%{ endif }")
+
+    def test_an_interpolation_is_still_left_alone(self):
+        self.assertEqual(self._quoted("pre${var.x}post"), "pre${var.x}post")

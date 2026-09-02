@@ -165,7 +165,13 @@ class StringRule(LarkRule):
             return process_escape_sequences(serialized)
         if terminal in ("ESCAPED_INTERPOLATION", "ESCAPED_DIRECTIVE"):
             return serialized[1:]
-        return serialized
+        # Anything else is a nested template rule -- a directive and everything
+        # it encloses arrive as one part, so a marker written between `%{ if }`
+        # and `%{ endif }` never reaches the branch above and stayed doubled,
+        # while the same content in a heredoc resolved. The helper is
+        # span-aware: it resolves the markers in the literal stretches and
+        # leaves the directives themselves, which are expression source, alone.
+        return resolve_escaped_markers(serialized)
 
 
 class HeredocTemplateRule(LarkRule):
