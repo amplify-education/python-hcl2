@@ -95,8 +95,12 @@ class HclDict(Dict[str, Any]):
         """Carry the metadata through pickling, which `dict` would not."""
         return (_rebuild, (dict(self), self.hcl_meta))
 
-    def __or__(self, other: Any) -> "HclDict":
+    def __or__(self, other: Any) -> "HclDict":  # type: ignore[override]
         """Merge, keeping this side's metadata.
+
+        Narrower than `dict.__or__`, which is declared to return `dict` for any
+        mapping: this always returns an `HclDict`, so the ignore records a
+        deliberate narrowing rather than a mismatch.
 
         `dict.__or__` returns a plain `dict`, so `body | {"size": ...}` -- the
         idiomatic non-mutating edit -- would drop the sidecar and the block
@@ -107,7 +111,7 @@ class HclDict(Dict[str, Any]):
         merged.update(other)
         return merged
 
-    def __ror__(self, other: Any) -> "HclDict":
+    def __ror__(self, other: Any) -> "HclDict":  # type: ignore[override]
         """Same from the left, keeping this side's metadata."""
         merged = HclDict(other, meta=copy_module.copy(self.hcl_meta))
         merged.update(self)
