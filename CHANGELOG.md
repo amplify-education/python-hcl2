@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Fixed
+
+- A heredoc inside an expression is written as a string rather than spliced in bare. `SerializationContext.inside_dollar_string` says the text being produced is expression source, and `StringRule` checks it for exactly this reason; the heredoc rules did not, so `upper(<<E\nx\nE\n)` came back as `${upper(x)}` -- a reference to a variable nobody declared -- and a multi-line body put raw newlines into source that then did not parse. With `preserve_heredocs` on, the heredoc is now left as itself rather than wrapped in quotes: it is a legal argument that way, and OpenTofu rejects the quoted form with "Invalid multi-line string". ([#340](https://github.com/amplify-education/python-hcl2/issues/340))
+- A string literal inside a template directive keeps its delimiters in the value form. `TemplateStringRule` only ever appears inside `%{ ... }`, where the text is expression source and the quotes belong to a literal written in it, so dropping them turned `%{ if x == "y" }` into `%{ if x == y }`: a comparison against a variable rather than against a string. ([#341](https://github.com/amplify-education/python-hcl2/issues/341))
 
 ## \[8.1.3\] - 2026-08-26
 

@@ -170,15 +170,28 @@ class HeredocTemplateRule(LarkRule):
             if not match:
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
             heredoc = _strip_closing_marker_line(match.group(2))
-            if options.strip_string_quotes:
+            if options.strip_string_quotes and not context.inside_dollar_string:
                 # The caller asked for the value, so hand back the body as-is:
                 # real newlines, no escaping. The escaping below exists only to
                 # build the quoted-string *source* form returned otherwise.
+                #
+                # Not inside an expression, though. There the heredoc is an
+                # argument, and its text is part of that expression's source:
+                # `upper(<<E\nx\nE\n)` has to come back as `upper("x")` and not
+                # as `upper(x)`, which asks for a variable nobody declared. A
+                # multi-line body made it worse, splicing raw newlines into
+                # source that then did not parse. `StringRule` checks the same
+                # flag one class away, for the same reason.
                 return heredoc
             heredoc = heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             return f'"{heredoc}"'
 
         result = heredoc.rstrip(self._trim_chars)
+        if context.inside_dollar_string:
+            # A heredoc is a legal argument, and it is already source: quoting
+            # it here would put its raw newlines inside a quoted string, which
+            # is not valid HCL.
+            return result
         if options.strip_string_quotes:
             return result
         return f'"{result}"'
@@ -232,9 +245,12 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
         if not options.preserve_heredocs:
             lines = [line.replace("\\", "\\\\").replace('"', '\\"') for line in lines]
 
-        if options.strip_string_quotes:
+        if options.strip_string_quotes and not context.inside_dollar_string:
             # Value, not source: join with real newlines regardless of
             # preserve_heredocs, and skip the escaping done for the quoted form.
+            # Inside an expression the text is that expression's source, so the
+            # quoted form below is what belongs there -- see the note in
+            # `HeredocTemplateRule.serialize`.
             return "\n".join(lines)
 
         sep = "\\n" if not options.preserve_heredocs else "\n"
@@ -272,8 +288,14 @@ class TemplateStringRule(LarkRule):
         Inside template directive expressions, strings are delimited by \\"
         rather than plain ". We preserve these as \\" in serialized form so
         the deserializer can reconstruct them correctly.
+
+        `strip_string_quotes` asks for a value, and this rule only ever appears
+        inside a directive -- where the text is expression source and the
+        delimiters belong to a string literal written in it. Dropping them
+        there turned `%{ if x == "y" }` into `%{ if x == y }`: a comparison
+        against a variable rather than against a string.
         """
         raw = self.raw_value
-        if options.strip_string_quotes:
+        if options.strip_string_quotes and not context.inside_dollar_string:
             return self.inner_value
         return raw
