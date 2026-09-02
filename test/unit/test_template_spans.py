@@ -18,8 +18,9 @@ from unittest import TestCase
 
 from hcl2.api import dumps, loads
 from hcl2.deserializer import DeserializerOptions
+from hcl2.rules.strings import _escape_for_quoted_source
 from hcl2.template import INTERPOLATION, LITERAL, split_template
-from hcl2.utils import SerializationOptions
+from hcl2.utils import SerializationOptions, process_escape_sequences
 
 FLAT = SerializationOptions(preserve_heredocs=False)
 VALUE = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
@@ -227,3 +228,47 @@ class TestABackslashPairIsOneUnit(TestCase):
 
     def test_an_escaped_quote_inside_a_nested_literal(self):
         self.assertEqual(list(split_template(r'${ "a\"b" }')), [(INTERPOLATION, r'${ "a\"b" }')])
+
+
+class TestTheEscaperMatchesTheResolver(TestCase):
+    r"""The two halves spell the same alphabet, and drift is how #329 happened.
+
+    `process_escape_sequences` resolves seven markers; `_escape_for_quoted_source`
+    writes four. The two it does not write -- `\t` and the unicode forms -- are
+    deliberate: a tab and an accented character are legal inside a quoted
+    string as themselves, so escaping them is unnecessary rather than wrong.
+    What matters is that every marker the escaper *does* write is one the
+    resolver reads back, so a value survives the round trip.
+    """
+
+    ESCAPED = {"\\": "\\\\", '"': '\\"', "\r": "\\r", "\n": "\\n"}
+
+    def test_every_escape_written_is_read_back(self):
+        for character, written in self.ESCAPED.items():
+            with self.subTest(character=character):
+                self.assertEqual(_escape_for_quoted_source(character), written)
+                self.assertEqual(process_escape_sequences(written), character)
+
+    def test_a_body_of_every_escaped_character_round_trips(self):
+        body = "".join(self.ESCAPED)
+        self.assertEqual(process_escape_sequences(_escape_for_quoted_source(body)), body)
+
+    def test_characters_left_unescaped_are_legal_as_themselves(self):
+        # A tab and a non-ASCII character need no escape inside a quoted
+        # string, so the escaper leaves them; the resolver still reads the
+        # escaped spelling if a document uses it.
+        self.assertEqual(_escape_for_quoted_source("a\té"), "a\té")
+        self.assertEqual(process_escape_sequences(r"a\tb"), "a\tb")
+        self.assertEqual(process_escape_sequences(r"café"), "café")
+
+
+class TestTheWriterResolvesUnicodeEscapes(TestCase):
+    r"""The earlier test used a literal e-acute, which passes without the fix."""
+
+    def test_a_bmp_escape_becomes_its_character(self):
+        source = '"' + chr(92) + "u00e9" + chr(92) + "n" + '"'
+        self.assertEqual(dumps({"a": source}, deserializer_options=HEREDOCS), "a = <<EOF\né\nEOF\n")
+
+    def test_a_wide_escape_becomes_its_character(self):
+        source = '"' + chr(92) + "U0001F600" + chr(92) + "n" + '"'
+        self.assertEqual(dumps({"a": source}, deserializer_options=HEREDOCS), "a = <<EOF\n\U0001f600\nEOF\n")

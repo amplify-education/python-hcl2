@@ -65,6 +65,22 @@ from hcl2.transformer import RuleTransformer
 from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN, process_escape_sequences
 
 
+def _may_end_a_heredoc(inner: str) -> bool:
+    r"""Whether *inner* could possibly resolve to a newline-terminated value.
+
+    Only such a value can be written as a heredoc, and resolving the escapes to
+    find out costs a pass over the whole string -- for a document where nothing
+    ends in a newline, every one of those passes is discarded. The last two
+    characters answer it: a value ends with a newline only if its source ends
+    with one, escaped or real.
+
+    Conservative on purpose. `"a\\n"` ends with a backslash and an `n` and
+    passes here, then resolves to those two characters and is rejected by the
+    check that actually matters.
+    """
+    return inner.endswith("\\n") or inner.endswith("\n")
+
+
 def _unescape_heredoc_body(inner: str) -> str:
     r"""Resolve a quoted string's escapes for a body that interprets none.
 
@@ -258,7 +274,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                     if match:
                         return self._deserialize_heredoc(value[1:-1], False)
 
-                if self.options.strings_to_heredocs:
+                if self.options.strings_to_heredocs and _may_end_a_heredoc(value[1:-1]):
                     content = _unescape_heredoc_body(value[1:-1])
                     # A heredoc's closing marker sits on a line of its own, so
                     # any body with content in it ends with a newline. A value

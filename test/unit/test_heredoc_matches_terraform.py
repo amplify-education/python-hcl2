@@ -60,6 +60,11 @@ CASES = [
     ("<<-EOT\n\va\n\vb\n\vEOT", "a\nb\n"),
     ("<<-EOT\n\fa\n\fb\n\fEOT", "a\nb\n"),
     ("<<-EOT\n\u3000a\n\u3000b\n\u3000EOT", "a\nb\n"),
+    # `$${` and `%%{` are escapes for a literal sigil, in a heredoc as much as
+    # in a quoted string, so the value carries the single form.
+    ("<<EOT\n$${esc}\nEOT", "${esc}\n"),
+    ("<<EOT\n%%{d}\nEOT", "%{d}\n"),
+    ("<<-EOT\n  $${esc}\n  EOT", "${esc}\n"),
 ]
 
 
