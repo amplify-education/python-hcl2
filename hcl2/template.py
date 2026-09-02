@@ -192,3 +192,18 @@ def map_literal_spans(text: str, transform: Callable[[str], str]) -> str:
     someone else's source and changes what it means.
     """
     return "".join(transform(chunk) if kind == LITERAL else chunk for kind, chunk in split_template(text))
+
+
+def has_multi_line_span(text: str) -> bool:
+    """Whether any `${...}` or `%{...}` in *text* runs across a line.
+
+    Such a body has no quoted spelling. The newlines inside the span are
+    expression source, where OpenTofu rejects an escaped one -- "This character
+    is not used within the language" -- and a raw one makes the quoted string
+    span lines, which it rejects as well. So the flattened form cannot express
+    it, and the only answer that does not change what the document means is to
+    decline.
+    """
+    return any(
+        kind == INTERPOLATION and ("\n" in chunk or "\r" in chunk) for kind, chunk in split_template(text)
+    )

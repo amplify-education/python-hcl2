@@ -17,7 +17,7 @@ from hcl2.rules.tokens import (
     STRING_CHARS,
     TEMPLATE_STRING,
 )
-from hcl2.template import map_literal_spans, resolve_escaped_markers
+from hcl2.template import has_multi_line_span, map_literal_spans, resolve_escaped_markers
 from hcl2.utils import (
     HEREDOC_PATTERN,
     HEREDOC_TRIM_PATTERN,
@@ -195,6 +195,7 @@ class HeredocTemplateRule(LarkRule):
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize the heredoc, optionally stripping to a plain string."""
         heredoc = self.heredoc.serialize(options, context)
+        raw = heredoc
 
         if not options.preserve_heredocs:
             match = HEREDOC_PATTERN.match(heredoc)
@@ -210,6 +211,11 @@ class HeredocTemplateRule(LarkRule):
             # expression source, and escaping a quote there rewrites someone
             # else's code: `${upper("a")}` would become `${upper(\\"a\\")}`,
             # which OpenTofu rejects outright.
+            if has_multi_line_span(heredoc):
+                # No quoted spelling exists, so the heredoc is handed back as
+                # it was written -- the same form `preserve_heredocs=True`
+                # produces, which reads back as this heredoc.
+                return f'"{raw.rstrip(self._trim_chars)}"'
             return '"' + map_literal_spans(heredoc, _escape_for_quoted_source) + '"'
 
         result = heredoc.rstrip(self._trim_chars)
@@ -234,6 +240,7 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
         # This is a special version of heredocs that are declared with "<<-",
         # whose body is dedented by the smallest indent any of its lines carries.
         heredoc = self.heredoc.serialize(options, context)
+        raw = heredoc
 
         if not options.preserve_heredocs:
             match = HEREDOC_TRIM_PATTERN.match(heredoc)
@@ -243,6 +250,8 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
             if options.strip_string_quotes:
                 # The caller asked for the value: real newlines, no escaping.
                 return resolve_escaped_markers(body)
+            if has_multi_line_span(body):
+                return f'"{raw.rstrip(self._trim_chars)}"'
             return '"' + map_literal_spans(body, _escape_for_quoted_source) + '"'
 
         result = heredoc.rstrip(self._trim_chars)
