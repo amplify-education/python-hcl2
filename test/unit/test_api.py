@@ -528,8 +528,21 @@ class TestStripStringQuotes(TestCase):
     def test_interpolation_is_left_alone(self):
         self.assertEqual(self._load('a = "pre${var.x}post"\n'), {"a": "pre${var.x}post"})
 
-    def test_escaped_interpolation_marker_is_left_alone(self):
-        self.assertEqual(self._load('a = "lit $${x}"\n'), {"a": "lit $${x}"})
+    def test_escaped_interpolation_marker_resolves_to_one_sigil(self):
+        r"""`$${` is an escape, so the value carries a single `${`.
+
+        This asserted the doubled form until GH #336. `$${` and `%%{` are what
+        HCL provides for writing a literal `${` and `%{`, exactly as `\"` is
+        for a quote: OpenTofu v1.12.5 evaluates `"$${esc}"` to the six
+        characters `${esc}`. Leaving them doubled made the value differ from
+        the one Terraform reads, in the one mode that promises the value.
+        """
+        self.assertEqual(self._load('a = "lit $${x}"\n'), {"a": "lit ${x}"})
+        self.assertEqual(self._load('a = "lit %%{x}"\n'), {"a": "lit %{x}"})
+
+    def test_a_doubled_sigil_without_a_brace_is_not_an_escape(self):
+        """`$$` and `%%` are only escapes in front of `{`."""
+        self.assertEqual(self._load('a = "$$notbrace %%either"\n'), {"a": "$$notbrace %%either"})
 
     def test_default_options_still_preserve_source_form(self):
         """Without the option, the source form is kept for reconstruction."""
@@ -556,7 +569,7 @@ class TestSingleCharacterHeredocDelimiter(TestCase):
 
     def test_single_character_delimiter_flattens(self):
         options = SerializationOptions(preserve_heredocs=False)
-        self.assertEqual(loads("a = <<E\nx\nE\n", serialization_options=options), {"a": '"x"'})
+        self.assertEqual(loads("a = <<E\nx\nE\n", serialization_options=options), {"a": '"x\\n"'})
 
     def test_single_character_delimiter_does_not_swallow_what_follows(self):
         self.assertEqual(loads("a = <<E\nx\nE\nb = 1\n"), {"a": '"<<E\nx\nE"', "b": 1})
@@ -584,12 +597,12 @@ class TestHeredocFlattenedToValue(TestCase):
 
     def test_value_has_real_newlines(self):
         result = loads("a = <<EOT\nline1\nline2\nEOT\n", serialization_options=self._VALUE)
-        self.assertEqual(result, {"a": "line1\nline2"})
+        self.assertEqual(result, {"a": "line1\nline2\n"})
 
     def test_trimmed_value_has_real_newlines(self):
         source = "a = <<-EOT\n  line1\n  line2\n  EOT\n"
         result = loads(source, serialization_options=self._VALUE)
-        self.assertEqual(result, {"a": "line1\nline2"})
+        self.assertEqual(result, {"a": "line1\nline2\n"})
 
     def test_multiline_secret_survives_intact(self):
         """The reported case: a heredoc-defined key block must stay multi-line."""
@@ -603,23 +616,24 @@ class TestHeredocFlattenedToValue(TestCase):
             "}\n"
         )
         value = loads(source, serialization_options=self._VALUE)["keys"]["private"]
-        self.assertEqual(value.count("\n"), 2)
+        # Three lines, each terminated by its own newline -- the last included.
+        self.assertEqual(value.count("\n"), 3)
         self.assertNotIn("\\n", value)
         self.assertTrue(value.startswith("-----BEGIN"))
-        self.assertTrue(value.endswith("KEY BLOCK-----"))
+        self.assertTrue(value.endswith("KEY BLOCK-----\n"))
 
     def test_quoted_form_still_escapes(self):
         """Without strip_string_quotes the result is source and must escape."""
         result = loads("a = <<EOT\nline1\nline2\nEOT\n", serialization_options=self._SOURCE)
-        self.assertEqual(result, {"a": '"line1\\nline2"'})
+        self.assertEqual(result, {"a": '"line1\\nline2\\n"'})
 
     def test_embedded_quote_and_backslash_only_escaped_in_source_form(self):
         source = 'a = <<EOT\nsay "hi"\nback\\slash\nEOT\n'
         self.assertEqual(
             loads(source, serialization_options=self._VALUE),
-            {"a": 'say "hi"\nback\\slash'},
+            {"a": 'say "hi"\nback\\slash\n'},
         )
         self.assertEqual(
             loads(source, serialization_options=self._SOURCE),
-            {"a": '"say \\"hi\\"\\nback\\\\slash"'},
+            {"a": '"say \\"hi\\"\\nback\\\\slash\\n"'},
         )
