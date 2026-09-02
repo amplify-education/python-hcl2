@@ -354,8 +354,9 @@ class TestJsonToHclFlags(TestCase):
         self.assertIn('"', converted.split("=", 1)[1].strip())
 
     def test_strings_to_heredocs_flag(self):
-        # Quoted strings with escaped newlines get converted to heredocs
-        data = {"x": '"hello\\nworld"'}
+        # A newline-terminated string is what a heredoc body looks like, and is
+        # the only shape converted -- see the deserializer tests for why.
+        data = {"x": '"hello\\nworld\\n"'}
         default = self._run_json_to_hcl(data)
         converted = self._run_json_to_hcl(data, ["--strings-to-heredocs"])
         self.assertNotEqual(default, converted)
