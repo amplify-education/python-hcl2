@@ -66,12 +66,15 @@ from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
 _HEREDOC_BODY_ESCAPES = {"n": "\n", "r": "\r"}
 
 # A line that could end a heredoc: the delimiter word alone, give or take
-# surrounding spaces and tabs. This grammar is stricter than Terraform, whose
+# surrounding spaces and tabs -- and a carriage return, because the body is
+# split on "\n" and a CRLF line hands back its own `\r`. OpenTofu ends a
+# heredoc on `EOF\r` exactly as it does on `EOF `, so a CRLF body carrying
+# the delimiter has to count. This grammar is stricter than Terraform, whose
 # scanner ends the heredoc on `EOF  ` while `HEREDOC_TEMPLATE` here requires
 # the newline to follow the word itself. The looser reading is the safe one to
 # pick a delimiter against: emitting a body that only Terraform would treat as
 # closed writes a file this library can read and Terraform cannot.
-_CLOSING_MARKER_LINE = re.compile(r"[ \t]*([a-zA-Z][a-zA-Z0-9._-]*)[ \t]*")
+_CLOSING_MARKER_LINE = re.compile(r"[ \t]*([a-zA-Z][a-zA-Z0-9._-]*)[ \t\r]*")
 
 
 def _heredoc_delimiter(content: str) -> str:
@@ -96,6 +99,19 @@ def _heredoc_delimiter(content: str) -> str:
     while f"EOF_{suffix}" in occupied:
         suffix += 1
     return f"EOF_{suffix}"
+
+
+def _expressible_as_heredoc(content: str) -> bool:
+    """Whether *content* can be a heredoc body without changing.
+
+    A heredoc body is read literally, so it can hold a carriage return only
+    where one ends a line. A lone `\r` makes the file unreadable rather than
+    merely different: OpenTofu rejects `<<EOF\nx\ry\nEOF` with "No closing
+    marker was found for the string", while the quoted `"x\ry\n"` it came
+    from is valid and evaluates to that carriage return. Such a value stays
+    quoted, for the same reason one that does not end in a newline does.
+    """
+    return "\r" not in content.replace("\r\n", "")
 
 
 def _unescape_heredoc_body(inner: str) -> str:
@@ -244,7 +260,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                     # heredoc could in fact express -- `<<EOF\nEOF` evaluates
                     # to "" in Terraform and here. It stays quoted anyway,
                     # because `x = ""` says the same thing in one line.
-                    if content.endswith("\n"):
+                    if content.endswith("\n") and _expressible_as_heredoc(content):
                         return self._deserialize_string_as_heredoc(content)
 
                 return self._deserialize_string(value)

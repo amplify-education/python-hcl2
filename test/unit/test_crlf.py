@@ -214,5 +214,33 @@ class TestCrlfSurvivesFlattenAndRestore(TestCase):
     def test_a_trimmed_heredoc_survives_too(self):
         self.assertEqual(self._round_trip("a = <<-EOF\r\n  x\r\n  y\r\nEOF\r\n"), "x\r\ny\r\n")
 
-    def test_a_lone_mid_line_carriage_return_survives(self):
-        self.assertEqual(self._round_trip("a = <<EOF\nx\ry\nEOF\n"), "x\ry\n")
+    def test_a_lone_carriage_return_keeps_the_value_quoted(self):
+        r"""A heredoc body cannot hold a `\r` that does not end a line.
+
+        OpenTofu rejects `<<EOF\nx\ry\nEOF` with "No closing marker was
+        found for the string", while the quoted `"x\ry\n"` it came from is
+        valid and evaluates to that carriage return. Writing the heredoc
+        anyway traded a wrong value for an unreadable file; the value stays
+        quoted instead, as one that does not end in a newline does.
+        """
+        source = "a = <<EOF\nx\ry\nEOF\n"
+        restored = self._restore(source)
+        self.assertEqual(restored, 'a = "x\\ry\\n"\n')
+        self.assertEqual(self._round_trip(source), "x\ry\n")
+
+    def test_a_crlf_body_carrying_the_delimiter_gets_another_one(self):
+        r"""`EOF\r` ends a heredoc in Terraform, so it counts when choosing.
+
+        The body is split on `\n`, so a CRLF line hands back its own `\r`
+        and a marker check that only allowed spaces and tabs never saw it.
+        OpenTofu evaluates `<<EOF\nbody\r\nEOF\r\n` to `"body\r\n"` --
+        it ends there -- so writing `<<EOF` over a CRLF body containing that
+        line produced a file that closed early and no longer parsed.
+        """
+        # Such a body cannot be written as a heredoc source to read from --
+        # this parser ends it at that line too, as Terraform does -- so the
+        # value arrives the way it would in practice, from a quoted string.
+        quoted = r'"x\r\nEOF\r\ny\r\n"'
+        written = dumps({"a": quoted}, deserializer_options=self.HEREDOCS)
+        self.assertEqual(written, "a = <<EOF_1\nx\r\nEOF\r\ny\r\nEOF_1\n")
+        self.assertEqual(loads(written, serialization_options=self.VALUE)["a"], "x\r\nEOF\r\ny\r\n")
