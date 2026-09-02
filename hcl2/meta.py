@@ -45,8 +45,21 @@ class HclDict(Dict[str, Any]):
 
     __slots__ = ("hcl_meta",)
 
-    def __init__(self, *args: Any, meta: Optional[HclMeta] = None, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args: Any, meta: Optional[HclMeta] = None) -> None:
+        """Build from a mapping, with the metadata passed separately.
+
+        No `**kwargs`: this is the one class whose whole point is that no key
+        name is reserved, and taking keyword items would reserve `meta` --
+        `HclDict(**{"meta": "prod"})` would swallow the attribute and store a
+        string where the metadata goes. `meta` is a real name in real configs.
+        Pass the mapping positionally, as `dict` also allows.
+        """
+        super().__init__(*args)
+        if meta is not None and not isinstance(meta, HclMeta):
+            raise TypeError(
+                "HclDict(meta=...) takes an HclMeta; to store a key called "
+                f"'meta', pass the mapping positionally: HclDict({{'meta': {meta!r}}})"
+            )
         self.hcl_meta = meta if meta is not None else HclMeta()
 
     def __repr__(self) -> str:
@@ -81,6 +94,24 @@ class HclDict(Dict[str, Any]):
     def __reduce__(self) -> Tuple[Any, ...]:
         """Carry the metadata through pickling, which `dict` would not."""
         return (_rebuild, (dict(self), self.hcl_meta))
+
+    def __or__(self, other: Any) -> "HclDict":
+        """Merge, keeping this side's metadata.
+
+        `dict.__or__` returns a plain `dict`, so `body | {"size": ...}` -- the
+        idiomatic non-mutating edit -- would drop the sidecar and the block
+        would then be written as an object. `{**body, ...}` cannot be helped:
+        unpacking always builds a plain `dict`, and there is no hook for it.
+        """
+        merged = HclDict(self, meta=copy_module.copy(self.hcl_meta))
+        merged.update(other)
+        return merged
+
+    def __ror__(self, other: Any) -> "HclDict":
+        """Same from the left, keeping this side's metadata."""
+        merged = HclDict(other, meta=copy_module.copy(self.hcl_meta))
+        merged.update(self)
+        return merged
 
 
 def meta_of(value: Any) -> Optional[HclMeta]:

@@ -240,3 +240,61 @@ class TestTheQueryLayerWritesToTheSidecar(TestCase):
     def test_the_in_band_form_is_unchanged(self):
         body = self._to_dict(SerializationOptions(with_comments=True))
         self.assertEqual(body[COMMENTS_KEY], [{"value": "lead comment"}])
+
+
+class TestTheTypeIsPartOfThePublicSurface(TestCase):
+    """The CHANGELOG makes `HclDict` part of the contract, so it has to be reachable."""
+
+    def test_it_is_exported(self):
+        import hcl2
+
+        self.assertIs(hcl2.HclDict, HclDict)
+        self.assertIs(hcl2.HclMeta, HclMeta)
+        self.assertIs(hcl2.meta_of, meta_of)
+
+
+class TestNoKeyNameIsReserved(TestCase):
+    """Including `meta`, which the constructor would otherwise have taken.
+
+    `meta` is a real attribute name in real configs -- Nomad `meta` stanzas,
+    provider `meta` blocks -- and a class whose purpose is that no key name is
+    reserved cannot quietly reserve one. Taking keyword items would have:
+    `HclDict(**{"meta": "prod"})` swallowed the attribute and stored a string
+    where the metadata goes, and `repr` then raised `AttributeError`.
+    """
+
+    def test_a_key_called_meta_is_kept(self):
+        body = HclDict({"meta": '"prod"', "ami": '"a"'}, meta=HclMeta(is_block=True))
+        self.assertEqual(body["meta"], '"prod"')
+        self.assertTrue(meta_of(body).is_block)
+
+    def test_a_document_declaring_it_round_trips(self):
+        written = dumps(loads('block "a" {\n  meta = "prod"\n}\n', serialization_options=SIDECAR))
+        self.assertIn("meta", written)
+
+    def test_passing_something_else_as_meta_is_refused(self):
+        with self.assertRaises(TypeError):
+            HclDict({"a": 1}, meta="prod")
+
+
+class TestMergingKeepsTheSidecar(TestCase):
+    """`body | {...}` is the idiomatic non-mutating edit."""
+
+    def setUp(self):
+        self.body = loads('resource "aws_instance" "web" {\n  ami = "a"\n}\n', serialization_options=SIDECAR)[
+            "resource"
+        ][0]['"aws_instance"']['"web"']
+
+    def test_or_keeps_it(self):
+        merged = self.body | {"size": '"t2.micro"'}
+        self.assertTrue(meta_of(merged).is_block)
+        self.assertEqual(merged["size"], '"t2.micro"')
+
+    def test_ror_keeps_it(self):
+        merged = {"first": 1} | self.body
+        self.assertTrue(meta_of(merged).is_block)
+
+    def test_unpacking_cannot_keep_it(self):
+        # `{**body}` always builds a plain dict and there is no hook for it.
+        # Stated rather than left to be discovered.
+        self.assertIsNone(meta_of({**self.body}))
