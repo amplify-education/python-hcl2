@@ -180,7 +180,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements,too-many-lo
     parser.add_argument(
         "--strings-to-heredocs",
         action="store_true",
-        help="Convert strings containing escaped newlines to heredocs",
+        help="Convert newline-terminated escaped strings to heredocs",
     )
 
     # FormatterOptions flags

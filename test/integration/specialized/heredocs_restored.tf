@@ -1,12 +1,18 @@
 locals {
-  simple           = "hello world"
+  simple           = <<EOF
+hello world
+EOF
   multiline        = <<EOF
 line1
 line2
 line3
 EOF
-  with_quotes      = "say \"hello\""
-  with_backslashes = "path\\to\\file"
+  with_quotes      = <<EOF
+say "hello"
+EOF
+  with_backslashes = <<EOF
+path\to\file
+EOF
   trimmed          = <<EOF
 indented1
 indented2
@@ -16,9 +22,13 @@ line1
   line2
 line3
 EOF
-  json_content     = "{\"key\": \"value\"}"
+  json_content     = <<EOF
+{"key": "value"}
+EOF
   empty            = ""
   empty_trimmed    = ""
-  blank_line_only  = ""
+  blank_line_only  = <<EOF
+
+EOF
   after_empty      = "still parsed"
 }
