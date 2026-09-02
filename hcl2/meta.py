@@ -13,8 +13,9 @@ consumer that reads attributes keeps working unchanged, and `hcl_meta` holds
 what used to sit among them.
 """
 
+import copy as copy_module
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -54,8 +55,40 @@ class HclDict(Dict[str, Any]):
             return super().__repr__()
         return f"{super().__repr__()} + {self.hcl_meta!r}"
 
+    def copy(self) -> "HclDict":
+        """Copy the mapping and the metadata together.
+
+        `dict.copy` returns a plain `dict`, which would drop the sidecar --
+        and `document = document.copy()` is ordinary enough that losing block
+        metadata to it would be a trap. The in-band form survives a copy
+        because its metadata is among the keys; this has to say so explicitly.
+        """
+        return HclDict(self, meta=copy_module.copy(self.hcl_meta))
+
+    def __copy__(self) -> "HclDict":
+        """Same for `copy.copy`."""
+        return self.copy()
+
+    def __deepcopy__(self, memo: dict) -> "HclDict":
+        """Same for `copy.deepcopy`, metadata included."""
+        duplicate = HclDict(
+            {key: copy_module.deepcopy(value, memo) for key, value in self.items()},
+            meta=copy_module.deepcopy(self.hcl_meta, memo),
+        )
+        memo[id(self)] = duplicate
+        return duplicate
+
+    def __reduce__(self) -> Tuple[Any, ...]:
+        """Carry the metadata through pickling, which `dict` would not."""
+        return (_rebuild, (dict(self), self.hcl_meta))
+
 
 def meta_of(value: Any) -> Optional[HclMeta]:
     """Return the metadata carried beside *value*, or None if it carries none."""
     meta = getattr(value, "hcl_meta", None)
     return meta if isinstance(meta, HclMeta) else None
+
+
+def _rebuild(items: Dict[str, Any], meta: HclMeta) -> HclDict:
+    """Reconstruct an `HclDict` from its pickled parts."""
+    return HclDict(items, meta=meta)

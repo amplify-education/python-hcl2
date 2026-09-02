@@ -11,7 +11,9 @@ caller cannot tell which happened, because by then the dict holds one value.
 holds attributes and nothing else, so there is nothing to collide with.
 """
 
+import copy
 import json
+import pickle
 from unittest import TestCase
 
 from hcl2.api import dumps, loads
@@ -123,3 +125,43 @@ class TestTheDefaultIsUnchanged(TestCase):
         body = loads('resource "a" "b" {\n  x = 1\n}\n')["resource"][0]['"a"']['"b"']
         self.assertTrue(body[IS_BLOCK])
         self.assertIsNone(meta_of(body))
+
+
+class TestCopyingCarriesTheSidecar(TestCase):
+    """`document.copy()` is ordinary enough that losing metadata to it is a trap.
+
+    `dict.copy` returns a plain `dict`, so an inherited copy would drop the
+    sidecar and the block would then be written as an object. The in-band form
+    survives a copy for free, because its metadata is among the keys; this has
+    to say so explicitly.
+    """
+
+    def setUp(self):
+        self.document = loads('resource "a" "b" {\n  x = 1\n}\n', serialization_options=SIDECAR)
+        self.body = self.document["resource"][0]['"a"']['"b"']
+
+    def test_the_dict_method(self):
+        duplicate = self.body.copy()
+        self.assertIsInstance(duplicate, HclDict)
+        self.assertTrue(meta_of(duplicate).is_block)
+
+    def test_copy_copy(self):
+        self.assertTrue(meta_of(copy.copy(self.body)).is_block)
+
+    def test_copy_deepcopy(self):
+        duplicate = copy.deepcopy(self.body)
+        self.assertTrue(meta_of(duplicate).is_block)
+        self.assertIsNot(meta_of(duplicate), meta_of(self.body))
+
+    def test_pickle(self):
+        self.assertTrue(meta_of(pickle.loads(pickle.dumps(self.body))).is_block)
+
+    def test_a_copied_document_still_writes_a_block(self):
+        copied = copy.deepcopy(self.document)
+        self.assertEqual(dumps(copied), dumps(self.document))
+
+    def test_dict_of_it_is_a_plain_dict(self):
+        # Deliberate: asking for a `dict` gives the mapping, nothing else.
+        plain = dict(self.body)
+        self.assertIsNone(meta_of(plain))
+        self.assertEqual(plain, {"x": 1})
