@@ -50,6 +50,16 @@ CASES = [
     ("<<-EOT\nEOT", ""),
     ("<<EOT\r\nx\r\ny\r\nEOT", "x\r\ny\r\n"),
     ("<<-EOT\r\n  x\r\n  EOT", "x\r\n"),
+    # `<<-` measures whitespace, not spaces and tabs. OpenTofu dedents a body
+    # indented with a non-breaking space, a vertical tab, a form feed or an
+    # ideographic space exactly as it dedents one indented with spaces, so
+    # measuring `line.lstrip()` matches it and `line.lstrip(" \t")` would not:
+    # against the stricter reading these bodies come back with their indent
+    # still attached.
+    ("<<-EOT\n\u00a0a\n\u00a0b\n\u00a0EOT", "a\nb\n"),
+    ("<<-EOT\n\va\n\vb\n\vEOT", "a\nb\n"),
+    ("<<-EOT\n\fa\n\fb\n\fEOT", "a\nb\n"),
+    ("<<-EOT\n\u3000a\n\u3000b\n\u3000EOT", "a\nb\n"),
 ]
 
 

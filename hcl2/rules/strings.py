@@ -41,11 +41,16 @@ def _strip_closing_marker_indent(text: str) -> str:
     is ``"line\n"``, which is what Terraform and OpenTofu evaluate it to.
 
     Trailing spaces on a content line survive too, because such a line always
-    ends with its own newline, so the match above never reaches them. This
+    ends with its own newline, and the match below cannot cross one. This
     replaced a blanket ``rstrip("\n\t ")``, which could tell none of these
     apart and discarded all of them.
+
+    The indentation is any whitespace but a newline, not spaces and tabs
+    alone: a marker indented with a non-breaking space, a vertical tab, a form
+    feed or an ideographic space is indented as far as OpenTofu is concerned,
+    and leaving those characters in place appended them to the value.
     """
-    return re.sub(r"[ \t]*\Z", "", text)
+    return re.sub(r"[^\S\n]*\Z", "", text)
 
 
 class InterpolationRule(LarkRule):
