@@ -126,8 +126,8 @@ class DeserializerOptions:
     heredocs_to_strings: bool = False
     # Convert newline-terminated escaped strings back into heredoc syntax
     # (<<EOF...EOF) during deserialization. A value that does not end in a
-    # newline is left quoted: a heredoc body always does, so writing one as a
-    # heredoc would hand back a different value on the next read.
+    # newline is left quoted: a non-empty heredoc body always does, so writing
+    # one as a heredoc would hand back a different value on the next read.
     strings_to_heredocs: bool = False
     # Use colon (:) instead of equals (=) as the separator in object elements.
     object_elements_colon: bool = False
@@ -236,9 +236,14 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                 if self.options.strings_to_heredocs:
                     content = _unescape_heredoc_body(value[1:-1])
                     # A heredoc's closing marker sits on a line of its own, so
-                    # its body always ends with a newline. A value that does not
-                    # cannot be written as one without gaining that character,
-                    # so it stays a quoted string.
+                    # any body with content in it ends with a newline. A value
+                    # that does not cannot be written as one without gaining
+                    # that character, so it stays a quoted string.
+                    #
+                    # The empty string is the one value this excludes that a
+                    # heredoc could in fact express -- `<<EOF\nEOF` evaluates
+                    # to "" in Terraform and here. It stays quoted anyway,
+                    # because `x = ""` says the same thing in one line.
                     if content.endswith("\n"):
                         return self._deserialize_string_as_heredoc(content)
 
