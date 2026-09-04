@@ -130,6 +130,14 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def block(self, meta: Meta, args) -> BlockRule:
+        # _attribute_name is flattened, so the block type and bare labels may be
+        # KeywordRule or LiteralValueRule; normalize so labels are all one type.
+        args = [
+            IdentifierRule([NAME(a.token.value)], meta)
+            if isinstance(a, (KeywordRule, LiteralValueRule))
+            else a
+            for a in args
+        ]
         return BlockRule(args, meta)
 
     @v_args(meta=True)

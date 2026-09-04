@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Fixed
+
+- Parse keywords as block types and block labels, not only as attribute names. `in { ... }`, `for { ... }`, `for_each { ... }`, and `resource in { ... }` all failed to parse even though the matching attribute form `in = 1` worked. Keywords are reserved only inside expressions; in a body they are ordinary names. ([#355](https://github.com/amplify-education/python-hcl2/pull/355))
 
 ## \[8.1.3\] - 2026-08-26
 

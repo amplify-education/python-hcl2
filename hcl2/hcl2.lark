@@ -113,7 +113,7 @@ start : body
 body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
 attribute : _attribute_name EQ expression
 _attribute_name : identifier | keyword | literal_value
-block : identifier (identifier | string)* new_line_or_comment? LBRACE body RBRACE
+block : _attribute_name (_attribute_name | string)* new_line_or_comment? LBRACE body RBRACE
 
 // Whitespace and comments
 new_line_or_comment: ( NL_OR_COMMENT )+
