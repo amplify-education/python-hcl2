@@ -130,6 +130,15 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def block(self, meta: Meta, args) -> BlockRule:
+        # _block_label is flattened, so a label may be a KeywordRule or a
+        # LiteralValueRule (HCL keywords are not reserved, so `in {}` is a
+        # legal block). Normalize them so labels are always identifiers.
+        args = [
+            IdentifierRule([NAME(arg.token.value)], meta)
+            if isinstance(arg, (KeywordRule, LiteralValueRule))
+            else arg
+            for arg in args
+        ]
         return BlockRule(args, meta)
 
     @v_args(meta=True)
@@ -331,6 +340,11 @@ class RuleTransformer(Transformer):
     @v_args(meta=True)
     def object_elem_key(self, meta: Meta, args):
         expr = args[0]
+        # A bare keyword key (`in = "header"`) arrives unwrapped, since
+        # `keyword` is its own alternative in the grammar rather than being
+        # reachable through `expression`. Treat it as an identifier key.
+        if isinstance(expr, KeywordRule):
+            return ObjectElemKeyRule([IdentifierRule([NAME(expr.token.value)], meta)], meta)
         # Simple literals (identifier, string, int, float) wrapped in ExprTermRule
         if isinstance(expr, ExprTermRule) and len(expr.children) == 5:
             inner = expr.children[2]  # position 2 in [None, None, inner, None, None]

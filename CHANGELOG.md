@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Fixed
+
+- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block of the Snowflake provider's `snowflake_schemas` data source. HCL does not reserve its keywords, so `if`, `in`, `for`, `for_each`, `else`, `endif`, `endfor`, `true`, `false`, and `null` are now accepted in every block label position and normalized to identifiers — matching the existing behaviour for keyword attribute names.
+- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). `object_elem_key` did not accept the keyword terminals, so a key such as `in` parsed only in states where the contextual lexer happened to fall back to `NAME` — which made the key's position inside the object decide whether the file parsed. `{ in = "header", name = "n" }` worked while `{ name = "n", in = "header" }` failed, so the `jsonencode` OpenAPI body from the original report still raised. Keys such as `for` failed in every position.
 
 ## \[8.1.3\] - 2026-08-26
 
