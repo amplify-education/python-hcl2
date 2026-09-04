@@ -1,0 +1,56 @@
+{
+  "resource": [
+    {
+      "\"custom_provider_resource\"": {
+        "\"resource_name\"": {
+          "name": "\"resource_name\"",
+          "if": [
+            {
+              "value": "\"block_value1\"",
+              "__is_block__": true
+            }
+          ],
+          "in": [
+            {
+              "value": "\"block_value2\"",
+              "__is_block__": true
+            }
+          ],
+          "for": [
+            {
+              "value": "\"block_value3\"",
+              "__is_block__": true
+            }
+          ],
+          "for_each": [
+            {
+              "value": "\"block_value4\"",
+              "__is_block__": true
+            }
+          ],
+          "true": [
+            {
+              "value": "\"block_value5\"",
+              "__is_block__": true
+            }
+          ],
+          "__is_block__": true
+        }
+      }
+    },
+    {
+      "in": {
+        "value": "\"keyword_label_value\"",
+        "__is_block__": true
+      }
+    }
+  ],
+  "in": [
+    {
+      "\"labeled_block\"": {
+        "value": "\"top_level_value\"",
+        "__is_block__": true
+      }
+    }
+  ]
+}
