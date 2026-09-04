@@ -113,7 +113,11 @@ start : body
 body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
 attribute : _attribute_name EQ expression
 _attribute_name : identifier | keyword | literal_value
-block : identifier (identifier | string)* new_line_or_comment? LBRACE body RBRACE
+// HCL does not reserve its keywords, so a block type or an unquoted label may
+// be spelled `in`, `for`, `true`, etc. (e.g. the `in` block in the Snowflake
+// provider). The transformer normalizes those back to identifiers.
+block : _block_label (_block_label | string)* new_line_or_comment? LBRACE body RBRACE
+_block_label : identifier | keyword | literal_value
 
 // Whitespace and comments
 new_line_or_comment: ( NL_OR_COMMENT )+
@@ -225,7 +229,13 @@ template_string : TEMPLATE_STRING
 tuple : LSQB new_line_or_comment? (expression new_line_or_comment? COMMA new_line_or_comment?)* (expression new_line_or_comment? COMMA? new_line_or_comment?)?  RSQB
 object : LBRACE new_line_or_comment? ((object_elem | (object_elem new_line_or_comment? COMMA)) new_line_or_comment?)* RBRACE
 object_elem : object_elem_key ( EQ | COLON ) expression
-object_elem_key : expression
+// `keyword` is listed explicitly because it is not reachable through
+// `expression`: `in`, `for`, etc. lex as their own terminals, never as NAME.
+// Without this, `{ type = "apiKey", in = "header" }` fails — the contextual
+// lexer only falls back to NAME in states that do not accept the keyword
+// terminal, which made the key's position in the object decide whether it
+// parsed. The transformer normalizes these to identifiers.
+object_elem_key : expression | keyword
 
 // Heredocs
 heredoc_template : HEREDOC_TEMPLATE

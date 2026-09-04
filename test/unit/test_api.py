@@ -20,6 +20,7 @@ from hcl2.api import (
     serialize,
     transform,
 )
+from hcl2.const import IS_BLOCK
 from hcl2.deserializer import DeserializerOptions
 from hcl2.formatter import FormatterOptions
 from hcl2.rules.base import StartRule
@@ -446,6 +447,137 @@ class TestNegatedKeywords(TestCase):
     def test_bare_keywords_are_still_python_values(self):
         """Outside an expression the keywords keep their Python mappings."""
         self.assertEqual(loads("x = true\ny = false\nz = null\n"), {"x": True, "y": False, "z": None})
+
+
+class TestKeywordBlocks(TestCase):
+    """HCL does not reserve its keywords, so `in {}` is a legal block.
+
+    The Snowflake provider's `snowflake_schemas` data source nests an `in`
+    block, and keyword-named block types used to fail to lex because `in`
+    only ever produced the `IN` terminal. Keywords are accepted in every
+    label position and normalized to identifiers, matching the long-standing
+    behaviour for keyword *attribute* names.
+    """
+
+    def test_in_block(self):
+        source = 'data "snowflake_schemas" "in" {\n  in {\n    database = "database"\n  }\n}\n'
+        inner = {"database": '"database"', IS_BLOCK: True}
+        self.assertEqual(
+            loads(source),
+            {"data": [{'"snowflake_schemas"': {'"in"': {"in": [inner], IS_BLOCK: True}}}]},
+        )
+
+    def test_every_keyword_is_a_valid_block_type(self):
+        for keyword in ("if", "in", "for", "for_each", "else", "endif", "endfor", "true", "false", "null"):
+            with self.subTest(keyword=keyword):
+                self.assertEqual(loads(f"{keyword} {{\n  a = 1\n}}\n"), {keyword: [{"a": 1, IS_BLOCK: True}]})
+
+    def test_keyword_as_quoted_and_unquoted_label(self):
+        self.assertEqual(loads('block "in" {\n  a = 1\n}\n'), {"block": [{'"in"': {"a": 1, IS_BLOCK: True}}]})
+        self.assertEqual(loads("block in {\n  a = 1\n}\n"), {"block": [{"in": {"a": 1, IS_BLOCK: True}}]})
+
+    def test_keyword_block_survives_the_direct_pipeline(self):
+        source = "in {\n  for = 1\n}\n"
+        self.assertEqual(reconstruct(parses(source).to_lark()), source)
+
+    def test_keyword_block_survives_the_dict_pipeline(self):
+        self.assertEqual(loads(dumps(loads("in {\n  a = 1\n}\n"))), {"in": [{"a": 1, IS_BLOCK: True}]})
+
+    def test_keyword_labels_are_normalized_to_identifiers(self):
+        """A `true` label must read back as the string "true", not Python `True`."""
+        block = query("true in {\n  a = 1\n}\n").blocks()[0]
+        self.assertEqual(block.block_type, "true")
+        self.assertEqual(block.labels, ["true", "in"])
+
+    def test_expression_keywords_still_parse(self):
+        """Accepting keyword labels must not break `for`/`if`/`in` in expressions."""
+        self.assertEqual(
+            loads("x = [for i in [1, 2] : i if i > 1]\n"), {"x": "${[for i in [1, 2] : i if i > 1]}"}
+        )
+
+
+class TestKeywordAttributeNames(TestCase):
+    """`in` as an attribute name — issue #148, fixed by PR #164.
+
+    The report is an OpenAPI body built with `jsonencode`, where `in` names
+    an *object element*. That is a different grammar path from a block-body
+    attribute (`object_elem_key` vs `_attribute_name`), and only the latter
+    got a regression test in #164. The object path then worked by accident:
+    the contextual lexer falls back to NAME only in states that do not accept
+    the `IN` terminal, so whether the key parsed depended on its position in
+    the object.
+    """
+
+    # https://github.com/amplify-education/python-hcl2/issues/148
+    # The report's own snippet, with its tab indentation normalized to spaces
+    # (whitespace is ignored here and mixing tabs into the source trips ruff).
+    ISSUE_148_SOURCE = """resource "aws_api_gateway_rest_api" "example" {
+
+  body = jsonencode({
+    security_definitions = {
+      sigv4 = {
+        type                         = "apiKey"
+        name                         = "Authorization"
+        in                           = "header"
+        x-amazon-apigateway-authtype = "awsSigv4"
+      }
+    }
+  })
+}
+"""
+
+    def test_issue_148_report(self):
+        body = loads(self.ISSUE_148_SOURCE)["resource"][0]['"aws_api_gateway_rest_api"']['"example"']
+        self.assertIn('in = "header"', body["body"])
+
+    def test_issue_148_report_with_tab_indentation(self):
+        """The report used tabs; whitespace must not matter."""
+        source = self.ISSUE_148_SOURCE.replace("    ", "\t")
+        body = loads(source)["resource"][0]['"aws_api_gateway_rest_api"']['"example"']
+        self.assertIn('in = "header"', body["body"])
+
+    def test_in_key_in_any_position(self):
+        """Position in the object must not decide whether the key parses."""
+        self.assertEqual(loads('x = {\n  in = "h"\n  name = "n"\n}\n'), {"x": {"in": '"h"', "name": '"n"'}})
+        self.assertEqual(loads('x = {\n  name = "n"\n  in = "h"\n}\n'), {"x": {"name": '"n"', "in": '"h"'}})
+
+    def test_every_keyword_is_a_valid_object_key(self):
+        for keyword in ("if", "in", "for", "for_each", "else", "endif", "endfor", "true", "false", "null"):
+            with self.subTest(keyword=keyword):
+                self.assertEqual(
+                    loads(f"x = {{\n  a = 0\n  {keyword} = 1\n}}\n"), {"x": {"a": 0, keyword: 1}}
+                )
+
+    def test_keyword_object_key_with_colon_separator(self):
+        self.assertEqual(loads('x = {\n  a : 0\n  in : "h"\n}\n'), {"x": {"a": 0, "in": '"h"'}})
+
+    # https://github.com/amplify-education/python-hcl2/pull/164
+    def test_pr_164_fixture(self):
+        source = (
+            'resource "custom_provider_resource" "resource_name" {\n'
+            '  name      = "resource_name"\n'
+            '  attribute = "attribute_value"\n'
+            '  in        = "attribute_value2"\n'
+            "}\n"
+        )
+        body = loads(source)["resource"][0]['"custom_provider_resource"']['"resource_name"']
+        self.assertEqual(body["in"], '"attribute_value2"')
+
+    def test_keyword_object_key_survives_the_direct_pipeline(self):
+        source = 'x = {\n  name = "n"\n  in   = "h"\n}\n'
+        self.assertEqual(reconstruct(parses(source).to_lark()), source)
+
+    def test_keyword_object_key_survives_the_dict_pipeline(self):
+        original = loads('x = {\n  name = "n"\n  in = "h"\n}\n')
+        self.assertEqual(loads(dumps(original)), original)
+
+    def test_for_expression_in_is_not_shadowed(self):
+        """`in` as an object key must not break `in` as the for-expression keyword."""
+        self.assertEqual(loads("x = {in = [for i in y : i]}\n"), {"x": {"in": "${[for i in y : i]}"}})
+        self.assertEqual(
+            loads("x = {for k, v in var.m : k => {in = v}}\n"),
+            {"x": "${{for k, v in var.m : k => {in = v}}}"},
+        )
 
 
 class TestStripStringQuotes(TestCase):
