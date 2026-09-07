@@ -30,7 +30,7 @@ class StubExpression(ExpressionRule):
         self._stub_value = value
         super().__init__([], None)
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+    def serialize(self, options=None, context=None):
         return self._stub_value
 
 

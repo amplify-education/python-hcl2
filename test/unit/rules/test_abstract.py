@@ -5,7 +5,6 @@ from lark import Token, Tree
 from lark.tree import Meta
 
 from hcl2.rules.abstract import LarkRule, LarkToken
-from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Concrete stubs for testing ABCs ---
 
@@ -35,7 +34,7 @@ class ConcreteRule(LarkRule):
     def lark_name() -> str:
         return "test_rule"
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+    def serialize(self, options=None, context=None):
         return "test"
 
 

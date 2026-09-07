@@ -31,7 +31,7 @@ class StubExpression(ExpressionRule):
         self._stub_value = value
         super().__init__(children or [], None)
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+    def serialize(self, options=None, context=None):
         return self._stub_value
 
 
@@ -42,7 +42,7 @@ class NonExpressionRule(LarkRule):
     def lark_name():
         return "non_expression"
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+    def serialize(self, options=None, context=None):
         return "non_expr"
 
 
@@ -147,7 +147,7 @@ class TestExprTermRule(TestCase):
         seen_context = {}
 
         class ContextCapture(ExpressionRule):
-            def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+            def serialize(self, options=None, context=None):
                 seen_context["inside_parentheses"] = context.inside_parentheses
                 return "x"
 
@@ -160,7 +160,7 @@ class TestExprTermRule(TestCase):
         seen_context = {}
 
         class ContextCapture(ExpressionRule):
-            def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+            def serialize(self, options=None, context=None):
                 seen_context["inside_parentheses"] = context.inside_parentheses
                 return "x"
 

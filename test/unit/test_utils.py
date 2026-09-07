@@ -1,4 +1,5 @@
 # pylint: disable=C0103,C0114,C0115,C0116
+import dataclasses
 from unittest import TestCase
 
 from hcl2.utils import (
@@ -47,34 +48,30 @@ class TestSerializationContext(TestCase):
         self.assertFalse(ctx.inside_dollar_string)
         self.assertTrue(new_ctx.inside_dollar_string)
 
-    def test_modify_mutates_and_restores(self):
+    def test_replace_multiple_fields(self):
         ctx = SerializationContext()
-        self.assertFalse(ctx.inside_dollar_string)
-
-        with ctx.modify(inside_dollar_string=True):
-            self.assertTrue(ctx.inside_dollar_string)
-
-        self.assertFalse(ctx.inside_dollar_string)
-
-    def test_modify_restores_on_exception(self):
-        ctx = SerializationContext()
-
-        with self.assertRaises(ValueError):
-            with ctx.modify(inside_dollar_string=True, inside_parentheses=True):
-                self.assertTrue(ctx.inside_dollar_string)
-                self.assertTrue(ctx.inside_parentheses)
-                raise ValueError("test")
-
+        both = ctx.replace(inside_dollar_string=True, inside_parentheses=True)
+        self.assertTrue(both.inside_dollar_string)
+        self.assertTrue(both.inside_parentheses)
         self.assertFalse(ctx.inside_dollar_string)
         self.assertFalse(ctx.inside_parentheses)
 
-    def test_modify_multiple_fields(self):
+    def test_a_field_cannot_be_assigned(self):
+        """The point of the type: a caller's context cannot be changed under it.
+
+        A traversal descends by building a child, so nothing writes back. An
+        assignment that used to be a temporary mutation is now an error at the
+        point it is written rather than a value another thread can observe.
+        """
         ctx = SerializationContext()
-        with ctx.modify(inside_dollar_string=True, inside_parentheses=True):
-            self.assertTrue(ctx.inside_dollar_string)
-            self.assertTrue(ctx.inside_parentheses)
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            ctx.inside_dollar_string = True  # type: ignore[misc]
         self.assertFalse(ctx.inside_dollar_string)
-        self.assertFalse(ctx.inside_parentheses)
+
+    def test_it_is_hashable_now_that_it_is_frozen(self):
+        ctx = SerializationContext()
+        self.assertEqual(len({ctx, SerializationContext()}), 1)
+        self.assertEqual(len({ctx, ctx.replace(inside_parentheses=True)}), 2)
 
 
 class TestIsDollarString(TestCase):
