@@ -24,27 +24,31 @@ from .api import (
 from .builder import Builder
 from .deserializer import DeserializerOptions
 from .formatter import FormatterOptions
+from .meta import HclDict, HclMeta, meta_of
 from .rules.base import StartRule
 from .utils import SerializationOptions
 
 __all__ = [
+    "Builder",
+    "DeserializerOptions",
     "dump",
     "dumps",
+    "FormatterOptions",
     "from_dict",
     "from_json",
+    "HclDict",
+    "HclMeta",
     "load",
     "loads",
+    "meta_of",
     "parse",
     "parse_to_tree",
     "parses",
     "parses_to_tree",
     "query",
     "reconstruct",
-    "serialize",
-    "transform",
-    "Builder",
-    "DeserializerOptions",
-    "FormatterOptions",
-    "StartRule",
     "SerializationOptions",
+    "serialize",
+    "StartRule",
+    "transform",
 ]

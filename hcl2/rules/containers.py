@@ -2,6 +2,7 @@
 
 from typing import Any, List, Optional, Tuple, Union
 
+from hcl2.meta import HclDict
 from hcl2.rules.abstract import LarkRule
 from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.literal_rules import (
@@ -192,6 +193,13 @@ class ObjectRule(InlineCommentMixIn):
             dict_result: dict = {}
             for element in self.elements:
                 dict_result.update(element.serialize(options, context))
+            if options.metadata_sidecar:
+                # An object literal has no metadata of its own, but it has to
+                # say so in the same form a body does. Left a plain dict, a key
+                # the document wrote as `__is_block__` reads back as the marker
+                # and the object is emitted as a block -- which is the very
+                # collision the option exists to remove.
+                return HclDict(dict_result)
             return dict_result
 
         with context.modify(inside_dollar_string=True):

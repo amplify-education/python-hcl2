@@ -10,6 +10,7 @@ from typing import Any, List, Optional, TextIO, Union
 from regex import regex
 
 from hcl2.const import COMMENTS_KEY, INLINE_COMMENTS_KEY, IS_BLOCK
+from hcl2.meta import meta_of
 from hcl2.parser import parser as _get_parser
 from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
@@ -144,7 +145,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
             else:
                 # otherwise it's just an attribute
-                if not self._is_reserved_key(key):
+                if not self._is_reserved_key(key, value):
                     children.append(self._deserialize_attribute(key, val))
 
         return children
@@ -294,8 +295,8 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         body = value
 
         # Keep peeling off single-key layers until we hit the body (dict with IS_BLOCK)
-        while isinstance(body, dict) and not body.get(IS_BLOCK):
-            non_block_keys = [k for k in body.keys() if not self._is_reserved_key(k)]
+        while isinstance(body, dict) and not self._is_marked_block(body):
+            non_block_keys = [k for k in body.keys() if not self._is_reserved_key(k, body)]
             if len(non_block_keys) == 1:
                 # This is another label level
                 label = non_block_keys[0]
@@ -367,9 +368,22 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         return ObjectElemRule(result)
 
-    def _is_reserved_key(self, key: str) -> bool:
-        """Check if a key is a reserved metadata key that should be skipped during deserialization."""
+    def _is_reserved_key(self, key: str, container: Optional[dict] = None) -> bool:
+        """Whether *key* in *container* is metadata rather than an attribute.
+
+        A container carrying its metadata beside the mapping reserves nothing:
+        every key in it is an attribute the document declared, including one
+        spelled `__is_block__`. Only the in-band form has to reserve the names,
+        and only there can it lose an attribute to one.
+        """
+        if container is not None and meta_of(container) is not None:
+            return False
         return key in (IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY)
+
+    def _is_marked_block(self, body: dict) -> bool:
+        """Whether *body* is itself a block, in whichever form marks it."""
+        meta = meta_of(body)
+        return meta.is_block if meta is not None else bool(body.get(IS_BLOCK))
 
     def _is_expression(self, value: Any) -> bool:
         return isinstance(value, str) and value.startswith("${") and value.endswith("}")
@@ -387,8 +401,12 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         return False
 
     def _contains_block_marker(self, obj: dict) -> bool:
-        """Recursively check if a dict contains IS_BLOCK marker anywhere"""
-        if obj.get(IS_BLOCK):
+        """Recursively check whether a dict is marked as a block, in either form"""
+        meta = meta_of(obj)
+        if meta is not None:
+            if meta.is_block:
+                return True
+        elif obj.get(IS_BLOCK):
             return True
         for value in obj.values():
             if isinstance(value, dict) and self._contains_block_marker(value):
