@@ -213,17 +213,18 @@ This restores the v7 dict shape but disables round-trip support and comment pres
 
 ```python
 hcl2.loads('x = <<-EOT\n  line1\n  line2\n  EOT\n', serialization_options=V7_COMPAT)
-# {'x': 'line1\nline2'}
+# {'x': 'line1\nline2\n'}
 ```
 
-Note that `preserve_heredocs=False` on its own — without `strip_string_quotes` — produces the quoted *source* form with escaped newlines (`'"line1\\nline2"'`), because that output is meant to be reconstructable.
+Note that `preserve_heredocs=False` on its own — without `strip_string_quotes` — produces the quoted *source* form with escaped newlines (`'"line1\\nline2\\n"'`), because that output is meant to be reconstructable.
 
-Two details of heredoc values are easy to trip over, and both match how HCL itself behaves:
+Three details of heredoc values are easy to trip over, and all three match how HCL itself behaves:
 
+- **The body ends with a newline.** Every content line is terminated by its own newline, the last one included, so `<<EOT\nline\nEOT` is `'line\n'` — the same value Terraform evaluates it to. v7 returned `'line'`, and so did 8.1.x; both were wrong. Only an empty body has no trailing newline, because it has no content line.
 - **Backslash escapes are not interpreted in heredocs.** `strip_string_quotes` resolves `\n` inside a *quoted* string, but a heredoc body containing the two characters `\n` keeps them verbatim. HCL only processes escape sequences in quoted templates.
 - **Line endings come through as written.** A heredoc in a CRLF file yields a body with `\r\n`, because a carriage return inside the body is content rather than structure. Normalize on your side if you need `\n`.
 
 ```python
 hcl2.loads('x = <<EOT\na\\nb\nEOT\n', serialization_options=V7_COMPAT)
-# {'x': 'a\\nb'}  — the backslash and the "n" are two literal characters
+# {'x': 'a\\nb\n'}  — the backslash and the "n" are two literal characters
 ```
