@@ -187,11 +187,6 @@ class HeredocTemplateRule(LarkRule):
             return f'"{heredoc}"'
 
         result = heredoc.rstrip(self._trim_chars)
-        if context.inside_dollar_string:
-            # A heredoc is a legal argument, and it is already source: quoting
-            # it here would put its raw newlines inside a quoted string, which
-            # is not valid HCL.
-            return result
         if options.strip_string_quotes:
             return result
         return f'"{result}"'
