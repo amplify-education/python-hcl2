@@ -25,7 +25,7 @@ The **Direct** pipeline (`parse_to_tree` → `transform` → `to_lark` → `reco
 | `hcl2/builder.py` | Programmatic HCL document construction |
 | `hcl2/walk.py` | Generic tree-walking primitives for the LarkElement IR tree |
 | `hcl2/utils.py` | `SerializationOptions`, `SerializationContext`, string helpers |
-| `hcl2/const.py` | Constants: `IS_BLOCK`, `COMMENTS_KEY`, `INLINE_COMMENTS_KEY` |
+| `hcl2/const.py` | Constants: `IS_BLOCK`, `COMMENTS_KEY`, `INLINE_COMMENTS_KEY`, `START_LINE`, `END_LINE` |
 | `cli/helpers.py` | File/directory/stdin conversion helpers |
 | `cli/hcl_to_json.py` | `hcl2tojson` entry point |
 | `cli/json_to_hcl.py` | `jsontohcl2` entry point |
