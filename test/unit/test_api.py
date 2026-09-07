@@ -359,6 +359,10 @@ class TestEmptyHeredocs(TestCase):
         self.assertEqual(loads("a = {\n  k = <<EOF\nEOF\n}\n"), {"a": {"k": '"<<EOF\nEOF"'}})
 
     def test_empty_heredoc_as_a_function_argument(self):
+        # Quoting the heredoc's own text is not valid HCL -- Terraform rejects
+        # a quoted string split over lines -- but emitting it as a heredoc
+        # needs the writer to give it its own line first, which is #338. This
+        # pins what the default does today so that fix is a deliberate step.
         self.assertEqual(loads("a = trimspace(<<EOF\nEOF\n)\n"), {"a": '${trimspace("<<EOF\nEOF")}'})
 
 
