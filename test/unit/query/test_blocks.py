@@ -118,3 +118,43 @@ class TestBlockViewAdjacentComments(TestCase):
         block = doc.blocks("resource")[0]
         result = block.to_dict(options=self._OPTS)
         self.assertNotIn("__comments__", result)
+
+
+class TestBlockViewLines(TestCase):
+    """`start_line` / `end_line` report the span `with_meta` serializes.
+
+    The line numbers were reachable only by serializing the block with
+    `with_meta=True` and digging past the label nesting, or by reading the
+    rule's private `_meta`. Both are what these properties replace.
+    """
+
+    NESTED = 'resource "aws_instance" "web" {\n  ami = "ami-1"\n\n  network_interface {\n    x = 0\n  }\n}\n'
+
+    def test_span_of_a_top_level_block(self):
+        block = DocumentView.parse(self.NESTED).blocks("resource")[0]
+        self.assertEqual((block.start_line, block.end_line), (1, 7))
+
+    def test_span_of_a_nested_block(self):
+        block = DocumentView.parse(self.NESTED).blocks("resource")[0]
+        nested = block.blocks("network_interface")[0]
+        self.assertEqual((nested.start_line, nested.end_line), (4, 6))
+
+    def test_an_empty_block_spans_one_line(self):
+        block = DocumentView.parse('variable "x" {}\n').blocks("variable")[0]
+        self.assertEqual((block.start_line, block.end_line), (1, 1))
+
+    def test_agrees_with_with_meta(self):
+        block = DocumentView.parse(self.NESTED).blocks("resource")[0]
+        body = block.to_dict(options=SerializationOptions(with_meta=True))['"aws_instance"']['"web"']
+        self.assertEqual(block.start_line, body["__start_line__"])
+        self.assertEqual(block.end_line, body["__end_line__"])
+
+    def test_a_block_without_a_position_reports_none(self):
+        # A tree built by the deserializer carries an empty Meta.
+        from hcl2.api import from_dict
+        from hcl2.query.body import DocumentView as Doc
+
+        tree = from_dict({"resource": [{"aws_instance": {"web": {"__is_block__": True}}}]})
+        block = Doc(tree).blocks("resource")[0]
+        self.assertIsNone(block.start_line)
+        self.assertIsNone(block.end_line)

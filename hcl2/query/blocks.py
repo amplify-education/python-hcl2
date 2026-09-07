@@ -11,6 +11,19 @@ from hcl2.rules.strings import StringRule
 from hcl2.utils import SerializationOptions
 
 
+def _meta_line(node: BlockRule, attribute: str) -> Optional[int]:
+    """Read a line number off a block's lark ``Meta``, or None when it has none.
+
+    A tree built by the deserializer rather than the parser carries an empty
+    ``Meta``, whose line attributes do not exist at all.
+    """
+    meta = node._meta  # pylint: disable=protected-access
+    if meta.empty:
+        return None
+    line: int = getattr(meta, attribute)
+    return line
+
+
 def _label_to_str(label) -> str:
     """Convert a block label (IdentifierRule or StringRule) to a plain string."""
     if isinstance(label, IdentifierRule):
@@ -52,6 +65,22 @@ class BlockView(NodeView):
     def name_labels(self) -> List[str]:
         """Return labels after the block type (labels[1:]) as plain strings."""
         return self.labels[1:]
+
+    @property
+    def start_line(self) -> Optional[int]:
+        """Return the line the block opens on, or None if it has no position.
+
+        The same number ``with_meta`` reports as ``__start_line__``, without
+        serializing the block to get at it.
+        """
+        node: BlockRule = self._node  # type: ignore[assignment]
+        return _meta_line(node, "line")
+
+    @property
+    def end_line(self) -> Optional[int]:
+        """Return the line the block closes on, or None if it has no position."""
+        node: BlockRule = self._node  # type: ignore[assignment]
+        return _meta_line(node, "end_line")
 
     @property
     def body(self) -> "NodeView":

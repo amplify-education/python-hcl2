@@ -70,7 +70,7 @@ data = loads(text, serialization_options=SerializationOptions(
 | Field | Type | Default | Description                                                                                                                                     |
 |---|---|---|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | `with_comments` | `bool` | `True` | Include comments as `__comments__` and `__inline_comments__` keys (see [Comment Format](#comment-format))                                       |
-| `with_meta` | `bool` | `False` | Add `__start_line__` / `__end_line__` metadata                                                                                                  |
+| `with_meta` | `bool` | `False` | Add `__start_line__` / `__end_line__` metadata to each block, alongside its attributes. Attributes carry no metadata of their own.               |
 | `wrap_objects` | `bool` | `False` | Wrap object values as inline HCL2 strings                                                                                                       |
 | `wrap_tuples` | `bool` | `False` | Wrap tuple values as inline HCL2 strings                                                                                                        |
 | `explicit_blocks` | `bool` | `True` | Add `__is_block__: True` markers to blocks. **Mandatory for JSON->HCL2 deserialization and reconstruction.**                                    |
