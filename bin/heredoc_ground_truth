@@ -1,0 +1,108 @@
+#!/usr/bin/env python
+"""Check the heredoc expectations in the test suite against Terraform itself.
+
+`test/unit/test_heredoc_matches_terraform.py` asserts what a heredoc body
+evaluates to. Those values did not come from this library or from reading the
+spec -- each one was produced by handing the same source to OpenTofu. That
+provenance is a docstring, which a reader has to take on trust and which
+nothing re-checks if the reference implementation ever moves.
+
+This script re-derives them. It reads the `CASES` table out of that test module,
+evaluates every source with `tofu console` (or `terraform console`), and
+compares. It is not part of the test run: the suite must not depend on a
+Terraform binary, and these values change about as often as the HCL spec does.
+
+Usage:
+    bin/heredoc_ground_truth            # verify; non-zero exit on any mismatch
+    bin/heredoc_ground_truth --print    # print the table as Python, to paste
+
+Requires `tofu` or `terraform` on PATH.
+"""
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+
+from test.unit.test_heredoc_matches_terraform import CASES  # noqa: E402
+
+BINARIES = ("tofu", "terraform")
+
+
+def find_binary():
+    """Return the first Terraform-compatible binary on PATH, or None."""
+    for name in BINARIES:
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
+
+
+def evaluate(binary, source):
+    """Return the value `binary` evaluates the given heredoc expression to.
+
+    The source is written as a local rather than an output so that nothing has
+    to be applied, and `jsonencode` is what carries the exact string back --
+    the console's own rendering escapes newlines for display.
+    """
+    with tempfile.TemporaryDirectory() as directory:
+        # newline="" so a case testing CRLF is written with the bytes it names.
+        with open(os.path.join(directory, "main.tf"), "w", encoding="utf-8", newline="") as handle:
+            handle.write("locals {\n  x = %s\n}\n" % source)
+        result = subprocess.run(
+            [binary, "console"],
+            cwd=directory,
+            input="jsonencode(local.x)\n",
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip())
+        return json.loads(json.loads(result.stdout.strip().splitlines()[-1]))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--print",
+        dest="print_table",
+        action="store_true",
+        help="print the evaluated table as Python instead of verifying",
+    )
+    args = parser.parse_args()
+
+    binary = find_binary()
+    if binary is None:
+        print("neither `tofu` nor `terraform` is on PATH", file=sys.stderr)
+        return 2
+
+    print("using %s\n" % binary, file=sys.stderr)
+    mismatches = 0
+    for source, expected in CASES:
+        actual = evaluate(binary, source)
+        if args.print_table:
+            print("    (%r, %r)," % (source, actual))
+            continue
+        if actual == expected:
+            print("ok   %r" % source)
+        else:
+            mismatches += 1
+            print("BAD  %r\n       expected %r\n       %s says %r" % (source, expected, binary, actual))
+
+    if args.print_table:
+        return 0
+
+    # stdout, so it lands after the per-case lines rather than ahead of them
+    # when the output is piped.
+    print("\n%d of %d cases disagree" % (mismatches, len(CASES)))
+    return 1 if mismatches else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -66,6 +66,7 @@ class HCLReconstructor:
         self._last_was_space = True
         self._current_indent = 0
         self._last_token_name = None
+        self._last_token_ended_line = False
         self._last_rule_name = None
 
     # pylint:disable=R0911,R0912
@@ -288,17 +289,43 @@ class HCLReconstructor:
 
         return result
 
+    _heredoc_token_names = frozenset({"HEREDOC_TEMPLATE", "HEREDOC_TEMPLATE_TRIM"})
+
     def _reconstruct_token(self, token: Token, parent_rule_name: Optional[str] = None) -> str:
         """Reconstruct a Token node into HCL text fragments."""
         result = str(token.value)
-        if self._should_add_space_before(token, parent_rule_name):
+        if self._needs_line_after_heredoc(token):
+            # A heredoc ends at its closing marker, on a line of its own. Any
+            # token that follows has to start the next line -- inside a list or
+            # an object that token is the separator, and `EOF,` closes nothing,
+            # so the file did not parse. A top-level attribute survived only
+            # because the newline it is followed by comes from the document.
+            result = "\n" + result
+        elif self._should_add_space_before(token, parent_rule_name):
             result = " " + result
 
         self._last_token_name = token.type
+        self._last_token_ended_line = str(token.value).endswith(("\n", "\r\n"))
         if len(token) != 0:
             self._last_was_space = result[-1].endswith(" ") or result[-1].endswith("\n")
 
         return result
+
+    def _needs_line_after_heredoc(self, token: Token) -> bool:
+        """Whether *token* has to start a new line because a heredoc just ended.
+
+        Only for a heredoc that does not carry its own. `HEREDOC_TEMPLATE`
+        matches through the newline after the closing marker, so a token that
+        came from the parser already ends the line; one built by the
+        deserializer does not, and that is the case where the separator landed
+        on the marker's line.
+        """
+        if self._last_token_name not in self._heredoc_token_names:
+            return False
+        if self._last_token_ended_line:
+            return False
+        # Anything that already begins one is fine as it is.
+        return not str(token.value).startswith(("\n", "\r\n"))
 
     def _reconstruct_node(
         self, node: Union[Tree, Token], parent_rule_name: Optional[str] = None
