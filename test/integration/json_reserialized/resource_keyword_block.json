@@ -1,0 +1,96 @@
+{
+  "data": [
+    {
+      "\"snowflake_schemas\"": {
+        "\"in\"": {
+          "in": [
+            {
+              "database": "\"database\"",
+              "__is_block__": true
+            }
+          ],
+          "__is_block__": true
+        }
+      }
+    }
+  ],
+  "resource": [
+    {
+      "\"custom_provider_resource\"": {
+        "\"resource_name\"": {
+          "if": [
+            {
+              "name": "\"if_block\"",
+              "__is_block__": true
+            }
+          ],
+          "for": [
+            {
+              "name": "\"for_block\"",
+              "__is_block__": true
+            }
+          ],
+          "for_each": [
+            {
+              "name": "\"for_each_block\"",
+              "__is_block__": true
+            }
+          ],
+          "else": [
+            {
+              "name": "\"else_block\"",
+              "__is_block__": true
+            }
+          ],
+          "endif": [
+            {
+              "name": "\"endif_block\"",
+              "__is_block__": true
+            }
+          ],
+          "endfor": [
+            {
+              "name": "\"endfor_block\"",
+              "__is_block__": true
+            }
+          ],
+          "true": [
+            {
+              "name": "\"true_block\"",
+              "__is_block__": true
+            }
+          ],
+          "false": [
+            {
+              "name": "\"false_block\"",
+              "__is_block__": true
+            }
+          ],
+          "null": [
+            {
+              "name": "\"null_block\"",
+              "__is_block__": true
+            }
+          ],
+          "__is_block__": true
+        }
+      }
+    }
+  ],
+  "in": [
+    {
+      "\"quoted_label\"": {
+        "attribute": "\"value\"",
+        "__is_block__": true
+      }
+    }
+  ],
+  "block": [
+    {
+      "in": {
+        "attribute": "\"value\"",
+        "__is_block__": true
+      }
+    }
+  ]
+}
