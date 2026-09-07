@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- A heredoc whose closing marker carries trailing whitespace parses. The spec puts the delimiter "alone on its own line" and Terraform's scanner ends the heredoc at a line holding the word and nothing else that matters, trailing spaces and tabs included; `HEREDOC_TEMPLATE` required the newline to follow the word immediately, so `EOF  ` was not a marker at all -- the heredoc ran on, swallowed the rest of the file, and the parse failed with an error pointing somewhere else. Trailing whitespace is invisible and survives copy-paste, so a file that has been running through Terraform for months could fail here. OpenTofu evaluates `<<EOF\nbody\nEOF  \n` to `"body\n"`. ([#343](https://github.com/amplify-education/python-hcl2/issues/343))
+- Parse heredocs whose closing marker carries trailing spaces or tabs, such as `EOF  `. Both heredoc terminals required the newline to follow the delimiter immediately, so the marker went unrecognised, the heredoc ran on to a later one, and the parse failed pointing at an unrelated line. Terraform ends a heredoc at any line holding the delimiter and nothing else that matters, so such a file parses everywhere else. One input changes meaning: a body line consisting of the delimiter plus trailing whitespace now closes the heredoc rather than being content, as it does in Terraform. Thanks, @livingstaccato ([#349](https://github.com/amplify-education/python-hcl2/pull/349))
 
 ## \[8.1.3\] - 2026-08-26
 
