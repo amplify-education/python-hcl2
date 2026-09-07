@@ -61,7 +61,7 @@ from hcl2.rules.tokens import (
     IntLiteral,
 )
 from hcl2.transformer import RuleTransformer
-from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
+from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN, SerializationOptions
 
 
 @dataclass
@@ -168,15 +168,15 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
-                if not self.options.heredocs_to_strings and value.startswith('"<<-'):
-                    match = HEREDOC_TRIM_PATTERN.match(value[1:-1])
-                    if match:
+                if value.startswith('"<<-') and HEREDOC_TRIM_PATTERN.match(value[1:-1]):
+                    if not self.options.heredocs_to_strings:
                         return self._deserialize_heredoc(value[1:-1], True)
+                    return self._deserialize_string(self._heredoc_as_quoted(value[1:-1], True))
 
-                if not self.options.heredocs_to_strings and value.startswith('"<<'):
-                    match = HEREDOC_PATTERN.match(value[1:-1])
-                    if match:
+                if value.startswith('"<<') and HEREDOC_PATTERN.match(value[1:-1]):
+                    if not self.options.heredocs_to_strings:
                         return self._deserialize_heredoc(value[1:-1], False)
+                    return self._deserialize_string(self._heredoc_as_quoted(value[1:-1], False))
 
                 if self.options.strings_to_heredocs:
                     inner = value[1:-1]
@@ -251,6 +251,24 @@ class BaseDeserializer(LarkElementTreeDeserializer):
             )
 
         return StringPartRule([STRING_CHARS(value)])
+
+    def _heredoc_as_quoted(self, heredoc: str, trim: bool) -> str:
+        """Return the quoted-string source for *heredoc*'s value.
+
+        Not by quoting the heredoc's own text: that is what this option used to
+        do, and it produced `"<<EOT\nhello\nEOT"` -- a quoted string spanning
+        three physical lines, markers and all. A quoted template cannot span
+        lines, so OpenTofu rejects it with "Invalid multi-line string", and
+        reading it back here gave the marker text rather than the value.
+
+        The flattening the reader already performs is reused rather than
+        written a second time, so the two cannot drift: serializing the rule
+        with `preserve_heredocs=False` is exactly the quoted form
+        `preserve_heredocs=False` produces on the way in.
+        """
+        rule = self._deserialize_heredoc(heredoc, trim)
+        quoted: str = rule.serialize(SerializationOptions(preserve_heredocs=False))
+        return quoted
 
     def _deserialize_heredoc(
         self, value: str, trim: bool
