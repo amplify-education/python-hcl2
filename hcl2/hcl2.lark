@@ -113,11 +113,10 @@ start : body
 body : (new_line_or_comment? (attribute | block))* new_line_or_comment?
 attribute : _attribute_name EQ expression
 _attribute_name : identifier | keyword | literal_value
-// HCL does not reserve its keywords, so a block type or an unquoted label may
-// be spelled `in`, `for`, `true`, etc. (e.g. the `in` block in the Snowflake
-// provider). The transformer normalizes those back to identifiers.
-block : _block_label (_block_label | string)* new_line_or_comment? LBRACE body RBRACE
-_block_label : identifier | keyword | literal_value
+// A block type or unquoted label reuses `_attribute_name` because HCL does not
+// reserve its keywords: `in {}` is as legal as `in = 1` (e.g. the `in` block in
+// the Snowflake provider). The transformer normalizes those back to identifiers.
+block : _attribute_name (_attribute_name | string)* new_line_or_comment? LBRACE body RBRACE
 
 // Whitespace and comments
 new_line_or_comment: ( NL_OR_COMMENT )+
@@ -231,10 +230,11 @@ object : LBRACE new_line_or_comment? ((object_elem | (object_elem new_line_or_co
 object_elem : object_elem_key ( EQ | COLON ) expression
 // `keyword` is listed explicitly because it is not reachable through
 // `expression`: `in`, `for`, etc. lex as their own terminals, never as NAME.
-// Without this, `{ type = "apiKey", in = "header" }` fails — the contextual
-// lexer only falls back to NAME in states that do not accept the keyword
-// terminal, which made the key's position in the object decide whether it
-// parsed. The transformer normalizes these to identifiers.
+// The contextual lexer falls back to NAME only in states that do not accept the
+// keyword terminal, so without this a key's separator and position decided
+// whether it parsed: `{ name = "n", in = "h" }` parsed on one line, the same
+// object written with newline-separated elements did not, and `for` failed
+// everywhere. The transformer normalizes these to identifiers.
 object_elem_key : expression | keyword
 
 // Heredocs

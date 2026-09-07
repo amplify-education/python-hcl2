@@ -130,7 +130,7 @@ class RuleTransformer(Transformer):
 
     @v_args(meta=True)
     def block(self, meta: Meta, args) -> BlockRule:
-        # _block_label is flattened, so a label may be a KeywordRule or a
+        # _attribute_name is flattened, so a label may be a KeywordRule or a
         # LiteralValueRule (HCL keywords are not reserved, so `in {}` is a
         # legal block). Normalize them so labels are always identifiers.
         args = [

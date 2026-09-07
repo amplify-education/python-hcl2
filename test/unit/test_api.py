@@ -504,8 +504,8 @@ class TestKeywordAttributeNames(TestCase):
     attribute (`object_elem_key` vs `_attribute_name`), and only the latter
     got a regression test in #164. The object path then worked by accident:
     the contextual lexer falls back to NAME only in states that do not accept
-    the `IN` terminal, so whether the key parsed depended on its position in
-    the object.
+    the `IN` terminal, so whether the key parsed depended on its separator and
+    position in the object.
     """
 
     # https://github.com/amplify-education/python-hcl2/issues/148
@@ -537,9 +537,20 @@ class TestKeywordAttributeNames(TestCase):
         self.assertIn('in = "header"', body["body"])
 
     def test_in_key_in_any_position(self):
-        """Position in the object must not decide whether the key parses."""
-        self.assertEqual(loads('x = {\n  in = "h"\n  name = "n"\n}\n'), {"x": {"in": '"h"', "name": '"n"'}})
-        self.assertEqual(loads('x = {\n  name = "n"\n  in = "h"\n}\n'), {"x": {"name": '"n"', "in": '"h"'}})
+        """Separator and position must not decide whether the key parses.
+
+        Only the newline-separated, non-first spelling actually failed; the
+        comma-separated one always parsed. Both are asserted so a regression
+        cannot hide behind whichever separator happens to work.
+        """
+        for source, expected in (
+            ('x = {\n  in = "h"\n  name = "n"\n}\n', {"in": '"h"', "name": '"n"'}),
+            ('x = {\n  name = "n"\n  in = "h"\n}\n', {"name": '"n"', "in": '"h"'}),
+            ('x = { in = "h", name = "n" }\n', {"in": '"h"', "name": '"n"'}),
+            ('x = { name = "n", in = "h" }\n', {"name": '"n"', "in": '"h"'}),
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(loads(source), {"x": expected})
 
     def test_every_keyword_is_a_valid_object_key(self):
         for keyword in ("if", "in", "for", "for_each", "else", "endif", "endfor", "true", "false", "null"):
