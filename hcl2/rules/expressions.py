@@ -100,7 +100,13 @@ class ExprTermRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize, handling parenthesized expression wrapping."""
-        with context.modify(inside_parentheses=self.parentheses or context.inside_parentheses):
+        # Not `or context.inside_parentheses`: the flag answers "did my
+        # immediate parent already wrap me", which `_wrap_into_parentheses`
+        # reads to avoid doubling them, and `or` made it mean "some ancestor
+        # is parenthesised". Clearing it in the operation rules is what fixes
+        # the output; this keeps the flag matching its meaning at the source,
+        # so a term that is not itself wrapped never claims to be.
+        with context.modify(inside_parentheses=self.parentheses):
             result = self.expression.serialize(options, context)
 
         if self.parentheses:
@@ -152,7 +158,12 @@ class ConditionalRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to ternary expression string."""
-        with context.modify(inside_dollar_string=True):
+        # `inside_parentheses=False`: nothing wraps an operand, so whatever
+        # wrapped this operation says nothing about them. Leaving it set is
+        # what stopped `force_operation_parentheses` reaching inside `(...)`.
+        # The check after the block still reads the outer value, which is the
+        # one that says whether *this* result is already wrapped.
+        with context.modify(inside_dollar_string=True, inside_parentheses=False):
             result = (
                 f"{self.condition.serialize(options, context)} "
                 f"? {self.if_true.serialize(options, context)} "
@@ -266,7 +277,7 @@ class BinaryOpRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'lhs operator rhs' string."""
-        with context.modify(inside_dollar_string=True):
+        with context.modify(inside_dollar_string=True, inside_parentheses=False):
             lhs = self.expr_term.serialize(options, context)
             operator = str(self.binary_term.binary_operator.serialize(options, context)).strip()
             rhs = self.binary_term.expr_term.serialize(options, context)
@@ -303,7 +314,13 @@ class UnaryOpRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'operator operand' string."""
-        with context.modify(inside_dollar_string=True):
+        # Clears the flag for the same reason ConditionalRule does. No input
+        # reaches it here -- a unary operand is an `expr_term`, so an operation
+        # inside one either carries its own parentheses or sits under a
+        # container that clears the flag itself -- but the rule that an
+        # operation never hands `inside_parentheses` to its operands should
+        # hold for all three operation rules rather than two of them.
+        with context.modify(inside_dollar_string=True, inside_parentheses=False):
             operator = self.operator.rstrip()
             operand = self.expr_term.serialize(options, context)
             result = f"{operator}{operand}"
