@@ -7,10 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+- Nothing yet.
+
+## \[8.1.4\] - 2026-09-08
+
 ### Fixed
 
-- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block of the Snowflake provider's `snowflake_schemas` data source. HCL does not reserve its keywords, so `if`, `in`, `for`, `for_each`, `else`, `endif`, `endfor`, `true`, `false`, and `null` are now accepted in every block label position and normalized to identifiers — matching the existing behaviour for keyword attribute names. The block-side grammar gap was diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
-- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). `object_elem_key` did not accept the keyword terminals, so a key such as `in` parsed only in states where the contextual lexer happened to fall back to `NAME` — which made the key's separator and position decide whether the file parsed. The comma-separated `{ name = "n", in = "header" }` parsed, but the newline-separated form the original report actually used did not, so its `jsonencode` OpenAPI body still raised. Keys such as `for` failed in every position. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block in Snowflake's `snowflake_schemas` data source. HCL reserves no keywords, so all are now accepted as block labels. Diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). A key such as `in` parsed only where the lexer fell back to `NAME`, so its separator and position decided whether the file parsed. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
 
 ## \[8.1.3\] - 2026-08-26
 
