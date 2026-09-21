@@ -9,7 +9,14 @@ from io import StringIO
 from typing import TextIO
 
 import hcl2
-from cli.helpers import (
+from hcl2 import dump
+from hcl2.deserializer import DeserializerOptions
+from hcl2.formatter import FormatterOptions
+from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
+from hcl2.utils import SerializationOptions
+from hcl2.version import __version__
+
+from .helpers import (
     EXIT_DIFF,
     EXIT_IO_ERROR,
     EXIT_PARSE_ERROR,
@@ -22,12 +29,6 @@ from cli.helpers import (
     _expand_file_args,
     _install_sigpipe_handler,
 )
-from hcl2 import dump
-from hcl2.deserializer import DeserializerOptions
-from hcl2.formatter import FormatterOptions
-from hcl2.query.diff import diff_dicts, format_diff_json, format_diff_text
-from hcl2.utils import SerializationOptions
-from hcl2.version import __version__
 
 
 def _json_to_hcl(
