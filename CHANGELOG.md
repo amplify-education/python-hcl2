@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   because a shim would still occupy the colliding name.
 - The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
 
+### Added
+
+- Python 3.14 is now tested and declared as supported. No source changes were needed; the full
+  suite passes on 3.14 as-is.
+
 ## \[8.1.4\] - 2026-09-08
 
 ### Fixed
