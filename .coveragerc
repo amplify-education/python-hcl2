@@ -11,5 +11,9 @@ omit =
 [report]
 show_missing = true
 fail_under = 95
+# Python 3.14 (PEP 649) defers annotation evaluation, so a bare `_children_layout:`
+# declaration never executes and coverage stops counting it. Excluding it keeps the
+# total comparable across versions.
 exclude_lines =
     raise NotImplementedError
+    ^\s*_children_layout:
