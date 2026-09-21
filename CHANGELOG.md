@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Added
+
+- Python 3.14 is now tested and declared as supported. No source changes were needed; the full
+  suite passes on 3.14 as-is.
 
 ## \[8.1.4\] - 2026-09-08
 
