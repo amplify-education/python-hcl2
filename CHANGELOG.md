@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+### Changed
+
+- **Breaking for direct `cli.*` imports.** The CLI modules moved from a top-level `cli` package
+  to `hcl2.cli`, so installing python-hcl2 no longer claims the generic top-level `cli` name.
+  Since 8.0 the distribution installed `cli/` into `site-packages`, where it collided with
+  projects that have a top-level `cli` package of their own and made their `cli.*` imports
+  resolve to the wrong module. The `hcl2tojson`, `jsontohcl2`, and `hq` commands and
+  `python -m hcl2` are unaffected; only code importing `cli.hcl_to_json`, `cli.json_to_hcl`,
+  `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
+  because a shim would still occupy the colliding name.
+- The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
+
 ### Added
 
 - Python 3.14 is now tested and declared as supported. No source changes were needed; the full
