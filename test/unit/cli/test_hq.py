@@ -6,7 +6,7 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from cli.hq import (
+from hcl2.cli.hq import (
     EXIT_IO_ERROR,
     EXIT_NO_RESULTS,
     EXIT_PARSE_ERROR,

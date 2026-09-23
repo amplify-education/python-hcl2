@@ -26,8 +26,8 @@ HCL_RECONSTRUCTED_DIR = INTEGRATION_DIR / "hcl2_reconstructed"
 JSON_RESERIALIZED_DIR = INTEGRATION_DIR / "json_reserialized"
 PROJECT_ROOT = INTEGRATION_DIR.parent.parent
 
-_HCL2TOJSON = [sys.executable, "-c", "from cli.hcl_to_json import main; main()"]
-_JSONTOHCL2 = [sys.executable, "-c", "from cli.json_to_hcl import main; main()"]
+_HCL2TOJSON = [sys.executable, "-c", "from hcl2.cli.hcl_to_json import main; main()"]
+_JSONTOHCL2 = [sys.executable, "-c", "from hcl2.cli.json_to_hcl import main; main()"]
 
 _TIMEOUT = 30
 
