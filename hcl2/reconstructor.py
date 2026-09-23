@@ -289,7 +289,17 @@ class HCLReconstructor:
 
         return result
 
-    _heredoc_token_names = frozenset({"HEREDOC_TEMPLATE", "HEREDOC_TEMPLATE_TRIM"})
+    # The grammar calls the trimmed terminal `HEREDOC_TEMPLATE_TRIM` and the
+    # deserializer builds `HEREDOC_TRIM_TEMPLATE`. A parsed token already ends
+    # its line, so it is the deserializer's name that decides the output, and
+    # naming only the grammar's left every `<<-` heredoc it built unhelped.
+    _heredoc_token_names = frozenset(
+        {
+            tokens.HEREDOC_TEMPLATE.lark_name(),
+            tokens.HEREDOC_TRIM_TEMPLATE.lark_name(),
+            "HEREDOC_TEMPLATE_TRIM",
+        }
+    )
 
     def _reconstruct_token(self, token: Token, parent_rule_name: Optional[str] = None) -> str:
         """Reconstruct a Token node into HCL text fragments."""

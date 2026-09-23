@@ -58,6 +58,18 @@ class TestAHeredocInAContainer(TestCase):
             loads(restored, serialization_options=FLAT), loads(source, serialization_options=FLAT)
         )
 
+    def test_a_trimmed_heredoc_in_an_object(self):
+        # The deserializer names this token `HEREDOC_TRIM_TEMPLATE` while the
+        # grammar calls it `HEREDOC_TEMPLATE_TRIM`; both have to count.
+        written = dumps({"x": {"j": '"<<-EOT\n  bar\n  EOT"'}})
+        self.assertNotIn("EOT,", written)
+        loads(written)
+
+    def test_a_trimmed_heredoc_in_a_list(self):
+        written = dumps({"x": ['"<<-EOT\n  bar\n  EOT"', '"p"']})
+        self.assertNotIn("EOT,", written)
+        loads(written)
+
     def test_a_top_level_attribute_still_works(self):
         written = self._restore("a = <<EOT\nline1\nEOT\n")
         self.assertEqual(written, "a = <<EOF\nline1\nEOF\n")
