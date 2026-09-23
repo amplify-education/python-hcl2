@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Python 3.14 is now tested and declared as supported. No source changes were needed; the full
   suite passes on 3.14 as-is.
 
+### Fixed
+
+- Parse heredocs whose closing marker carries trailing whitespace, such as `EOF  `. Both heredoc terminals required the newline to follow the delimiter immediately, so the marker went unrecognised, the heredoc ran on to a later one, and the parse failed pointing at an unrelated line. Terraform ends a heredoc at any line holding the delimiter and nothing else that matters, so such a file parses everywhere else. One input changes meaning: a body line consisting of the delimiter plus trailing whitespace now closes the heredoc rather than being content, as it does in Terraform. Whitespace here means what it does to Terraform's scanner -- Go's `unicode.IsSpace`, so a trailing non-breaking space or form feed closes the heredoc too, and a line led or trailed by U+001C-U+001F, which Python's `\s` counts and Go does not, stays body text as it does in OpenTofu. Thanks, @livingstaccato ([#349](https://github.com/amplify-education/python-hcl2/pull/349))
+
 ## \[8.1.4\] - 2026-09-08
 
 ### Fixed
