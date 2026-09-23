@@ -5,7 +5,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 from lark.tree import Meta
 
-from hcl2.const import INLINE_COMMENTS_KEY, IS_BLOCK
+from hcl2.const import END_LINE, INLINE_COMMENTS_KEY, IS_BLOCK, START_LINE
 from hcl2.rules.abstract import LarkRule, LarkToken
 from hcl2.rules.expressions import ExprTermRule
 from hcl2.rules.literal_rules import IdentifierRule
@@ -152,6 +152,13 @@ class BlockRule(LarkRule):
         result = self._body.serialize(options)
         if options.explicit_blocks:
             result.update({IS_BLOCK: True})
+        if options.with_meta:
+            # Alongside the body, not wrapping it: the keys land on the same
+            # innermost dict the labels nest around, which is where v7 put them.
+            # A tree built by the deserializer carries no positions, so an empty
+            # Meta means "no line numbers to report" rather than line zero.
+            if not self._meta.empty:
+                result.update({START_LINE: self._meta.line, END_LINE: self._meta.end_line})
 
         labels = self._labels
         for label in reversed(labels[1:]):

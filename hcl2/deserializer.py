@@ -9,7 +9,7 @@ from typing import Any, List, Optional, TextIO, Union
 
 from regex import regex
 
-from hcl2.const import COMMENTS_KEY, INLINE_COMMENTS_KEY, IS_BLOCK
+from hcl2.const import COMMENTS_KEY, END_LINE, INLINE_COMMENTS_KEY, IS_BLOCK, START_LINE
 from hcl2.parser import parser as _get_parser
 from hcl2.rules.abstract import LarkElement, LarkRule
 from hcl2.rules.base import (
@@ -136,6 +136,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
     def _deserialize_block_elements(self, value: dict) -> List[LarkElement]:
         children: List[LarkElement] = []
+        line_keys = (START_LINE, END_LINE)
         for key, val in value.items():
             if self._is_block(val):
                 # this value is a list of blocks, iterate over each block and deserialize them
@@ -144,7 +145,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
             else:
                 # otherwise it's just an attribute
-                if not self._is_reserved_key(key):
+                if not self._is_reserved_key(key) and not (key in line_keys and self._is_line_meta(value)):
                     children.append(self._deserialize_attribute(key, val))
 
         return children
@@ -370,6 +371,21 @@ class BaseDeserializer(LarkElementTreeDeserializer):
     def _is_reserved_key(self, key: str) -> bool:
         """Check if a key is a reserved metadata key that should be skipped during deserialization."""
         return key in (IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY)
+
+    @staticmethod
+    def _is_line_meta(body: dict) -> bool:
+        """Whether *body* carries the line span `with_meta` writes.
+
+        The keys travel in-band, beside the block's attributes, so an attribute
+        of either name cannot be told apart from them. `with_meta` only ever
+        writes both, as integers, on a block's body; reading the keys as
+        metadata anywhere else would drop attributes that nothing reserved
+        before the option produced them.
+        """
+        if not body.get(IS_BLOCK):
+            return False
+        values = (body.get(START_LINE), body.get(END_LINE))
+        return all(isinstance(v, int) and not isinstance(v, bool) for v in values)
 
     def _is_expression(self, value: Any) -> bool:
         return isinstance(value, str) and value.startswith("${") and value.endswith("}")

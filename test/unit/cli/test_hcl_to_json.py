@@ -120,6 +120,9 @@ class TestHclToJson(TestCase):
 
             result = json.loads(stdout.getvalue())
             self.assertIn("resource", result)
+            body = result["resource"][0]['"a"']['"b"']
+            self.assertEqual(body["__start_line__"], 1)
+            self.assertEqual(body["__end_line__"], 3)
 
     def test_no_comments_flag(self):
         hcl_with_comment = "# a comment\nx = 1\n"

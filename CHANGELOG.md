@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+### Added
+
+- Python 3.14 is now tested and declared as supported. No source changes were needed; the full
+  suite passes on 3.14 as-is.
+- `BlockView.start_line` and `BlockView.end_line`, so a block's span can be read from the query API without serializing it. `with_meta` puts the numbers in the output dict, which meant reaching them through the label nesting, or through the rule's private `_meta`. Both are `None` for a tree built by the deserializer, which carries no positions. `hq` picks them up through its property accessors: `hq 'resource[*] | .start_line' main.tf`. Thanks, @livingstaccato ([#333](https://github.com/amplify-education/python-hcl2/pull/333))
+
+### Fixed
+
+- `with_meta` emits `__start_line__` and `__end_line__` again. The option, the `hcl2tojson --with-meta` flag and the migration guide's promise that the v7 keys are "still available" all survived the v8 rewrite; the code that produced the keys did not, leaving the option read nowhere in the package. Blocks carry the same spans 7.3.1 produced for the same input; attributes carry none, as in v7. Thanks, @livingstaccato ([#333](https://github.com/amplify-education/python-hcl2/pull/333))
+  - The deserializer reads `__start_line__` and `__end_line__` as metadata only where `with_meta` writes them: together, as integers, on a block's body. An attribute of either name anywhere else still survives `dumps(loads(...))`, as it did before. A block that declares both with integer values cannot be told apart from the metadata and loses them; [#331](https://github.com/amplify-education/python-hcl2/issues/331) tracks moving the keys out of band.
+
 ### Changed
 
 - **Breaking for direct `cli.*` imports.** The CLI modules moved from a top-level `cli` package
@@ -18,11 +29,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
   because a shim would still occupy the colliding name.
 - The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
-
-### Added
-
-- Python 3.14 is now tested and declared as supported. No source changes were needed; the full
-  suite passes on 3.14 as-is.
 
 ## \[8.1.4\] - 2026-09-08
 
