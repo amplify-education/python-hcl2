@@ -26,10 +26,10 @@ The **Direct** pipeline (`parse_to_tree` → `transform` → `to_lark` → `reco
 | `hcl2/walk.py` | Generic tree-walking primitives for the LarkElement IR tree |
 | `hcl2/utils.py` | `SerializationOptions`, `SerializationContext`, string helpers |
 | `hcl2/const.py` | Constants: `IS_BLOCK`, `COMMENTS_KEY`, `INLINE_COMMENTS_KEY`, `START_LINE`, `END_LINE` |
-| `cli/helpers.py` | File/directory/stdin conversion helpers |
-| `cli/hcl_to_json.py` | `hcl2tojson` entry point |
-| `cli/json_to_hcl.py` | `jsontohcl2` entry point |
-| `cli/hq.py` | `hq` CLI entry point — query dispatch, formatting, optional operator |
+| `hcl2/cli/helpers.py` | File/directory/stdin conversion helpers |
+| `hcl2/cli/hcl_to_json.py` | `hcl2tojson` entry point |
+| `hcl2/cli/json_to_hcl.py` | `jsontohcl2` entry point |
+| `hcl2/cli/hq.py` | `hq` CLI entry point — query dispatch, formatting, optional operator |
 | `hcl2/query/__init__.py` | Public query API exports |
 | `hcl2/query/_base.py` | `NodeView` base class, view registry, `view_for()` factory |
 | `hcl2/query/body.py` | `DocumentView`, `BodyView` facades for top-level and body queries |
@@ -48,7 +48,7 @@ The **Direct** pipeline (`parse_to_tree` → `transform` → `to_lark` → `reco
 | `hcl2/query/safe_eval.py` | AST-validated Python expression eval for hybrid/eval modes |
 | `hcl2/query/introspect.py` | `--describe` and `--schema` output generation |
 
-`hcl2/__main__.py` is a thin wrapper that imports `cli.hcl_to_json:main`.
+`hcl2/__main__.py` is a thin wrapper that imports `hcl2.cli.hcl_to_json:main`.
 
 ### Rules (one class per grammar rule)
 
@@ -179,7 +179,7 @@ python -m unittest discover -s test -p "test_*.py" -v
 **Unit tests** (`test/unit/`): instantiate rule objects directly (no parsing).
 
 - `rules/` — one file per rules module
-- `cli/` — one file per CLI module
+- `cli/` — one file per module in `hcl2/cli/`
 - `test_*.py` — tests for corresponding files from `hcl2/` directory
 
 Use concrete stubs when testing ABCs (e.g., `StubExpression(ExpressionRule)`).

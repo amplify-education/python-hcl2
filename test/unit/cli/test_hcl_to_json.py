@@ -6,8 +6,8 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from cli.hcl_to_json import main
-from cli.helpers import EXIT_IO_ERROR, EXIT_PARSE_ERROR, EXIT_PARTIAL
+from hcl2.cli.hcl_to_json import main
+from hcl2.cli.helpers import EXIT_IO_ERROR, EXIT_PARSE_ERROR, EXIT_PARTIAL
 
 SIMPLE_HCL = "x = 1\n"
 SIMPLE_JSON_DICT = {"x": 1}

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+- Python 3.14 is now tested and declared as supported. No source changes were needed; the full
+  suite passes on 3.14 as-is.
 - `BlockView.start_line` and `BlockView.end_line`, so a block's span can be read from the query API without serializing it. `with_meta` puts the numbers in the output dict, which meant reaching them through the label nesting, or through the rule's private `_meta`. Both are `None` for a tree built by the deserializer, which carries no positions. `hq` picks them up through its property accessors: `hq 'resource[*] | .start_line' main.tf`. Thanks, @livingstaccato ([#333](https://github.com/amplify-education/python-hcl2/pull/333))
 
 ### Fixed
@@ -16,10 +18,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `with_meta` emits `__start_line__` and `__end_line__` again. The option, the `hcl2tojson --with-meta` flag and the migration guide's promise that the v7 keys are "still available" all survived the v8 rewrite; the code that produced the keys did not, leaving the option read nowhere in the package. Blocks carry the same spans 7.3.1 produced for the same input; attributes carry none, as in v7. Thanks, @livingstaccato ([#333](https://github.com/amplify-education/python-hcl2/pull/333))
   - The deserializer reads `__start_line__` and `__end_line__` as metadata only where `with_meta` writes them: together, as integers, on a block's body. An attribute of either name anywhere else still survives `dumps(loads(...))`, as it did before. A block that declares both with integer values cannot be told apart from the metadata and loses them; [#331](https://github.com/amplify-education/python-hcl2/issues/331) tracks moving the keys out of band.
 
+### Changed
+
+- **Breaking for direct `cli.*` imports.** The CLI modules moved from a top-level `cli` package
+  to `hcl2.cli`, so installing python-hcl2 no longer claims the generic top-level `cli` name.
+  Since 8.0 the distribution installed `cli/` into `site-packages`, where it collided with
+  projects that have a top-level `cli` package of their own and made their `cli.*` imports
+  resolve to the wrong module. The `hcl2tojson`, `jsontohcl2`, and `hq` commands and
+  `python -m hcl2` are unaffected; only code importing `cli.hcl_to_json`, `cli.json_to_hcl`,
+  `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
+  because a shim would still occupy the colliding name.
+- The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
+
+## \[8.1.4\] - 2026-09-08
+
 ### Fixed
 
-- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block of the Snowflake provider's `snowflake_schemas` data source. HCL does not reserve its keywords, so `if`, `in`, `for`, `for_each`, `else`, `endif`, `endfor`, `true`, `false`, and `null` are now accepted in every block label position and normalized to identifiers — matching the existing behaviour for keyword attribute names. The block-side grammar gap was diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
-- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). `object_elem_key` did not accept the keyword terminals, so a key such as `in` parsed only in states where the contextual lexer happened to fall back to `NAME` — which made the key's separator and position decide whether the file parsed. The comma-separated `{ name = "n", in = "header" }` parsed, but the newline-separated form the original report actually used did not, so its `jsonencode` OpenAPI body still raised. Keys such as `for` failed in every position. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block in Snowflake's `snowflake_schemas` data source. HCL reserves no keywords, so all are now accepted as block labels. Diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). A key such as `in` parsed only where the lexer fell back to `NAME`, so its separator and position decided whether the file parsed. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
 
 ## \[8.1.3\] - 2026-08-26
 
