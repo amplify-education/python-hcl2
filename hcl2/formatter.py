@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
 
-from hcl2.rules.abstract import LarkElement, LarkRule
+from hcl2.rules.abstract import LarkElement, LarkRule, LarkToken
 from hcl2.rules.base import (
     AttributeRule,
     BlockRule,
@@ -25,8 +25,17 @@ from hcl2.rules.for_expressions import (
     ForTupleExprRule,
 )
 from hcl2.rules.functions import FunctionCallRule
-from hcl2.rules.tokens import COLON, COMMA, LBRACE, LSQB, NL_OR_COMMENT
+from hcl2.rules.tokens import (
+    COLON,
+    COMMA,
+    HEREDOC_TEMPLATE,
+    HEREDOC_TRIM_TEMPLATE,
+    LBRACE,
+    LSQB,
+    NL_OR_COMMENT,
+)
 from hcl2.rules.whitespace import NewLineOrCommentRule
+from hcl2.walk import walk
 
 
 @dataclass
@@ -73,6 +82,27 @@ class BaseFormatter(LarkElementTreeFormatter):
         """Apply formatting to the given LarkElement tree in place."""
         if isinstance(tree, StartRule):
             self.format_start_rule(tree)
+            self._join_lines_after_heredocs(tree)
+
+    @staticmethod
+    def _join_lines_after_heredocs(tree: LarkElement):
+        """Drop the line break the formatter added right after a heredoc.
+
+        A heredoc token runs through the newline after its closing marker, so
+        the line is already ended; the break every attribute and element gets
+        would leave a blank line behind, which the parsed document never had.
+        """
+        previous = None
+        for node in walk(tree):
+            if not isinstance(node, LarkToken):
+                continue
+            if (
+                _is_line_ending_heredoc(previous)
+                and isinstance(node, NL_OR_COMMENT)  # type: ignore[misc]
+                and str(node.value).startswith("\n")
+            ):
+                node.set_value(str(node.value)[1:])
+            previous = node
 
     def format_start_rule(self, rule: StartRule):
         """Format the top-level start rule."""
@@ -150,8 +180,9 @@ class BaseFormatter(LarkElementTreeFormatter):
             return
 
         new_children = []
-        for i, child in enumerate(rule.children):
-            next_child = rule.children[i + 1] if i + 1 < len(rule.children) else None
+        children = self._without_commas_after_heredocs(rule.children)
+        for i, child in enumerate(children):
+            next_child = children[i + 1] if i + 1 < len(children) else None
             new_children.append(child)
 
             if isinstance(child, LBRACE):  # type: ignore[misc]
@@ -174,6 +205,21 @@ class BaseFormatter(LarkElementTreeFormatter):
 
         if self.options.vertically_align_object_elements:
             self._vertically_align_object_elems(rule)
+
+    @staticmethod
+    def _without_commas_after_heredocs(children: List[LarkElement]) -> List[LarkElement]:
+        """Drop the comma after an object element that ends with a heredoc.
+
+        The heredoc ends its line, and the line break is what separates object
+        elements: OpenTofu rejects a comma at the start of the next line with
+        "Invalid expression". A tuple takes one there, so only objects need it.
+        """
+        result: List[LarkElement] = []
+        for child in children:
+            if isinstance(child, COMMA) and result and _ends_with_heredoc(result[-1]):  # type: ignore[misc]
+                continue
+            result.append(child)
+        return result
 
     def format_expression(self, rule: ExprTermRule, indent_level: int = 0):
         """Dispatch formatting for the inner expression of an ExprTermRule."""
@@ -321,3 +367,18 @@ class BaseFormatter(LarkElementTreeFormatter):
         for _ in range(times):
             if token.value.endswith(" " * self.options.indent_length):
                 token.set_value(token.value[: -self.options.indent_length])
+
+
+def _is_line_ending_heredoc(node: object) -> bool:
+    """Whether *node* is a heredoc token running through its closing line."""
+    heredoc_types = (HEREDOC_TEMPLATE, HEREDOC_TRIM_TEMPLATE)
+    return isinstance(node, heredoc_types) and str(node.value).endswith("\n")  # type: ignore[arg-type]
+
+
+def _ends_with_heredoc(node: LarkElement) -> bool:
+    """Whether the last token under *node* is a heredoc that ends its line."""
+    last = None
+    for element in walk(node):
+        if isinstance(element, LarkToken):
+            last = element
+    return _is_line_ending_heredoc(last)

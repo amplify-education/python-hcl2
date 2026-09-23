@@ -93,7 +93,9 @@ ESCAPED_DIRECTIVE = StringToken["ESCAPED_DIRECTIVE"]  # type: ignore
 TEMPLATE_STRING = StringToken["TEMPLATE_STRING"]  # type: ignore
 BINARY_OP = StringToken["BINARY_OP"]  # type: ignore
 HEREDOC_TEMPLATE = StringToken["HEREDOC_TEMPLATE"]  # type: ignore
-HEREDOC_TRIM_TEMPLATE = StringToken["HEREDOC_TRIM_TEMPLATE"]  # type: ignore
+# The grammar's name: a token the parser reads and one the deserializer builds
+# are then the same class, and nothing downstream has to know both spellings.
+HEREDOC_TRIM_TEMPLATE = StringToken["HEREDOC_TEMPLATE_TRIM"]  # type: ignore
 NL_OR_COMMENT = StringToken["NL_OR_COMMENT"]  # type: ignore
 # static values
 EQ = StaticStringToken[("EQ", "=")]  # type: ignore

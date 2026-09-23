@@ -200,8 +200,30 @@ class TestDeserializeHeredocs(TestCase):
     def test_strings_to_heredocs_with_newline(self):
         opts = DeserializerOptions(strings_to_heredocs=True)
         d = _deser(opts)
-        result = d._deserialize_text('"line1\\nline2"')
+        result = d._deserialize_text('"line1\\nline2\\n"')
         self.assertIsInstance(result, HeredocTemplateRule)
+
+    def test_strings_to_heredocs_body_is_not_given_an_extra_line(self):
+        """The value's own trailing newline is the one before the marker.
+
+        The newline after the marker is the token's own, as it is for a parsed
+        heredoc: the token ends its line wherever it is written.
+        """
+        opts = DeserializerOptions(strings_to_heredocs=True)
+        d = _deser(opts)
+        result = d._deserialize_text('"line1\\nline2\\n"')
+        self.assertEqual(result.heredoc.value, "<<EOF\nline1\nline2\nEOF\n")
+
+    def test_strings_to_heredocs_skips_a_value_without_a_trailing_newline(self):
+        r"""A heredoc body always ends in a newline, so such a value is not one.
+
+        Writing `"line1\nline2"` as a heredoc would hand back `line1\nline2\n`
+        on the next read, which is a different value.
+        """
+        opts = DeserializerOptions(strings_to_heredocs=True)
+        d = _deser(opts)
+        result = d._deserialize_text('"line1\\nline2"')
+        self.assertIsInstance(result, StringRule)
 
     def test_strings_to_heredocs_without_newline(self):
         opts = DeserializerOptions(strings_to_heredocs=True)
