@@ -442,3 +442,43 @@ class TestWritingAStringSplitsItOnItsOwnSpans(TestCase):
     def test_escaped_markers_still_round_trip(self):
         source = 'x = "aaa$${bbb}ccc${"ddd-${1}"}%%{e}"\n'
         self.assertEqual(dumps(loads(source)), source)
+
+
+class TestAnInterpolationCanStripWhitespace(TestCase):
+    """`${~ ...}` and `${... ~}` are interpolations, not a syntax error.
+
+    The grammar gave the strip marker to the directives only, so a quoted
+    string using one on an interpolation failed to parse at all -- in `loads`,
+    and in `dumps` of a dict that carried one. OpenTofu v1.12.6 evaluates
+    `"a ${~ "b"} c"` to `ab c`, `"a ${"b" ~} c"` to `a bc`, and
+    `"p ${~ "q" ~} r"` to `pqr`.
+    """
+
+    CASES = (
+        'x = "a ${~ "b"} c"\n',
+        'x = "a ${"b" ~} c"\n',
+        'x = "p ${~ "q" ~} r"\n',
+        'x = "a ${~ b} c"\n',
+    )
+
+    def test_each_loads_and_writes_back(self):
+        for source in self.CASES:
+            with self.subTest(source=source):
+                self.assertEqual(dumps(loads(source)), source)
+
+    def test_the_serialized_form_keeps_the_markers(self):
+        self.assertEqual(loads('x = "a ${~ "b"} c"\n')["x"], '"a ${~ "b"} c"')
+        self.assertEqual(loads('x = "a ${b ~} c"\n')["x"], '"a ${b ~} c"')
+
+    def test_the_markers_are_spaced_like_a_directives(self):
+        self.assertEqual(loads('x = "a ${~"b"~} c"\n')["x"], '"a ${~ "b" ~} c"')
+
+    def test_a_dict_carrying_one(self):
+        self.assertEqual(dumps({"x": '"a ${~ b}"'}), 'x = "a ${~ b}"\n')
+
+    def test_the_value_form_keeps_the_expression_source(self):
+        self.assertEqual(loads('x = "a ${~ b} c"\n', serialization_options=QUOTED_VALUE)["x"], "a ${~ b} c")
+
+    def test_a_heredoc_with_one_still_round_trips(self):
+        source = 'x = <<EOF\na\n${~ "b"}\nEOF\n'
+        self.assertEqual(dumps(loads(source)), source)

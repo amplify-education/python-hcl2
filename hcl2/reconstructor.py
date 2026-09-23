@@ -66,6 +66,7 @@ class HCLReconstructor:
         self._last_was_space = True
         self._current_indent = 0
         self._last_token_name = None
+        self._token_before_last_name: Optional[str] = None
         self._last_rule_name = None
 
     # pylint:disable=R0911,R0912
@@ -84,6 +85,19 @@ class HCLReconstructor:
 
         if isinstance(current_node, Token):
             token_type = current_node.type
+
+            # `${~ expr ~}`: an interpolation's strip markers are spaced as a
+            # directive's are -- none against the braces, one toward the
+            # expression. The expression's first token belongs to another
+            # rule, so the opening marker is recognised by what preceded it.
+            strip = tokens.STRIP_MARKER.lark_name()
+            if (
+                self._last_token_name == strip
+                and self._token_before_last_name == tokens.INTERP_START.lark_name()
+            ):
+                return True
+            if token_type == strip and parent_rule_name == "interpolation":
+                return self._last_token_name != tokens.INTERP_START.lark_name()
 
             # Space before '{' in blocks
             if token_type == tokens.LBRACE.lark_name() and parent_rule_name == BlockRule.lark_name():
@@ -294,6 +308,7 @@ class HCLReconstructor:
         if self._should_add_space_before(token, parent_rule_name):
             result = " " + result
 
+        self._token_before_last_name = self._last_token_name
         self._last_token_name = token.type
         if len(token) != 0:
             self._last_was_space = result[-1].endswith(" ") or result[-1].endswith("\n")
