@@ -175,6 +175,16 @@ class TestWrittenDelimiterCannotCloseEarly(TestCase):
     def test_a_trailing_space_marker_line_counts_because_terraform_ends_there(self):
         self.assertEqual(self._write('"EOF  \\nkeeps\\n"'), "x = <<EOF_1\nEOF  \nkeeps\nEOF_1\n")
 
+    def test_any_whitespace_around_the_marker_counts_because_terraform_ends_there(self):
+        # OpenTofu v1.12.6 ends `<<EOF` on each of these lines; a zero-width
+        # space is not whitespace to it, so that line stays in the body.
+        for pad in ("\u00a0", "\f", "\v", "\u3000", "\u0085"):
+            for line in (pad + "EOF", "EOF" + pad):
+                with self.subTest(line=line):
+                    value = '"' + line + '\\nkeeps\\n"'
+                    self.assertEqual(self._write(value), f"x = <<EOF_1\n{line}\nkeeps\nEOF_1\n")
+        self.assertEqual(self._write('"\u200bEOF\\nx\\n"'), "x = <<EOF\n\u200bEOF\nx\nEOF\n")
+
     def test_the_search_continues_past_a_taken_variant(self):
         self.assertEqual(self._write(r'"EOF\nEOF_1\ny\n"'), "x = <<EOF_2\nEOF\nEOF_1\ny\nEOF_2\n")
 

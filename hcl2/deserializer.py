@@ -99,11 +99,12 @@ def _unescape_heredoc_body(inner: str) -> str:
 
 
 # A line that could end a heredoc: the delimiter word alone, give or take
-# surrounding spaces and tabs -- and a carriage return, because the body is
-# split on "\n" and a CRLF line hands back its own `\r`. OpenTofu ends a
-# heredoc on `EOF\r` exactly as it does on `EOF `, so a CRLF body carrying
-# the delimiter has to count.
-_CLOSING_MARKER_LINE = re.compile(r"[ \t]*([a-zA-Z][a-zA-Z0-9._-]*)[ \t\r]*")
+# surrounding whitespace. Any whitespace, not just spaces and tabs: OpenTofu
+# v1.12.6 ends `<<EOF` on a line reading `\u00a0EOF`, `EOF\f` or `\u3000EOF`,
+# though not on `\u200bEOF`, a zero-width space being no whitespace to it. That
+# includes a carriage return, because the body is split on "\n" and a CRLF
+# line hands back its own `\r`, so a CRLF body carrying the delimiter counts.
+_CLOSING_MARKER_LINE = re.compile(r"[^\S\n]*([a-zA-Z][a-zA-Z0-9._-]*)[^\S\n]*")
 
 
 def _heredoc_delimiter(content: str) -> str:
