@@ -3,7 +3,6 @@ from unittest import TestCase
 
 from hcl2.rules.tokens import NAME, NL_OR_COMMENT
 from hcl2.rules.whitespace import InlineCommentMixIn, NewLineOrCommentRule
-from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Concrete stub for testing InlineCommentMixIn ---
 
@@ -13,7 +12,7 @@ class ConcreteInlineComment(InlineCommentMixIn):
     def lark_name() -> str:
         return "test_inline"
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+    def serialize(self, options=None, context=None):
         return "test"
 
 

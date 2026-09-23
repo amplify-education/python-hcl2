@@ -92,8 +92,12 @@ class ForIntroRule(InlineCommentMixIn):
         """Return the collection expression being iterated over."""
         return self._children[8]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> str:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> str:
         """Serialize to 'for key, value in collection : ' string."""
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
         result = "for "
 
         result += f"{self.first_iterator.serialize(options, context)}"
@@ -127,8 +131,12 @@ class ForCondRule(InlineCommentMixIn):
         """Return the condition expression."""
         return self._children[2]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> str:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> str:
         """Serialize to 'if condition' string."""
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
         return f"if {self.condition_expr.serialize(options, context)}"
 
 
@@ -191,16 +199,20 @@ class ForTupleExprRule(ExpressionRule):
         """Return the optional condition rule."""
         return self._children[6]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to '[for ... : expr]' string."""
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
         result = "["
 
-        with context.modify(inside_dollar_string=True):
-            result += self.for_intro.serialize(options, context)
-            result += self.value_expr.serialize(options, context)
+        inner = context.replace(inside_dollar_string=True)
+        result += self.for_intro.serialize(options, inner)
+        result += self.value_expr.serialize(options, inner)
 
-            if self.condition is not None:
-                result += f" {self.condition.serialize(options, context)}"
+        if self.condition is not None:
+            result += f" {self.condition.serialize(options, inner)}"
 
         result += "]"
         if not context.inside_dollar_string:
@@ -287,19 +299,23 @@ class ForObjectExprRule(ExpressionRule):
         """Return the optional condition rule."""
         return self._children[11]
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
+    def serialize(
+        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
+    ) -> Any:
         """Serialize to '{for ... : key => value}' string."""
+        options = options if options is not None else SerializationOptions()
+        context = context if context is not None else SerializationContext()
         result = "{"
-        with context.modify(inside_dollar_string=True):
-            result += self.for_intro.serialize(options, context)
-            result += f"{self.key_expr.serialize(options, context)} => "
+        inner = context.replace(inside_dollar_string=True)
+        result += self.for_intro.serialize(options, inner)
+        result += f"{self.key_expr.serialize(options, inner)} => "
 
-            result += self.value_expr.serialize(replace(options, wrap_objects=True), context)
-            if self.ellipsis is not None:
-                result += self.ellipsis.serialize(options, context)
+        result += self.value_expr.serialize(replace(options, wrap_objects=True), inner)
+        if self.ellipsis is not None:
+            result += self.ellipsis.serialize(options, inner)
 
-            if self.condition is not None:
-                result += f" {self.condition.serialize(options, context)}"
+        if self.condition is not None:
+            result += f" {self.condition.serialize(options, inner)}"
 
         result += "}"
         if not context.inside_dollar_string:

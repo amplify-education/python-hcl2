@@ -1,7 +1,6 @@
 """Serialization options, context tracking, and string utility helpers."""
 
 import re
-from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import Optional, Tuple
 
@@ -120,9 +119,15 @@ def process_escape_sequences(value: str) -> str:
     return "".join(parts)
 
 
-@dataclass
+@dataclass(frozen=True)
 class SerializationContext:
-    """Mutable state tracked during serialization traversal."""
+    """State tracked during serialization traversal, and never mutated.
+
+    A traversal descends into a nested expression by building a child with
+    `replace`, so what a rule is handed cannot be changed underneath it. The
+    field values are read on the way down and never written back, which is
+    what makes one context safe to hand to two threads at once.
+    """
 
     inside_dollar_string: bool = False
     inside_parentheses: bool = False
@@ -130,21 +135,6 @@ class SerializationContext:
     def replace(self, **kwargs) -> "SerializationContext":
         """Return a new context with the given fields overridden."""
         return replace(self, **kwargs)
-
-    @contextmanager
-    def modify(self, **kwargs):
-        """Context manager that temporarily mutates fields, restoring on exit."""
-        original_values = {key: getattr(self, key) for key in kwargs}
-
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-
-        try:
-            yield
-        finally:
-            # Restore original values
-            for key, value in original_values.items():
-                setattr(self, key, value)
 
 
 def is_dollar_string(value: str) -> bool:

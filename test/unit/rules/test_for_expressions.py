@@ -36,7 +36,7 @@ class StubExpression(ExpressionRule):
         self._last_options = None
         super().__init__([], None)
 
-    def serialize(self, options=SerializationOptions(), context=SerializationContext()):
+    def serialize(self, options=None, context=None):
         self._last_options = options
         return self._stub_value
 
