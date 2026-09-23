@@ -9,7 +9,10 @@ for a variable nobody declared. Two rules did not check it.
 Both defects are in the value form only -- `strip_string_quotes=True`. What
 the other modes emit is unchanged; `TestTheOtherModesAreUntouched` states so,
 including the round trip, because that is the half a change here can break
-without any of the assertions above noticing.
+without any of the assertions above noticing. The one exception is a
+parenthesised term, `TestAParenthesisedTermIsExpressionSource`, whose default
+output was itself not HCL -- `(true)` came back as `${(True)}` -- so fixing it
+changes only output that no reader could evaluate.
 
 Checked against Terraform v1.11.4:
 
@@ -180,3 +183,58 @@ class TestTheOtherModesAreUntouched(TestCase):
             with self.subTest(source=source):
                 written = dumps(loads(source, serialization_options=VALUE))
                 self.assertEqual(dumps(loads(written)), written)
+
+
+class TestAParenthesisedTermIsExpressionSource(TestCase):
+    r"""`(...)` is written as `${(...)}`, so what it wraps is expression source.
+
+    The term wrapped its result in `${(` and `)}` but serialized the inside as
+    a value, so every literal in it came back in Python's spelling rather than
+    HCL's. This was not confined to the value form: on the default options
+    `(true)` came back as `${(True)}` and `(null)` as `${(None)}`, and `dumps`
+    wrote those back as `(True)` and `(None)` -- references to variables
+    nobody declared, which OpenTofu v1.12.6 rejects with "Invalid reference"
+    where the source evaluates to `true` and `null`. A tuple or an object
+    inside the parentheses came back as a Python repr, which `dumps` could not
+    parse at all. With `strip_string_quotes`, `("s")` lost its quotes and became
+    `${(s)}`, another reference.
+
+    Checked against OpenTofu v1.12.6 (`jsonencode` of each local):
+
+        (true) -> "true"    (null) -> "null"    ("s") -> "\"s\""
+        ([1, "a"]) -> "[1,\"a\"]"               ({a = 1}) -> "{\"a\":1}"
+    """
+
+    CASES = {
+        "(true)": "${(true)}",
+        "(null)": "${(null)}",
+        '("s")': '${("s")}',
+        "(1)": "${(1)}",
+        '([1, "a"])': '${([1, "a"])}',
+        "(1 + 2)": "${(1 + 2)}",
+        "((true))": "${((true))}",
+    }
+
+    def test_default_options(self):
+        for source, expected in self.CASES.items():
+            with self.subTest(source=source):
+                self.assertEqual(loads(f"x = {source}\n")["x"], expected)
+
+    def test_the_value_form(self):
+        for source, expected in self.CASES.items():
+            with self.subTest(source=source):
+                self.assertEqual(loads(f"x = {source}\n", serialization_options=QUOTED)["x"], expected)
+
+    def test_an_object_inside_parentheses(self):
+        self.assertEqual(loads("x = ({a = 1})\n")["x"], "${({a = 1})}")
+
+    def test_inside_a_tuple(self):
+        self.assertEqual(loads("x = [(true)]\n")["x"], ["${(true)}"])
+
+    def test_the_round_trip_reads_back_the_same_value(self):
+        for source in (*self.CASES, "({a = 1})", "[(true)]"):
+            for options in (DEFAULT, QUOTED, VALUE):
+                with self.subTest(source=source, options=options):
+                    original = loads(f"x = {source}\n", serialization_options=options)
+                    written = dumps(original)
+                    self.assertEqual(loads(written, serialization_options=options), original)
