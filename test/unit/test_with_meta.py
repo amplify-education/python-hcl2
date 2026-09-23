@@ -98,29 +98,59 @@ class TestWithMetaRoundTrip(TestCase):
 
 
 class TestUserAttributesNamedLikeMetadata(TestCase):
-    """An attribute genuinely named `__start_line__` collides with the metadata.
+    """An attribute genuinely named `__start_line__` can collide with the metadata.
 
     The keys are carried in-band, in the same dict as the block's attributes,
-    which is where v7 put them and what the migration guide promises. That has
-    a cost: the deserializer cannot tell a metadata key it wrote from an
-    attribute the document really declared, so it drops both -- exactly as it
-    already dropped `__is_block__` and `__comments__` before these two keys
-    existed. `with_meta` additionally overwrites such an attribute.
+    which is where v7 put them and what the migration guide promises. The
+    deserializer cannot tell a metadata key it wrote from an attribute the
+    document really declared, so it has to guess -- and it guesses narrowly.
+    `with_meta` only ever writes the two keys together, as integers, on a
+    block's body. Anywhere else, or alone, or holding anything but an integer,
+    the key is an attribute and is written back as one. Before `with_meta`
+    produced the keys, nothing reserved them at all, so an attribute of that
+    name at the top level of a document, or in an object, must keep surviving
+    the default round trip.
 
-    These pin the behaviour rather than bless it. Anything that made the
-    metadata unambiguous would have to move all five keys out of band, which is
-    a breaking change to the serialized shape, not a fix to this option.
+    What is left is a block that declares both names with integer values,
+    which is indistinguishable from metadata. Making that unambiguous means
+    moving the keys out of band, which is a breaking change to the serialized
+    shape rather than a fix to this option.
     """
 
-    RESERVED = (START_LINE, END_LINE, IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY)
+    ALWAYS_RESERVED = (IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY)
 
-    def test_a_reserved_name_does_not_survive_a_round_trip(self):
-        for key in self.RESERVED:
+    def test_the_marker_and_comment_keys_do_not_survive_a_round_trip(self):
+        for key in self.ALWAYS_RESERVED:
             with self.subTest(key=key):
                 hcl = f'block "a" {{\n  {key} = 99\n  keep = 1\n}}\n'
                 written = dumps(loads(hcl))
                 self.assertNotIn(key, written)
                 self.assertIn("keep", written)
+
+    def test_a_line_key_alone_in_a_block_survives(self):
+        for key in (START_LINE, END_LINE):
+            with self.subTest(key=key):
+                hcl = f'block "a" {{\n  {key} = 99\n  keep = 1\n}}\n'
+                self.assertIn(f"{key} = 99", dumps(loads(hcl)))
+
+    def test_line_keys_outside_a_block_survive(self):
+        hcl = "__start_line__ = 5\n__end_line__ = 6\nx = {\n  __start_line__ = 1\n  __end_line__ = 2\n}\n"
+        written = dumps(loads(hcl))
+        self.assertIn("__start_line__ = 5", written)
+        self.assertIn("__end_line__ = 6", written)
+        self.assertEqual(loads(written), loads(hcl))
+
+    def test_line_keys_that_are_not_integers_survive(self):
+        hcl = 'block "a" {\n  __start_line__ = "one"\n  __end_line__ = true\n}\n'
+        self.assertEqual(loads(dumps(loads(hcl))), loads(hcl))
+
+    def test_both_integer_line_keys_in_a_block_read_as_metadata(self):
+        # The one shape `with_meta` writes, so the one shape still dropped.
+        hcl = 'block "a" {\n  __start_line__ = 7\n  __end_line__ = 9\n  keep = 1\n}\n'
+        written = dumps(loads(hcl))
+        self.assertNotIn(START_LINE, written)
+        self.assertNotIn(END_LINE, written)
+        self.assertIn("keep", written)
 
     def test_with_meta_overwrites_an_attribute_of_the_same_name(self):
         hcl = 'block "a" {\n  __start_line__ = 99\n}\n'
