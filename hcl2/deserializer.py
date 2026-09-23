@@ -55,6 +55,7 @@ from hcl2.rules.tokens import (
     RBRACE,
     RSQB,
     STRING_CHARS,
+    STRIP_MARKER,
     TRUE,
     FloatLiteral,
     IntLiteral,
@@ -364,9 +365,20 @@ class BaseDeserializer(LarkElementTreeDeserializer):
             return StringPartRule([ESCAPED_DIRECTIVE(value)])
 
         if value.startswith("${") and value.endswith("}"):
-            return StringPartRule(
-                [InterpolationRule([INTERP_START(), self._deserialize_expression(value), RBRACE()])]
-            )
+            # A strip marker sits against the braces -- `${~` and `~}` -- and
+            # is not part of the expression, which would not parse with it.
+            body = value[2:-1]
+            strip_open = body.startswith("~")
+            strip_close = body.endswith("~")
+            body = body[1 if strip_open else 0 : len(body) - 1 if strip_close else len(body)].strip()
+            children: List[Any] = [INTERP_START()]
+            if strip_open:
+                children.append(STRIP_MARKER())
+            children.append(self._deserialize_expression("${" + body + "}"))
+            if strip_close:
+                children.append(STRIP_MARKER())
+            children.append(RBRACE())
+            return StringPartRule([InterpolationRule(children)])
 
         return StringPartRule([STRING_CHARS(value)])
 
