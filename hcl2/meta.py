@@ -25,10 +25,21 @@ class HclMeta:
     is_block: bool = False
     comments: List[dict] = field(default_factory=list)
     inline_comments: List[dict] = field(default_factory=list)
+    # The span `with_meta` reports, 1-based and inclusive. None when the
+    # option is off or the tree carries no positions -- a tree built by the
+    # deserializer has none, and that is "no span", not line zero.
+    start_line: Optional[int] = None
+    end_line: Optional[int] = None
 
     def is_empty(self) -> bool:
         """Whether there is nothing here worth carrying."""
-        return not (self.is_block or self.comments or self.inline_comments)
+        return not (
+            self.is_block
+            or self.comments
+            or self.inline_comments
+            or self.start_line is not None
+            or self.end_line is not None
+        )
 
     def copy(self) -> "HclMeta":
         """A copy with lists of its own.
@@ -37,7 +48,13 @@ class HclMeta:
         body's metadata would add it to the original's too. The comment dicts
         themselves are shared, as a shallow copy of a `dict` shares its values.
         """
-        return HclMeta(self.is_block, list(self.comments), list(self.inline_comments))
+        return HclMeta(
+            self.is_block,
+            list(self.comments),
+            list(self.inline_comments),
+            self.start_line,
+            self.end_line,
+        )
 
 
 class HclDict(Dict[str, Any]):
@@ -146,6 +163,21 @@ class HclDict(Dict[str, Any]):
         merged = HclDict(other, meta=self.hcl_meta.copy())
         merged.update(self)
         return merged
+
+
+def as_sidecar_dict(value: Any) -> Any:
+    """Return *value* as an `HclDict` if it is a plain dict, else unchanged.
+
+    A view's `to_dict` can return a dict the serializer never built as a body:
+    the `{label: body}` wrapper around a labelled block, or the `{name: value}`
+    of an attribute. Under `metadata_sidecar` those have to be `HclDict`s too.
+    Left plain, anything attached to them goes back in-band, and a key the
+    document spelled `__is_block__` reads back as the marker -- the collision
+    the option exists to remove.
+    """
+    if isinstance(value, dict) and meta_of(value) is None:
+        return HclDict(value)
+    return value
 
 
 def meta_of(value: Any) -> Optional[HclMeta]:

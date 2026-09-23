@@ -3,7 +3,7 @@
 from typing import Any, List, Optional
 
 from hcl2.const import COMMENTS_KEY
-from hcl2.meta import meta_of
+from hcl2.meta import as_sidecar_dict, meta_of
 from hcl2.query._base import NodeView, register_view
 from hcl2.rules.abstract import LarkElement
 from hcl2.rules.base import BlockRule
@@ -65,6 +65,8 @@ class BlockView(NodeView):
     def to_dict(self, options: Optional[SerializationOptions] = None) -> Any:
         """Serialize, merging adjacent comments from the parent body."""
         result = super().to_dict(options=options)
+        if options is not None and options.metadata_sidecar:
+            result = as_sidecar_dict(result)
         if (
             self._adjacent_comments
             and options is not None

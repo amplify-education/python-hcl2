@@ -242,6 +242,58 @@ class TestTheQueryLayerWritesToTheSidecar(TestCase):
         self.assertEqual(body[COMMENTS_KEY], [{"value": "lead comment"}])
 
 
+class TestEveryViewWritesToTheSidecar(TestCase):
+    """A labelled block and an attribute have to pick the form as well.
+
+    A labelled block serializes to a plain `{label: body}` wrapper, and an
+    attribute to a plain `{name: value}`, so neither carried a sidecar and the
+    adjacent comments went in-band onto them -- the one key the option exists
+    to keep out of the mapping, and one `dumps` then wrote as `__comments__`.
+    The comments land at the same level the in-band form puts them, on the
+    dict the view returns, so `meta_of(view.to_dict(...))` finds them there
+    whichever node the view is over.
+    """
+
+    SIDECAR_COMMENTS = SerializationOptions(metadata_sidecar=True, with_comments=True)
+
+    def _document(self, source):
+        from hcl2.query import DocumentView
+
+        return DocumentView.parse(source)
+
+    def test_a_labelled_block(self):
+        block = self._document('# lead\nresource "a" "b" {\n  x = 1\n}\n').blocks("resource")[0]
+        result = block.to_dict(options=self.SIDECAR_COMMENTS)
+        self.assertNotIn(COMMENTS_KEY, result)
+        self.assertEqual(meta_of(result).comments, [{"value": "lead"}])
+        self.assertEqual(dumps({"resource": [result]}), 'resource "a" "b" {\n  x = 1\n}\n')
+
+    def test_the_in_band_labelled_block_is_unchanged(self):
+        block = self._document('# lead\nresource "a" "b" {\n  x = 1\n}\n').blocks("resource")[0]
+        result = block.to_dict(options=SerializationOptions(with_comments=True))
+        self.assertEqual(result[COMMENTS_KEY], [{"value": "lead"}])
+        self.assertIsNone(meta_of(result))
+
+    def test_an_attribute(self):
+        attribute = self._document("# lead\nx = 1\n").attributes("x")[0]
+        result = attribute.to_dict(options=self.SIDECAR_COMMENTS)
+        self.assertEqual(result, {"x": 1})
+        self.assertEqual(meta_of(result).comments, [{"value": "lead"}])
+
+    def test_the_in_band_attribute_is_unchanged(self):
+        attribute = self._document("# lead\nx = 1\n").attributes("x")[0]
+        result = attribute.to_dict(options=SerializationOptions(with_comments=True))
+        self.assertEqual(result, {"x": 1, COMMENTS_KEY: [{"value": "lead"}]})
+
+    def test_an_attribute_named_like_the_marker_stays_an_attribute(self):
+        # Returned as a plain dict, `{"__is_block__": true}` would read back
+        # as the marker; the sidecar form is what keeps it an attribute.
+        attribute = self._document("__is_block__ = true\n").attributes()[0]
+        result = attribute.to_dict(options=SerializationOptions(metadata_sidecar=True))
+        self.assertIsNotNone(meta_of(result))
+        self.assertEqual(dumps(result), "__is_block__ = true\n")
+
+
 class TestTheTypeIsPartOfThePublicSurface(TestCase):
     """The CHANGELOG makes `HclDict` part of the contract, so it has to be reachable."""
 
@@ -398,3 +450,43 @@ class TestACopyOwnsItsMetadata(TestCase):
                 meta_of(duplicate).inline_comments.append({"value": "new"})
                 self.assertEqual(meta_of(self.body).comments, [{"value": "c"}])
                 self.assertEqual(meta_of(self.body).inline_comments, [])
+
+
+class TestTheMetaHasRoomForLineNumbers(TestCase):
+    """`with_meta` line spans belong in the sidecar too.
+
+    Written in-band into an `HclDict`, `__start_line__` and `__end_line__` sit
+    among the attributes, where the sidecar reserves nothing, so `dumps` writes
+    them out as real HCL. The meta carries them instead, beside the other
+    things that are not attributes of the body.
+    """
+
+    def test_absent_by_default(self):
+        meta = HclMeta()
+        self.assertIsNone(meta.start_line)
+        self.assertIsNone(meta.end_line)
+        self.assertTrue(meta.is_empty())
+
+    def test_a_span_alone_is_worth_carrying(self):
+        self.assertFalse(HclMeta(start_line=1, end_line=3).is_empty())
+
+    def test_the_earlier_fields_keep_their_positions(self):
+        meta = HclMeta(True, [{"value": "c"}], [])
+        self.assertTrue(meta.is_block)
+        self.assertEqual(meta.comments, [{"value": "c"}])
+
+    def test_every_copy_carries_the_span(self):
+        body = HclDict({"x": 1}, meta=HclMeta(is_block=True, start_line=4, end_line=9))
+        for name, duplicate in (
+            ("copy()", body.copy()),
+            ("copy.copy", copy.copy(body)),
+            ("deepcopy", copy.deepcopy(body)),
+            ("pickle", pickle.loads(pickle.dumps(body))),
+            ("|", body | {}),
+        ):
+            with self.subTest(name=name):
+                self.assertEqual((meta_of(duplicate).start_line, meta_of(duplicate).end_line), (4, 9))
+
+    def test_the_span_is_not_written(self):
+        body = HclDict({"x": 1}, meta=HclMeta(is_block=True, start_line=1, end_line=3))
+        self.assertEqual(dumps({"b": [body]}), "b {\n  x = 1\n}\n")
