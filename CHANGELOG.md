@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- `heredocs_to_strings` writes the heredoc's value rather than its own text. It was quoting the source -- markers and all -- so `<<EOT\nhello\nEOT` became `"<<EOT\nhello\nEOT"`, a quoted string spanning three physical lines. A quoted template cannot span lines, so OpenTofu rejects that with "Invalid multi-line string", and reading it back here gave the marker text rather than the value: neither a valid file nor the right content. It now reuses the flattening the reader already performs, so the two cannot drift. ([#337](https://github.com/amplify-education/python-hcl2/issues/337))
+- `heredocs_to_strings` writes the heredoc's value rather than its own text. It was quoting the source -- markers and all -- so `<<EOT\nhello\nEOT` became `"<<EOT\nhello\nEOT"`, a quoted string spanning three physical lines. A quoted template cannot span lines, so OpenTofu rejects that with "Invalid multi-line string", and reading it back here gave the marker text rather than the value: neither a valid file nor the right content. It now reuses the flattening the reader already performs, so the two cannot drift. A heredoc whose `${...}` runs across lines has no quoted spelling -- the newlines inside the expression can be neither escaped nor left raw -- so it stays a heredoc; flattening one raised `UnexpectedToken` out of `dumps`. ([#337](https://github.com/amplify-education/python-hcl2/issues/337))
 
 ## \[8.1.4\] - 2026-09-08
 

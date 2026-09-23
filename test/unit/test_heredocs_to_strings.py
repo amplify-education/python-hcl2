@@ -69,3 +69,33 @@ class TestTheOptionOffIsUnchanged(TestCase):
         source = 'a = "hello"\n'
         self.assertEqual(dumps(loads(source), deserializer_options=STRINGS), source)
         self.assertEqual(dumps(loads(source)), source)
+
+
+class TestAMultiLineInterpolationKeepsTheHeredoc(TestCase):
+    """A heredoc whose `${...}` spans lines has no quoted spelling.
+
+    The newlines inside the span are expression source: escaped, OpenTofu
+    rejects them as "not used within the language", and raw, they make the
+    quoted string span lines. Flattening one raised `UnexpectedToken` out of
+    `dumps`. It is written back as the heredoc it was, which is the only answer
+    that keeps the file readable and the value unchanged.
+    """
+
+    OPTIONS = DeserializerOptions(heredocs_to_strings=True)
+
+    def test_both_forms_are_kept(self):
+        for source in (
+            "x = <<EOF\na ${\n  b\n} c\nEOF\n",
+            "x = <<-EOF\n  a ${\n    b\n  } c\n  EOF\n",
+            "x = <<EOF\n%{ if\n  true }y%{ endif }\nEOF\n",
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(dumps(loads(source), deserializer_options=self.OPTIONS), source)
+
+    def test_a_one_line_interpolation_is_still_flattened(self):
+        written = dumps(loads("x = <<EOF\na ${b} c\nEOF\n"), deserializer_options=self.OPTIONS)
+        self.assertTrue(written.startswith('x = "a ${b} c'), written)
+
+    def test_a_brace_in_a_string_inside_the_span_does_not_end_it(self):
+        source = 'x = <<EOF\na ${f("}",\n  b)} c\nEOF\n'
+        self.assertEqual(dumps(loads(source), deserializer_options=self.OPTIONS), source)

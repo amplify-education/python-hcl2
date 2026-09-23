@@ -64,6 +64,51 @@ from hcl2.transformer import RuleTransformer
 from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN, SerializationOptions
 
 
+def _has_multi_line_interpolation(heredoc: str) -> bool:
+    """Whether a `${...}` or `%{...}` in *heredoc* runs across a line.
+
+    Such a heredoc has no quoted spelling: the newlines inside the span are
+    expression source, which OpenTofu rejects escaped ("This character is not
+    used within the language") and rejects raw, since a quoted string cannot
+    span lines. `heredocs_to_strings` leaves it a heredoc rather than raising.
+
+    A `"` inside the span opens a string literal whose braces do not count;
+    the escapes `$${` and `%%{` open nothing.
+    """
+    index = 0
+    length = len(heredoc)
+    while index < length:
+        if heredoc.startswith(("$${", "%%{"), index):
+            index += 3
+            continue
+        if not heredoc.startswith(("${", "%{"), index):
+            index += 1
+            continue
+        depth = 0
+        in_string = False
+        index += 1
+        while index < length:
+            char = heredoc[index]
+            if in_string:
+                if char == "\\":
+                    index += 1
+                elif char == '"':
+                    in_string = False
+            elif char == '"':
+                in_string = True
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            if char == "\n":
+                return True
+            index += 1
+        index += 1
+    return False
+
+
 @dataclass
 class DeserializerOptions:
     """Options controlling how Python dicts are deserialized into LarkElement trees."""
@@ -171,10 +216,14 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                 if value.startswith('"<<-') and HEREDOC_TRIM_PATTERN.match(value[1:-1]):
                     if not self.options.heredocs_to_strings:
                         return self._deserialize_heredoc(value[1:-1], True)
+                    if _has_multi_line_interpolation(value[1:-1]):
+                        return self._deserialize_heredoc(value[1:-1], True)
                     return self._deserialize_string(self._heredoc_as_quoted(value[1:-1], True))
 
                 if value.startswith('"<<') and HEREDOC_PATTERN.match(value[1:-1]):
                     if not self.options.heredocs_to_strings:
+                        return self._deserialize_heredoc(value[1:-1], False)
+                    if _has_multi_line_interpolation(value[1:-1]):
                         return self._deserialize_heredoc(value[1:-1], False)
                     return self._deserialize_string(self._heredoc_as_quoted(value[1:-1], False))
 
