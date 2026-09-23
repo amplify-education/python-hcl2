@@ -102,7 +102,7 @@ class HclDict(Dict[str, Any]):
         metadata to it would be a trap. The in-band form survives a copy
         because its metadata is among the keys; this has to say so explicitly.
         """
-        return HclDict(self, meta=self.hcl_meta.copy())
+        return type(self)(self, meta=self.hcl_meta.copy())
 
     def __copy__(self) -> "HclDict":
         """Same for `copy.copy`."""
@@ -118,7 +118,7 @@ class HclDict(Dict[str, Any]):
         copy first for that reason; a subclass that did not would make a
         cyclic document worse than the plain mapping it replaces.
         """
-        duplicate = HclDict()
+        duplicate = type(self)()
         memo[id(self)] = duplicate
         duplicate.hcl_meta = copy_module.deepcopy(self.hcl_meta, memo)
         for key, value in self.items():
@@ -136,7 +136,7 @@ class HclDict(Dict[str, Any]):
         terminate -- `dict` pickles a cycle, so this has to as well. The
         metadata is slot state, restored by the default `__setstate__`.
         """
-        return (HclDict, (), (None, {"hcl_meta": self.hcl_meta}), None, iter(self.items()))
+        return (type(self), (), (None, {"hcl_meta": self.hcl_meta}), None, iter(self.items()))
 
     def __or__(self, other: Any) -> "HclDict":  # type: ignore[override]
         """Merge, keeping this side's metadata.
@@ -152,7 +152,7 @@ class HclDict(Dict[str, Any]):
         """
         if not isinstance(other, dict):
             return NotImplemented
-        merged = HclDict(self, meta=self.hcl_meta.copy())
+        merged = type(self)(self, meta=self.hcl_meta.copy())
         merged.update(other)
         return merged
 
@@ -160,7 +160,7 @@ class HclDict(Dict[str, Any]):
         """Same from the left, keeping this side's metadata."""
         if not isinstance(other, dict):
             return NotImplemented
-        merged = HclDict(other, meta=self.hcl_meta.copy())
+        merged = type(self)(other, meta=self.hcl_meta.copy())
         merged.update(self)
         return merged
 
