@@ -410,3 +410,35 @@ class TestAnEscapedMarkerResolvesItsOwnEscapes(TestCase):
         # A literal written inside the directive is expression source.
         result = loads('x = "%{ if c == "a\\tb" }y%{ endif }"\n', serialization_options=QUOTED_VALUE)["x"]
         self.assertEqual(result, '%{ if c == "a\\tb" }y%{ endif }')
+
+
+class TestWritingAStringSplitsItOnItsOwnSpans(TestCase):
+    r"""Writing a quoted string back splits it where the reader would.
+
+    `dumps` split a string with a regex that knew nothing of string literals,
+    then stripped a `"` from both edges of every piece rather than from the
+    string once. Beside an interpolation that ate the backslash-quote pair's
+    quote: `"a \"${"b"}\" c"` came back as `"a \${"b"}\" c"`, which OpenTofu
+    rejects with "Invalid escape sequence" -- and a flattened JSON policy, the
+    commonest heredoc there is, did the same. A brace in a nested literal
+    crashed the split outright. OpenTofu v1.12.6 evaluates each source below
+    and its rewritten form to the same value.
+    """
+
+    def test_an_escaped_quote_beside_an_interpolation(self):
+        source = 'x = "a \\"${"b"}\\" c"\n'
+        self.assertEqual(dumps(loads(source)), source)
+
+    def test_a_flattened_json_policy(self):
+        source = 'x = <<EOF\n{\n  "Resource": "${upper("arn")}"\n}\nEOF\n'
+        written = dumps(loads(source, serialization_options=FLAT))
+        self.assertEqual(written, 'x = "{\\n  \\"Resource\\": \\"${upper("arn")}\\"\\n}\\n"\n')
+
+    def test_a_brace_inside_a_nested_literal(self):
+        source = 'x = <<EOF\na ${"\\"}"} b\nEOF\n'
+        written = dumps(loads(source, serialization_options=FLAT))
+        self.assertEqual(written, 'x = "a ${"\\"}"} b\\n"\n')
+
+    def test_escaped_markers_still_round_trip(self):
+        source = 'x = "aaa$${bbb}ccc${"ddd-${1}"}%%{e}"\n'
+        self.assertEqual(dumps(loads(source)), source)
