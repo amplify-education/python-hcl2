@@ -78,6 +78,7 @@ data = loads(text, serialization_options=SerializationOptions(
 | `force_operation_parentheses` | `bool` | `False` | Force parentheses around all operations                                                                                                         |
 | `preserve_scientific_notation` | `bool` | `True` | Keep scientific notation as-is                                                                                                                  |
 | `strip_string_quotes` | `bool` | `False` | Yield string *values* rather than source text: remove surrounding quotes (e.g. `"hello"` instead of `'"hello"'`) and resolve escape sequences (`"a\nb"` becomes a real newline). String literals inside expressions keep their quotes, so `upper("x")` stays `'${upper("x")}'`. **Breaks JSON->HCL2 deserialization and reconstruction.** |
+| `metadata_sidecar` | `bool` | `False` | Carry `__is_block__`, `__comments__` and `__inline_comments__` beside each body instead of among its keys, so a document attribute with one of those names survives. Bodies, objects and query results come back as `HclDict`, a `dict` subclass; read the metadata with `hcl2.meta_of(value)` (see [Advanced API](03_advanced_api.md#metadata-sidecar)). `dumps` accepts either form. JSON cannot carry the sidecar, so `json.dumps` of the result writes the attributes only. |
 
 ### Comment Format
 
