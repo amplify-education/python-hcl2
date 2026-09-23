@@ -141,7 +141,7 @@ string_part: STRING_CHARS
 // Expressions
 ?expression : or_expr QMARK new_line_or_comment? expression new_line_or_comment? COLON new_line_or_comment? expression -> conditional
             | or_expr
-interpolation: INTERP_START expression RBRACE
+interpolation: INTERP_START STRIP_MARKER? expression STRIP_MARKER? RBRACE
 
 // Template directives (flat rules — transformer assembles if/for structure)
 template_if_start: DIRECTIVE_START STRIP_MARKER? IF expression STRIP_MARKER? RBRACE

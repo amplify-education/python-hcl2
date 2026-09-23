@@ -2,9 +2,12 @@
 
 import re
 import sys
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
+
+from lark.tree import Meta
 
 from hcl2.rules.abstract import LarkRule
+from hcl2.rules.directives import _insert_strip_optionals
 from hcl2.rules.expressions import ExpressionRule
 from hcl2.rules.tokens import (
     DBLQUOTE,
@@ -15,8 +18,10 @@ from hcl2.rules.tokens import (
     INTERP_START,
     RBRACE,
     STRING_CHARS,
+    STRIP_MARKER,
     TEMPLATE_STRING,
 )
+from hcl2.template import map_literal_spans, resolve_escaped_markers
 from hcl2.utils import (
     HEREDOC_PATTERN,
     HEREDOC_TRIM_PATTERN,
@@ -26,24 +31,53 @@ from hcl2.utils import (
     to_dollar_string,
 )
 
+# A run of the whitespace OpenTofu measures a heredoc with: Go's
+# `unicode.IsSpace`, less the newline. That is Python's `str.isspace` without
+# U+001C..U+001F, information separators Python counts as whitespace and Go
+# does not -- OpenTofu leaves `<<-EOT\n    a\n\x1c  b\n    EOT` undedented,
+# where `lstrip()` measured a margin and dropped the separator with it.
+_INDENT = re.compile(r"[^\S\n\x1c-\x1f]*")
 
-def _strip_closing_marker_line(text: str) -> str:
-    r"""Drop the closing marker line's indentation and the one newline before it.
+
+def _strip_closing_marker_indent(text: str) -> str:
+    r"""Drop the whitespace indenting the closing marker on its own line.
 
     A heredoc body always ends ``...\n<indent>``, where ``<indent>`` is the
-    whitespace preceding the closing marker on its own line. The spec allows
-    "an arbitrary number of spaces preceding it", and neither that indentation
-    nor the newline separating it from the last content line is part of the
-    value. The newline may be ``\r\n``, since heredocs parse in CRLF files.
+    whitespace preceding the closing marker. The spec allows "an arbitrary
+    number of spaces preceding it", and that indentation is not part of the
+    value.
 
-    Everything else is: additional blank lines, and trailing spaces on a
-    content line. The latter are safe because a content line always ends with
-    its own newline, so the indentation match never reaches them. This replaces
-    a blanket ``rstrip("\n\t ")``, which could not tell the two apart and
-    discarded both.
+    The newline before it *is*. The spec ends the template where the delimiter
+    "subsequently appears again on a line of its own", so every content line,
+    the last one included, is terminated by its own newline: ``<<EOT\nline\nEOT``
+    is ``"line\n"``, which is what Terraform and OpenTofu evaluate it to.
+
+    Trailing spaces on a content line survive too, because such a line always
+    ends with its own newline, and the match below cannot cross one. This
+    replaced a blanket ``rstrip("\n\t ")``, which could tell none of these
+    apart and discarded all of them.
+
+    The indentation is any whitespace but a newline, not spaces and tabs
+    alone: a marker indented with a non-breaking space, a vertical tab, a form
+    feed or an ideographic space is indented as far as OpenTofu is concerned,
+    and leaving those characters in place appended them to the value.
     """
-    text = re.sub(r"[ \t]*\Z", "", text)
-    return re.sub(r"\r?\n\Z", "", text)
+    return re.sub(r"[^\S\n\x1c-\x1f]*\Z", "", text)
+
+
+def _resolve_literal(text: str) -> str:
+    """Resolve a literal stretch of quoted source into the characters it means."""
+    return process_escape_sequences(text.replace("$${", "${").replace("%%{", "%{"))
+
+
+def _escape_for_quoted_source(text: str) -> str:
+    r"""Escape literal text so it can sit inside a quoted string.
+
+    A carriage return is escaped alongside the newline: raw, it would break the
+    quoted string it is being written into. OpenTofu rejects `"a<CR>b"` with
+    "No closing marker was found for the string".
+    """
+    return text.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "\\r").replace("\n", "\\n")
 
 
 class InterpolationRule(LarkRule):
@@ -51,9 +85,19 @@ class InterpolationRule(LarkRule):
 
     _children_layout: Tuple[
         INTERP_START,
+        Optional[STRIP_MARKER],
         ExpressionRule,
+        Optional[STRIP_MARKER],
         RBRACE,
     ]
+
+    def __init__(self, children, meta: Optional[Meta] = None):
+        # `${~ ...}` and `${... ~}` strip the whitespace beside the
+        # interpolation, exactly as they do beside a directive: OpenTofu
+        # evaluates `"a ${~ "b"} c"` to `ab c`. A missing marker is a None
+        # placeholder, so the expression keeps one index either way.
+        _insert_strip_optionals(children, [1, 3])
+        super().__init__(children, meta)
 
     @staticmethod
     def lark_name() -> str:
@@ -63,12 +107,25 @@ class InterpolationRule(LarkRule):
     @property
     def expression(self):
         """Return the interpolated expression."""
-        return self.children[1]
+        return self.children[2]
+
+    @property
+    def strip_open(self) -> bool:
+        """Whether a strip marker follows `${`."""
+        return self.children[1] is not None
+
+    @property
+    def strip_close(self) -> bool:
+        """Whether a strip marker precedes the closing `}`."""
+        return self.children[3] is not None
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
-        """Serialize to ${expression} string."""
+        """Serialize to `${expression}`, spelling any strip marker as a directive does."""
         with context.modify(inside_dollar_string=True):
-            return to_dollar_string(self.expression.serialize(options, context))
+            expression = self.expression.serialize(options, context)
+        prefix = "~ " if self.strip_open else ""
+        suffix = " ~" if self.strip_close else ""
+        return to_dollar_string(f"{prefix}{expression}{suffix}")
 
 
 class StringPartRule(LarkRule):
@@ -131,16 +188,33 @@ class StringRule(LarkRule):
 
     @staticmethod
     def _serialize_part_as_value(part, options, context) -> str:
-        """Serialize one part, resolving escapes in literal text only.
+        """Serialize one part into what the reader sees, by its terminal.
 
-        Interpolations and escaped interpolation/directive markers are passed
-        through untouched: their text is expression source, not literal
-        content, so an escape inside them is not this string's to resolve.
+        Literal text has its escapes resolved. An interpolation is passed
+        through untouched: its text is expression source, not literal content,
+        so an escape inside it is not this string's to resolve.
+
+        `$${` and `%%{` are neither. They are escapes for a literal `${` and
+        `%{`, so the value carries the single sigil -- `"$${esc}"` is the six
+        characters `${esc}` to Terraform, not seven.
         """
         serialized = part.serialize(options, context)
-        if part.content.lark_name() == "STRING_CHARS":
+        terminal = part.content.lark_name()
+        if terminal == "STRING_CHARS":
             return process_escape_sequences(serialized)
-        return serialized
+        if terminal in ("ESCAPED_INTERPOLATION", "ESCAPED_DIRECTIVE"):
+            # The token runs from the doubled sigil to the next `}`, and all
+            # of it is literal text: OpenTofu evaluates `"$${a\tb}"` to
+            # `${a<TAB>b}`, so the escapes after the sigil resolve too.
+            return process_escape_sequences(serialized[1:])
+        # Anything else is a nested template rule -- a directive and everything
+        # it encloses arrive as one part, so a marker written between `%{ if }`
+        # and `%{ endif }` never reaches the branch above and stayed doubled,
+        # while the same content in a heredoc resolved. The literal stretches
+        # are resolved like any other literal text -- markers and escapes both:
+        # OpenTofu evaluates `"%{ if true }$${z}\t%{ endif }"` to `${z}<TAB>`.
+        # The directives themselves are expression source and left alone.
+        return map_literal_spans(serialized, _resolve_literal)
 
 
 class HeredocTemplateRule(LarkRule):
@@ -169,14 +243,17 @@ class HeredocTemplateRule(LarkRule):
             match = HEREDOC_PATTERN.match(heredoc)
             if not match:
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
-            heredoc = _strip_closing_marker_line(match.group(2))
+            heredoc = _strip_closing_marker_indent(match.group(2))
             if options.strip_string_quotes:
-                # The caller asked for the value, so hand back the body as-is:
-                # real newlines, no escaping. The escaping below exists only to
-                # build the quoted-string *source* form returned otherwise.
-                return heredoc
-            heredoc = heredoc.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-            return f'"{heredoc}"'
+                # The caller asked for the value: real newlines, no escaping.
+                # `$${` and `%%{` are resolved, being escapes for a literal
+                # `${` and `%{` rather than characters of the value.
+                return resolve_escaped_markers(heredoc, heredoc=True)
+            # Only the literal spans are escaped. Inside `${...}` the text is
+            # expression source, and escaping a quote there rewrites someone
+            # else's code: `${upper("a")}` would become `${upper(\\"a\\")}`,
+            # which OpenTofu rejects outright.
+            return '"' + map_literal_spans(heredoc, _escape_for_quoted_source, heredoc=True) + '"'
 
         result = heredoc.rstrip(self._trim_chars)
         if options.strip_string_quotes:
@@ -197,49 +274,54 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize the trim heredoc, stripping common leading whitespace."""
         # See https://github.com/hashicorp/hcl2/blob/master/hcl/hclsyntax/spec.md#template-expressions
-        # This is a special version of heredocs that are declared with "<<-"
-        # This will calculate the minimum number of leading spaces in each line of a heredoc
-        # and then remove that number of spaces from each line
-
+        # This is a special version of heredocs that are declared with "<<-",
+        # whose body is dedented by the smallest indent any of its lines carries.
         heredoc = self.heredoc.serialize(options, context)
 
         if not options.preserve_heredocs:
             match = HEREDOC_TRIM_PATTERN.match(heredoc)
             if not match:
                 raise RuntimeError(f"Invalid Heredoc token: {heredoc}")
-            heredoc = match.group(2)
+            body = "\n".join(self._dedent(_strip_closing_marker_indent(match.group(2))))
+            if options.strip_string_quotes:
+                # The caller asked for the value: real newlines, no escaping.
+                return resolve_escaped_markers(body, heredoc=True)
+            return '"' + map_literal_spans(body, _escape_for_quoted_source, heredoc=True) + '"'
 
-        heredoc = _strip_closing_marker_line(heredoc)
-        lines = heredoc.split("\n")
+        result = heredoc.rstrip(self._trim_chars)
+        if options.strip_string_quotes:
+            return result
+        return f'"{result}"'
 
-        # calculate the min number of leading spaces in each line
+    @staticmethod
+    def _dedent(body: str) -> List[str]:
+        """Split *body* into lines and remove the common leading whitespace."""
+        lines = body.split("\n")
+
+        # The margin is the smallest indent any content line carries.
+        #
         # The spec measures "any literal string at the start of each line", so a
         # blank line offers no measurement. Counting it as zero would drag the
-        # minimum down and cancel the dedent for every other line -- which only
-        # became reachable once blank lines stopped being stripped above.
-        min_spaces = sys.maxsize
+        # margin down and cancel the dedent for every other line.
+        #
+        # It also says "spaces", but the reference implementation does not read
+        # that as narrowly: OpenTofu dedents a tab-indented `<<-` heredoc by one
+        # tab per level. Measuring whitespace characters rather than spaces
+        # alone matches it, and is identical to counting spaces on the
+        # space-indented input that reading the letter of the spec would cover.
+        margin = sys.maxsize
         for line in lines:
-            if not line.strip():
+            indent = _INDENT.match(line).end()  # type: ignore[union-attr]
+            if indent == len(line):
                 continue
-            leading_spaces = len(line) - len(line.lstrip(" "))
-            min_spaces = min(min_spaces, leading_spaces)
-        if min_spaces == sys.maxsize:
-            min_spaces = 0
+            margin = min(margin, indent)
+        if margin == sys.maxsize:
+            margin = 0
 
-        # trim off that number of leading spaces from each line
-        lines = [line[min_spaces:] for line in lines]
-
-        if not options.preserve_heredocs:
-            lines = [line.replace("\\", "\\\\").replace('"', '\\"') for line in lines]
-
-        if options.strip_string_quotes:
-            # Value, not source: join with real newlines regardless of
-            # preserve_heredocs, and skip the escaping done for the quoted form.
-            return "\n".join(lines)
-
-        sep = "\\n" if not options.preserve_heredocs else "\n"
-        inner = sep.join(lines)
-        return '"' + inner + '"'
+        # A line that offered no measurement is left exactly as written --
+        # OpenTofu keeps a six-space line inside a four-space heredoc at six
+        # spaces rather than two.
+        return [line if _INDENT.fullmatch(line) else line[margin:] for line in lines]
 
 
 class TemplateStringRule(LarkRule):
