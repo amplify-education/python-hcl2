@@ -171,3 +171,28 @@ class TestNothingElseChanged(TestCase):
 
     def test_crlf_with_trailing_space(self):
         self.assertEqual(loads("a = <<EOF\r\nbody\r\nEOF  \r\nb = 1\r\n")["b"], 1)
+
+
+class TestTheMarkerIsPaddedWithTerraformsWhitespace(TestCase):
+    """Whitespace around the closing marker is Go's `unicode.IsSpace`, not Python's `\\s`.
+
+    OpenTofu v1.12.6 ends `<<EOF` on a line reading `EOF` followed by a
+    non-breaking space, a form feed, a vertical tab, an ideographic space or a
+    next-line character, and keeps `\\x1cEOF`, `EOF\\x1c` and `EOF\\u200b` as
+    body text: Python counts U+001C-U+001F as whitespace and Go does not, and a
+    zero-width space is whitespace to neither. Where the two disagree the
+    grammar either closed a heredoc OpenTofu keeps open or refused one it
+    closes.
+    """
+
+    def test_trailing_unicode_whitespace_closes(self):
+        for pad in (" ", "\f", "\v", "　", "\u0085"):
+            with self.subTest(pad=repr(pad)):
+                plain = loads("x = <<EOF\na\nEOF\n", serialization_options=VALUE)["x"]
+                self.assertEqual(loads(f"x = <<EOF\na\nEOF{pad}\n", serialization_options=VALUE)["x"], plain)
+
+    def test_information_separators_are_body_text(self):
+        for line in ("\x1cEOF", "EOF\x1c", "\x1fEOF", "EOF​"):
+            with self.subTest(line=repr(line)):
+                value = loads(f"x = <<EOF\na\n{line}\nEOF\n", serialization_options=VALUE)["x"]
+                self.assertTrue(value.startswith(f"a\n{line}"), repr(value))
