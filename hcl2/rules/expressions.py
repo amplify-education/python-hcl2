@@ -100,7 +100,16 @@ class ExprTermRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize, handling parenthesized expression wrapping."""
-        with context.modify(inside_parentheses=self.parentheses or context.inside_parentheses):
+        # A parenthesised term is written as `${(...)}`, so what it wraps is
+        # expression source, exactly as a function's arguments are. Serialized
+        # as a value, `(true)` came back as `${(True)}` and `(null)` as
+        # `${(None)}` -- Python's spelling, which OpenTofu reads as references
+        # to undeclared variables -- and a tuple or object inside came back as
+        # a Python repr that did not parse.
+        with context.modify(
+            inside_parentheses=self.parentheses or context.inside_parentheses,
+            inside_dollar_string=self.parentheses or context.inside_dollar_string,
+        ):
             result = self.expression.serialize(options, context)
 
         if self.parentheses:

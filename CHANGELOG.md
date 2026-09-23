@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Python 3.14 is now tested and declared as supported. No source changes were needed; the full
   suite passes on 3.14 as-is.
 
+### Fixed
+
+- `strip_string_quotes` now writes a heredoc inside an expression as a string instead of splicing its body in bare. `StringRule` checks `inside_dollar_string` to keep its quotes for exactly this reason; the heredoc rules did not, so `upper(<<E\nx\nE\n)` came back as `${upper(x)}` — a reference to a variable nobody declared — and a multi-line body put raw newlines into source that would not parse. Both `<<` and `<<-` are fixed, in every expression context. Thanks, @livingstaccato ([#350](https://github.com/amplify-education/python-hcl2/pull/350))
+- `strip_string_quotes` now keeps the delimiters of a string literal inside a template directive. `TemplateStringRule` only ever appears inside `%{ ... }`, where the text is expression source and the quotes belong to a literal written in it, so dropping them turned `%{ if x == "y" }` into `%{ if x == y }`: a comparison against a variable rather than against a string. Thanks, @livingstaccato ([#350](https://github.com/amplify-education/python-hcl2/pull/350))
+- A parenthesised expression writes what it wraps as HCL rather than as a Python value, on the default options as well: `(true)` used to come back as `${(True)}` and `(null)` as `${(None)}`, which `dumps` wrote back as references to variables nobody declared (OpenTofu rejects both with "Invalid reference"); a tuple or object inside the parentheses came back as a Python repr that `dumps` could not parse; and with `strip_string_quotes`, `("s")` lost its quotes and became `${(s)}`. They now come back as `${(true)}`, `${(null)}`, `${([1, "a"])}` and `${("s")}`, and each round trip evaluates to the value the source does. Thanks, @livingstaccato ([#350](https://github.com/amplify-education/python-hcl2/pull/350))
+
 ## \[8.1.4\] - 2026-09-08
 
 ### Fixed
