@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+### Changed
+
+- **Breaking for direct `cli.*` imports.** The CLI modules moved from a top-level `cli` package
+  to `hcl2.cli`, so installing python-hcl2 no longer claims the generic top-level `cli` name.
+  Since 8.0 the distribution installed `cli/` into `site-packages`, where it collided with
+  projects that have a top-level `cli` package of their own and made their `cli.*` imports
+  resolve to the wrong module. The `hcl2tojson`, `jsontohcl2`, and `hq` commands and
+  `python -m hcl2` are unaffected; only code importing `cli.hcl_to_json`, `cli.json_to_hcl`,
+  `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
+  because a shim would still occupy the colliding name.
+- The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
+
+### Added
+
+- Python 3.14 is now tested and declared as supported. No source changes were needed; the full
+  suite passes on 3.14 as-is.
+
 ### Fixed
 
 - A heredoc whose interpolation spans lines is not flattened. The quoted form cannot hold one: the newlines inside `${...}` are expression source, where OpenTofu rejects an escaped newline and a raw one makes the string span lines, which it also rejects. It used to emit the raw version -- output neither Terraform nor this library could read, written with no error -- and now hands the heredoc back in the form `preserve_heredocs=True` produces, which reads back as that heredoc. Declining is the only answer that does not change what the document means. ([#347](https://github.com/amplify-education/python-hcl2/issues/347))
@@ -19,8 +36,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `strings_to_heredocs` leaves a value carrying a lone carriage return quoted. A heredoc body is read literally, so it can hold a `\r` only where one ends a line: OpenTofu rejects `<<EOF\nx\ry\nEOF` with "No closing marker was found for the string", while the quoted `"x\ry\n"` it came from is valid. Such a value stays quoted, for the same reason one that does not end in a newline does.
 - `strings_to_heredocs` picks a delimiter the body cannot close. It wrote `<<EOF` over every value, so a string holding a line reading `EOF` -- a log excerpt, a shell script, an embedded config, the payloads heredocs are for -- ended its own heredoc early and produced a file that no longer parsed. A numbered variant is used when the body occupies `EOF`, and ordinary values are written exactly as before. The lines that count as markers are Terraform's, which are looser than this grammar's: OpenTofu ends a heredoc on `EOF  ` while `HEREDOC_TEMPLATE` here requires the newline to follow the word. A CRLF body counts too -- it is split on `\n`, so its lines carry their own `\r`, and OpenTofu ends a heredoc on `EOF\r` as readily as on `EOF `. ([#330](https://github.com/amplify-education/python-hcl2/issues/330))
 - `strings_to_heredocs` no longer adds a line to the body it writes. The value's own trailing newline is the one that precedes the closing marker, so a heredoc was being emitted one line longer than the string it came from. A value that does not end in a newline is now left as a quoted string, since no heredoc can express it. Flattening a document and restoring it now yields HCL that OpenTofu evaluates identically to the original; five of the eleven values in the round-trip fixture did not survive it before.
-- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block of the Snowflake provider's `snowflake_schemas` data source. HCL does not reserve its keywords, so `if`, `in`, `for`, `for_each`, `else`, `endif`, `endfor`, `true`, `false`, and `null` are now accepted in every block label position and normalized to identifiers — matching the existing behaviour for keyword attribute names. The block-side grammar gap was diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
-- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). `object_elem_key` did not accept the keyword terminals, so a key such as `in` parsed only in states where the contextual lexer happened to fall back to `NAME` — which made the key's separator and position decide whether the file parsed. The comma-separated `{ name = "n", in = "header" }` parsed, but the newline-separated form the original report actually used did not, so its `jsonencode` OpenAPI body still raised. Keys such as `for` failed in every position. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+
+## \[8.1.4\] - 2026-09-08
+
+### Fixed
+
+- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block in Snowflake's `snowflake_schemas` data source. HCL reserves no keywords, so all are now accepted as block labels. Diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). A key such as `in` parsed only where the lexer fell back to `NAME`, so its separator and position decided whether the file parsed. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
 
 ## \[8.1.3\] - 2026-08-26
 
