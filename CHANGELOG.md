@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Python 3.14 is now tested and declared as supported. No source changes were needed; the full
   suite passes on 3.14 as-is.
 
+### Fixed
+
+- `force_operation_parentheses` now adds parentheses inside an expression that is already parenthesised. The operation rules handed `inside_parentheses` — which means "my container already wrapped me", and stops the option doubling parentheses — down to their operands, which nothing wraps, so a single pair anywhere above an operation silenced the option for everything below it: `(b + c * d)` came back unchanged. It now reaches through parentheses, function calls, indexes and for-expressions alike. The option-less path is unaffected. Thanks, @livingstaccato ([#348](https://github.com/amplify-education/python-hcl2/pull/348))
+
 ## \[8.1.4\] - 2026-09-08
 
 ### Fixed
