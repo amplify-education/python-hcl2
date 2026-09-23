@@ -61,7 +61,80 @@ from hcl2.rules.tokens import (
     IntLiteral,
 )
 from hcl2.transformer import RuleTransformer
-from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
+from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN, SerializationOptions
+
+
+def _has_quoted_spelling(heredoc: str) -> bool:
+    """Whether *heredoc* can be written as a quoted string of the same value.
+
+    Two things rule it out: a `${...}` or `%{...}` that runs across a line,
+    and a `~` strip marker. A heredoc is lexed a line at a time, so `~}` there
+    strips only to the end of its own line, where in a quoted string it strips
+    across the newline and the next line's indent -- OpenTofu v1.12.6 gives the
+    two spellings of the same loop different values. Such a heredoc stays one.
+    """
+    if "${~" in heredoc or "%{~" in heredoc or "~}" in heredoc:
+        return False
+    return not _has_multi_line_interpolation(heredoc)
+
+
+def _has_multi_line_interpolation(heredoc: str) -> bool:
+    """Whether a `${...}` or `%{...}` in *heredoc* runs across a line.
+
+    Such a heredoc has no quoted spelling: the newlines inside the span are
+    expression source, which OpenTofu rejects escaped ("This character is not
+    used within the language") and rejects raw, since a quoted string cannot
+    span lines. `heredocs_to_strings` leaves it a heredoc rather than raising.
+
+    Braces that are not structural are skipped: those in a string literal and
+    those in a comment. OpenTofu evaluates `${1 /* } */\n+ 2}` to 3, so the
+    span runs on past that brace and across the line. A `#` or `//` comment
+    runs to the end of its line, so one inside a span means the span crosses a
+    line. A string literal that itself opens `${` or `%{` is answered as
+    multi-line without looking further: keeping the heredoc is always safe,
+    and flattening it wrongly is not.
+    """
+    index = 0
+    length = len(heredoc)
+    while index < length:
+        if heredoc.startswith(("$${", "%%{"), index):
+            index += 3
+            continue
+        if not heredoc.startswith(("${", "%{"), index):
+            index += 1
+            continue
+        depth = 0
+        in_string = False
+        index += 1
+        while index < length:
+            char = heredoc[index]
+            if char == "\n":
+                return True
+            if in_string:
+                if char == "\\":
+                    index += 1
+                elif char == '"':
+                    in_string = False
+                elif heredoc.startswith(("${", "%{"), index):
+                    return True
+            elif char == '"':
+                in_string = True
+            elif char == "#" or heredoc.startswith("//", index):
+                return True
+            elif heredoc.startswith("/*", index):
+                end = heredoc.find("*/", index + 2)
+                if end == -1 or "\n" in heredoc[index:end]:
+                    return True
+                index = end + 1
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            index += 1
+        index += 1
+    return False
 
 
 @dataclass
@@ -168,15 +241,19 @@ class BaseDeserializer(LarkElementTreeDeserializer):
 
         if isinstance(value, str):
             if value.startswith('"') and value.endswith('"'):
-                if not self.options.heredocs_to_strings and value.startswith('"<<-'):
-                    match = HEREDOC_TRIM_PATTERN.match(value[1:-1])
-                    if match:
+                if value.startswith('"<<-') and HEREDOC_TRIM_PATTERN.match(value[1:-1]):
+                    if not self.options.heredocs_to_strings:
                         return self._deserialize_heredoc(value[1:-1], True)
+                    if not _has_quoted_spelling(value[1:-1]):
+                        return self._deserialize_heredoc(value[1:-1], True)
+                    return self._deserialize_string(self._heredoc_as_quoted(value[1:-1], True))
 
-                if not self.options.heredocs_to_strings and value.startswith('"<<'):
-                    match = HEREDOC_PATTERN.match(value[1:-1])
-                    if match:
+                if value.startswith('"<<') and HEREDOC_PATTERN.match(value[1:-1]):
+                    if not self.options.heredocs_to_strings:
                         return self._deserialize_heredoc(value[1:-1], False)
+                    if not _has_quoted_spelling(value[1:-1]):
+                        return self._deserialize_heredoc(value[1:-1], False)
+                    return self._deserialize_string(self._heredoc_as_quoted(value[1:-1], False))
 
                 if self.options.strings_to_heredocs:
                     inner = value[1:-1]
@@ -251,6 +328,24 @@ class BaseDeserializer(LarkElementTreeDeserializer):
             )
 
         return StringPartRule([STRING_CHARS(value)])
+
+    def _heredoc_as_quoted(self, heredoc: str, trim: bool) -> str:
+        """Return the quoted-string source for *heredoc*'s value.
+
+        Not by quoting the heredoc's own text: that is what this option used to
+        do, and it produced `"<<EOT\nhello\nEOT"` -- a quoted string spanning
+        three physical lines, markers and all. A quoted template cannot span
+        lines, so OpenTofu rejects it with "Invalid multi-line string", and
+        reading it back here gave the marker text rather than the value.
+
+        The flattening the reader already performs is reused rather than
+        written a second time, so the two cannot drift: serializing the rule
+        with `preserve_heredocs=False` is exactly the quoted form
+        `preserve_heredocs=False` produces on the way in.
+        """
+        rule = self._deserialize_heredoc(heredoc, trim)
+        quoted: str = rule.serialize(SerializationOptions(preserve_heredocs=False))
+        return quoted
 
     def _deserialize_heredoc(
         self, value: str, trim: bool
