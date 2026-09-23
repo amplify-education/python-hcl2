@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, List, Optional, TextIO, Union
 
-from regex import regex
-
 from hcl2.const import COMMENTS_KEY, INLINE_COMMENTS_KEY, IS_BLOCK
 from hcl2.parser import parser as _get_parser
 from hcl2.rules.abstract import LarkElement, LarkRule
@@ -44,6 +42,7 @@ from hcl2.rules.tokens import (
     COMMA,
     DBLQUOTE,
     EQ,
+    ESCAPED_DIRECTIVE,
     ESCAPED_INTERPOLATION,
     FALSE,
     HEREDOC_TEMPLATE,
@@ -129,6 +128,10 @@ def _heredoc_delimiter(content: str) -> str:
     while f"EOF_{suffix}" in occupied:
         suffix += 1
     return f"EOF_{suffix}"
+
+
+# The grammar's ESCAPED_INTERPOLATION and ESCAPED_DIRECTIVE terminals.
+_ESCAPED_MARKER = re.compile(r"\$\$\{[^}]*\}|%%\{[^}]*\}")
 
 
 def _interpolation_spans(text: str, heredoc: bool = False) -> List[str]:
@@ -309,25 +312,31 @@ class BaseDeserializer(LarkElementTreeDeserializer):
         if "%{" in stripped:
             return self._deserialize_string_via_parser(value)
 
+        # Split where the reader would: `split_template` knows a string
+        # literal inside `${...}` is a template of its own, so a quote or a
+        # brace in one does not end the span. The regex this replaced did
+        # not, and it then stripped a `"` from the edge of every piece rather
+        # than from the string once -- `"a \"${"b"}\" c"` lost the quote of
+        # its `\"` to that and came back as source OpenTofu rejects.
         result = []
-        # split string into individual parts based on lark grammar
-        # e.g. 'aaa$${bbb}ccc${"ddd-${eee}"}' -> ['aaa', '$${bbb}', 'ccc', '${"ddd-${eee}"}']
-        # 'aa-${"bb-${"cc-${"dd-${5 + 5}"}"}"}' -> ['aa-', '${"bb-${"cc-${"dd-${5 + 5}"}"}"}']
-        pattern = regex.compile(r"(\${1,2}\{(?:[^{}]|(?R))*\})")
-        parts = [part for part in pattern.split(value) if part != ""]
-
-        for part in parts:
-            if part == '"':
+        for kind, chunk in split_template(inner):
+            if kind == INTERPOLATION:
+                result.append(self._deserialize_string_part(chunk))
                 continue
+            # A literal stretch may hold the `$${...}`/`%%{...}` escapes, which
+            # the grammar tokenizes on their own.
+            position = 0
+            for match in _ESCAPED_MARKER.finditer(chunk):
+                if match.start() > position:
+                    result.append(self._deserialize_string_part(chunk[position : match.start()]))
+                result.append(self._deserialize_string_part(match.group()))
+                position = match.end()
+            if position < len(chunk):
+                result.append(self._deserialize_string_part(chunk[position:]))
 
-            if part.startswith('"'):
-                part = part[1:]
-            if part.endswith('"'):
-                part = part[:-1]
-
-            string_part = self._deserialize_string_part(part)
-            result.append(string_part)
-
+        if not result:
+            # `""` keeps the one empty part it has always had.
+            result.append(self._deserialize_string_part(""))
         return StringRule([DBLQUOTE(), *result, DBLQUOTE()])
 
     def _deserialize_string_via_parser(self, value: str) -> StringRule:
@@ -350,6 +359,9 @@ class BaseDeserializer(LarkElementTreeDeserializer):
     def _deserialize_string_part(self, value: str) -> StringPartRule:
         if value.startswith("$${") and value.endswith("}"):
             return StringPartRule([ESCAPED_INTERPOLATION(value)])
+
+        if value.startswith("%%{") and value.endswith("}"):
+            return StringPartRule([ESCAPED_DIRECTIVE(value)])
 
         if value.startswith("${") and value.endswith("}"):
             return StringPartRule(
