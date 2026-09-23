@@ -89,3 +89,51 @@ class TestTheTrimMarginIgnoresExpressionSource(TestCase):
     def test_without_a_span_nothing_changes(self):
         source = "x = <<-EOT\n    a\n  b\n    EOT\n"
         self.assertEqual(loads(source, serialization_options=VALUE)["x"], "  a\nb\n")
+
+
+class TestADeclinedHeredocInsideAnExpressionIsSource(TestCase):
+    """A heredoc argument with no quoted spelling goes back as the heredoc.
+
+    The fallback quoted the heredoc's own text, markers and all, even as a
+    function argument -- `${upper("<<EOF\\na ${...")}` -- which `dumps` could
+    not read. Inside an expression the heredoc is source already; its token
+    carries the newline after its closing marker, so the `)` that follows
+    starts the next line. OpenTofu v1.12.6 evaluates both sources to `A B C\\n`.
+    """
+
+    def test_both_forms_come_back_as_written(self):
+        for source in (
+            'x = upper(<<EOF\na ${\n  "b"\n} c\nEOF\n)\n',
+            'x = upper(<<-EOF\n  a ${\n    "b"\n  } c\n  EOF\n)\n',
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(loads(source, serialization_options=FLAT)["x"], "${" + source[4:-1] + "}")
+                self.assertEqual(dumps(loads(source, serialization_options=FLAT)), source)
+
+
+class TestAStripMarkerKeepsTheHeredoc(TestCase):
+    """`~` strips differently in a heredoc than in the quoted string it would become.
+
+    A heredoc body is lexed one line at a time, so a strip marker reaches only
+    to the end of its own line; in a quoted string the same whitespace runs on
+    through the newline into the next line's indent. OpenTofu v1.12.6 evaluates
+    the first source below to `items:\\n  - a\\n  - b\\n`, and its flattened form
+    to `items:\\n- a\\n- b\\n`. A marker inside `${...}` also left the flattened
+    string unreadable by `dumps`. Declining is the answer that keeps the value.
+    """
+
+    SOURCES = (
+        'x = <<EOF\nitems:\n%{ for s in ["a", "b"] ~}\n  - ${s}\n%{ endfor ~}\nEOF\n',
+        'x = <<-EOF\n  items:\n  %{ for s in ["a", "b"] ~}\n    - ${s}\n  %{ endfor ~}\n  EOF\n',
+        'x = <<EOF\na\n  ${~ "x"} b\nEOF\n',
+        'x = <<EOF\na ${"x" ~}  \n  b\nEOF\n',
+    )
+
+    def test_the_heredoc_is_kept(self):
+        for source in self.SOURCES:
+            with self.subTest(source=source):
+                self.assertEqual(dumps(loads(source, serialization_options=FLAT)), source)
+
+    def test_a_template_without_a_strip_marker_still_flattens(self):
+        source = 'x = <<EOF\nitems:\n%{ for s in ["a", "b"] }\n  - ${s}\n%{ endfor }\nEOF\n'
+        self.assertTrue(loads(source, serialization_options=FLAT)["x"].startswith('"items:\\n'))
