@@ -7,11 +7,33 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+### Changed
+
+- **Breaking for direct `cli.*` imports.** The CLI modules moved from a top-level `cli` package
+  to `hcl2.cli`, so installing python-hcl2 no longer claims the generic top-level `cli` name.
+  Since 8.0 the distribution installed `cli/` into `site-packages`, where it collided with
+  projects that have a top-level `cli` package of their own and made their `cli.*` imports
+  resolve to the wrong module. The `hcl2tojson`, `jsontohcl2`, and `hq` commands and
+  `python -m hcl2` are unaffected; only code importing `cli.hcl_to_json`, `cli.json_to_hcl`,
+  `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
+  because a shim would still occupy the colliding name.
+- The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
+
+### Added
+
+- Python 3.14 is now tested and declared as supported. No source changes were needed; the full
+  suite passes on 3.14 as-is.
+
 ### Fixed
 
 - `heredocs_to_strings` writes the heredoc's value rather than its own text. It was quoting the source -- markers and all -- so `<<EOT\nhello\nEOT` became `"<<EOT\nhello\nEOT"`, a quoted string spanning three physical lines. A quoted template cannot span lines, so OpenTofu rejects that with "Invalid multi-line string", and reading it back here gave the marker text rather than the value: neither a valid file nor the right content. It now reuses the flattening the reader already performs, so the two cannot drift. ([#337](https://github.com/amplify-education/python-hcl2/issues/337))
-- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block of the Snowflake provider's `snowflake_schemas` data source. HCL does not reserve its keywords, so `if`, `in`, `for`, `for_each`, `else`, `endif`, `endfor`, `true`, `false`, and `null` are now accepted in every block label position and normalized to identifiers — matching the existing behaviour for keyword attribute names. The block-side grammar gap was diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
-- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). `object_elem_key` did not accept the keyword terminals, so a key such as `in` parsed only in states where the contextual lexer happened to fall back to `NAME` — which made the key's separator and position decide whether the file parsed. The comma-separated `{ name = "n", in = "header" }` parsed, but the newline-separated form the original report actually used did not, so its `jsonencode` OpenAPI body still raised. Keys such as `for` failed in every position. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+
+## \[8.1.4\] - 2026-09-08
+
+### Fixed
+
+- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block in Snowflake's `snowflake_schemas` data source. HCL reserves no keywords, so all are now accepted as block labels. Diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). A key such as `in` parsed only where the lexer fell back to `NAME`, so its separator and position decided whether the file parsed. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
 
 ## \[8.1.3\] - 2026-08-26
 

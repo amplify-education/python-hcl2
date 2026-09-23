@@ -6,7 +6,11 @@ import os
 import sys
 from typing import IO, List, Optional, TextIO
 
-from cli.helpers import (
+from hcl2 import load
+from hcl2.utils import SerializationOptions
+from hcl2.version import __version__
+
+from .helpers import (
     EXIT_IO_ERROR,
     EXIT_PARSE_ERROR,
     EXIT_PARTIAL,
@@ -20,9 +24,6 @@ from cli.helpers import (
     _expand_file_args,
     _install_sigpipe_handler,
 )
-from hcl2 import load
-from hcl2.utils import SerializationOptions
-from hcl2.version import __version__
 
 _HCL_EXTENSIONS = {".tf", ".hcl"}
 
