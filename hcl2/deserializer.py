@@ -66,15 +66,16 @@ from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN
 _HEREDOC_BODY_ESCAPES = {"n": "\n", "r": "\r"}
 
 # A line that could end a heredoc: the delimiter word alone, give or take
-# surrounding spaces and tabs -- and a carriage return, because the body is
-# split on "\n" and a CRLF line hands back its own `\r`. OpenTofu ends a
-# heredoc on `EOF\r` exactly as it does on `EOF `, so a CRLF body carrying
-# the delimiter has to count. This grammar is stricter than Terraform, whose
+# surrounding whitespace. Any whitespace, not just spaces and tabs: OpenTofu
+# v1.12.6 ends `<<EOF` on a line reading `\u00a0EOF`, `EOF\f` or `\u3000EOF`,
+# though not on `\u200bEOF`, a zero-width space being no whitespace to it. That
+# includes a carriage return, because the body is split on "\n" and a CRLF
+# line hands back its own `\r`. This grammar is stricter than Terraform, whose
 # scanner ends the heredoc on `EOF  ` while `HEREDOC_TEMPLATE` here requires
 # the newline to follow the word itself. The looser reading is the safe one to
 # pick a delimiter against: emitting a body that only Terraform would treat as
 # closed writes a file this library can read and Terraform cannot.
-_CLOSING_MARKER_LINE = re.compile(r"[ \t]*([a-zA-Z][a-zA-Z0-9._-]*)[ \t\r]*")
+_CLOSING_MARKER_LINE = re.compile(r"[^\S\n]*([a-zA-Z][a-zA-Z0-9._-]*)[^\S\n]*")
 
 
 def _heredoc_delimiter(content: str) -> str:

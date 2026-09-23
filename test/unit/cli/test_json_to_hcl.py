@@ -6,8 +6,8 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from cli.helpers import EXIT_DIFF, EXIT_IO_ERROR, EXIT_PARSE_ERROR, EXIT_PARTIAL
-from cli.json_to_hcl import main
+from hcl2.cli.helpers import EXIT_DIFF, EXIT_IO_ERROR, EXIT_PARSE_ERROR, EXIT_PARTIAL
+from hcl2.cli.json_to_hcl import main
 
 SIMPLE_JSON_DICT = {"x": 1}
 SIMPLE_JSON = json.dumps(SIMPLE_JSON_DICT)
@@ -754,7 +754,7 @@ class TestStructureError(TestCase):
 
             stderr = StringIO()
             with patch("sys.argv", ["jsontohcl2", path]):
-                with patch("cli.json_to_hcl.dump", side_effect=TypeError("bad structure")):
+                with patch("hcl2.cli.json_to_hcl.dump", side_effect=TypeError("bad structure")):
                     with patch("sys.stderr", stderr):
                         with self.assertRaises(SystemExit) as cm:
                             main()

@@ -178,7 +178,9 @@ Reverse:  dict -> from_dict() -> reconstruct() -> HCL text
 
 ## CLI changes
 
-The `hcl2tojson` entry point moved from `hcl2.__main__:main` to `cli.hcl_to_json:main`. A shim keeps `python -m hcl2` working, but direct imports from `hcl2.__main__` should be updated.
+The `hcl2tojson` entry point moved from `hcl2.__main__:main` to `hcl2.cli.hcl_to_json:main`. A shim keeps `python -m hcl2` working, but direct imports from `hcl2.__main__` should be updated.
+
+In 8.0 through 8.1.x these modules lived in a top-level `cli` package; 8.2.0 moved them under `hcl2.cli` so the distribution no longer claims the generic `cli` name. Only direct `import cli.*` is affected — the `hcl2tojson`, `jsontohcl2`, and `hq` commands are unchanged.
 
 Two new CLI tools ship with v8:
 
