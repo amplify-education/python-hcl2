@@ -359,7 +359,10 @@ class TestEmptyHeredocs(TestCase):
         self.assertEqual(loads("a = {\n  k = <<EOF\nEOF\n}\n"), {"a": {"k": '"<<EOF\nEOF"'}})
 
     def test_empty_heredoc_as_a_function_argument(self):
-        self.assertEqual(loads("a = trimspace(<<EOF\nEOF\n)\n"), {"a": '${trimspace("<<EOF\nEOF")}'})
+        # An argument is expression source, so the heredoc is handed back as
+        # written, newline included; quoting it made a multi-line string
+        # OpenTofu rejects (#338).
+        self.assertEqual(loads("a = trimspace(<<EOF\nEOF\n)\n"), {"a": "${trimspace(<<EOF\nEOF\n)}"})
 
 
 class TestNegativeIntegerLiterals(TestCase):

@@ -87,3 +87,49 @@ class TestReconstructionIsUnchanged(TestCase):
         ):
             with self.subTest(source=source):
                 self.assertEqual(dumps(loads(source)), source)
+
+
+class TestAHeredocInsideAnExpressionStaysAHeredoc(TestCase):
+    """A heredoc written as an argument is expression source, and stays one.
+
+    It used to come back quoted, markers and all -- `${upper("<<EOF\\nfoo\\nEOF")}`
+    -- which `dumps` writes as a multi-line quoted string: OpenTofu v1.12.6
+    rejects that with "Invalid multi-line string", and it is a different value
+    besides. Handing the heredoc back as written needs it to keep the newline
+    after its closing marker, so the `)` that follows starts the next line;
+    that is the same rule the rest of this module is about.
+    """
+
+    CASES = (
+        ("x = upper(<<EOF\nfoo\nEOF\n)\n", "${upper(<<EOF\nfoo\nEOF\n)}"),
+        ("x = trimspace(<<EOF\nEOF\n)\n", "${trimspace(<<EOF\nEOF\n)}"),
+        ("x = upper(<<-E\n  a\n  E\n)\n", "${upper(<<-E\n  a\n  E\n)}"),
+        ('x = join(<<A\nx\nA\n, ["y"])\n', '${join(<<A\nx\nA\n, ["y"])}'),
+    )
+
+    def test_the_serialized_form_is_the_heredoc(self):
+        for source, expected in self.CASES:
+            with self.subTest(source=source):
+                self.assertEqual(loads(source)["x"], expected)
+
+    def test_the_value_form_is_the_same_source(self):
+        # Inside an expression the text is source either way.
+        value = SerializationOptions(strip_string_quotes=True)
+        for source, expected in self.CASES:
+            with self.subTest(source=source):
+                self.assertEqual(loads(source, serialization_options=value)["x"], expected)
+
+    def test_the_round_trip_reads_back_the_same(self):
+        # `dumps` lays a tuple out one element per line, so compare what the
+        # written file reads back as rather than its bytes.
+        for source, _ in self.CASES:
+            with self.subTest(source=source):
+                self.assertEqual(loads(dumps(loads(source))), loads(source))
+
+    def test_a_lone_argument_is_written_back_byte_for_byte(self):
+        for source, _ in self.CASES[:3]:
+            with self.subTest(source=source):
+                self.assertEqual(dumps(loads(source)), source)
+
+    def test_a_heredoc_that_is_the_whole_value_is_unchanged(self):
+        self.assertEqual(loads("x = <<EOF\nfoo\nEOF\n")["x"], '"<<EOF\nfoo\nEOF"')
