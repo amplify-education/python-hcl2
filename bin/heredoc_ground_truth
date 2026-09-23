@@ -21,6 +21,7 @@ Requires `tofu` or `terraform` on PATH.
 
 import argparse
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -32,6 +33,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from test.unit.test_heredoc_matches_terraform import CASES  # noqa: E402
 
 BINARIES = ("tofu", "terraform")
+
+# Results go to stdout and diagnostics to stderr, so a piped run keeps the
+# table and its summary together while the binary in use stays visible.
+REPORT = logging.getLogger("heredoc_ground_truth.report")
+DIAGNOSTICS = logging.getLogger("heredoc_ground_truth.diagnostics")
 
 # Seconds one `console` evaluation may take. A binary waiting on a plugin cache
 # lock or a prompt would otherwise hang the run with nothing printed.
@@ -72,6 +78,16 @@ def evaluate(binary, source):
         return json.loads(json.loads(result.stdout.strip().splitlines()[-1]))
 
 
+def configure_logging():
+    """Send each logger to its stream as bare messages, the lines the table is made of."""
+    for logger, stream in ((REPORT, sys.stdout), (DIAGNOSTICS, sys.stderr)):
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -82,12 +98,13 @@ def main():
     )
     args = parser.parse_args()
 
+    configure_logging()
     binary = find_binary()
     if binary is None:
-        print("neither `tofu` nor `terraform` is on PATH", file=sys.stderr)
+        DIAGNOSTICS.error("neither `tofu` nor `terraform` is on PATH")
         return 2
 
-    print("using %s\n" % binary, file=sys.stderr)
+    DIAGNOSTICS.info("using %s\n", binary)
     mismatches = 0
     for source, expected in CASES:
         # One case the binary rejects or stalls on is a result for that case,
@@ -96,27 +113,27 @@ def main():
             actual = evaluate(binary, source)
         except subprocess.TimeoutExpired:
             mismatches += 1
-            print("ERR  %r\n       %s timed out after %ds" % (source, binary, TIMEOUT_SECONDS))
+            REPORT.error("ERR  %r\n       %s timed out after %ds", source, binary, TIMEOUT_SECONDS)
             continue
         except RuntimeError as error:
             mismatches += 1
-            print("ERR  %r\n       %s: %s" % (source, binary, error))
+            REPORT.error("ERR  %r\n       %s: %s", source, binary, error)
             continue
         if args.print_table:
-            print("    (%r, %r)," % (source, actual))
+            REPORT.info("    (%r, %r),", source, actual)
             continue
         if actual == expected:
-            print("ok   %r" % source)
+            REPORT.info("ok   %r", source)
         else:
             mismatches += 1
-            print("BAD  %r\n       expected %r\n       %s says %r" % (source, expected, binary, actual))
+            REPORT.warning("BAD  %r\n       expected %r\n       %s says %r", source, expected, binary, actual)
 
     if args.print_table:
         return 1 if mismatches else 0
 
     # stdout, so it lands after the per-case lines rather than ahead of them
     # when the output is piped.
-    print("\n%d of %d cases disagree" % (mismatches, len(CASES)))
+    REPORT.info("\n%d of %d cases disagree", mismatches, len(CASES))
     return 1 if mismatches else 0
 
 
