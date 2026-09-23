@@ -168,5 +168,11 @@ class BlockRule(LarkRule):
         labels = self._labels
         for label in reversed(labels[1:]):
             result = {label.serialize(options): result}
+            if options.metadata_sidecar:
+                # A label level is a mapping too. Left plain, the deserializer
+                # reads it in-band, and a label spelled `__comments__` or
+                # `__is_block__` is taken for metadata and dropped with the
+                # body it names.
+                result = HclDict(result)
 
         return result

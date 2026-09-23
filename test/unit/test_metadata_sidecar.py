@@ -490,3 +490,57 @@ class TestTheMetaHasRoomForLineNumbers(TestCase):
     def test_the_span_is_not_written(self):
         body = HclDict({"x": 1}, meta=HclMeta(is_block=True, start_line=1, end_line=3))
         self.assertEqual(dumps({"b": [body]}), "b {\n  x = 1\n}\n")
+
+
+class TestALabelNamedLikeMetadataSurvives(TestCase):
+    """A label level is a mapping the sidecar has to cover as well.
+
+    `BlockRule` wrapped each label in a plain `{label: body}` dict, which the
+    deserializer reads in-band, so an identifier label spelled `__comments__`
+    or `__is_block__` was taken for metadata and dropped with its whole body.
+    """
+
+    def test_each_reserved_name_as_a_label(self):
+        for name in (IS_BLOCK, COMMENTS_KEY, INLINE_COMMENTS_KEY):
+            with self.subTest(label=name):
+                source = f"b {name} {{\n  x = 1\n}}\n"
+                self.assertEqual(dumps(loads(source, serialization_options=SIDECAR)), source)
+
+    def test_a_label_level_is_an_hcl_dict(self):
+        level = loads('b "l" {\n  x = 1\n}\n', serialization_options=SIDECAR)["b"][0]
+        self.assertIsInstance(level, HclDict)
+        self.assertFalse(meta_of(level).is_block)
+
+    def test_the_in_band_form_is_unchanged(self):
+        level = loads('b "l" {\n  x = 1\n}\n')["b"][0]
+        self.assertIs(type(level), dict)
+
+
+class _Sub(HclDict):
+    __slots__ = ()
+
+
+class TestASubclassKeepsItsType(TestCase):
+    """Copying or pickling a subclass gives back that subclass, as `dict` does."""
+
+    def setUp(self):
+        self.value = _Sub({"a": 1}, meta=HclMeta(is_block=True, comments=[{"value": "c"}]))
+
+    def test_every_way_of_duplicating(self):
+        for name, duplicate in (
+            ("copy()", self.value.copy()),
+            ("copy.copy", copy.copy(self.value)),
+            ("copy.deepcopy", copy.deepcopy(self.value)),
+            ("pickle", pickle.loads(pickle.dumps(self.value))),
+            ("|", self.value | {"b": 2}),
+            ("ror", {"b": 2} | self.value),
+        ):
+            with self.subTest(name=name):
+                self.assertIs(type(duplicate), _Sub)
+                self.assertTrue(meta_of(duplicate).is_block)
+
+    def test_a_cyclic_subclass_still_pickles(self):
+        self.value["self"] = self.value
+        restored = pickle.loads(pickle.dumps(self.value))
+        self.assertIs(type(restored), _Sub)
+        self.assertIs(restored["self"], restored)
