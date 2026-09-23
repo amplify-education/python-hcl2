@@ -99,3 +99,24 @@ class TestAMultiLineInterpolationKeepsTheHeredoc(TestCase):
     def test_a_brace_in_a_string_inside_the_span_does_not_end_it(self):
         source = 'x = <<EOF\na ${f("}",\n  b)} c\nEOF\n'
         self.assertEqual(dumps(loads(source), deserializer_options=self.OPTIONS), source)
+
+
+class TestACommentInsideTheSpanDoesNotEndIt(TestCase):
+    """A brace inside a comment in `${...}` is not structural.
+
+    OpenTofu v1.12.6 evaluates each of these to `a 3 b\\n`: the `}` in the
+    comment does not close the expression, so the newline after it is still
+    expression source and the heredoc has no quoted spelling.
+    """
+
+    OPTIONS = DeserializerOptions(heredocs_to_strings=True)
+
+    def test_each_comment_form(self):
+        for source in (
+            "x = <<EOF\na ${1 /* } */\n+ 2} b\nEOF\n",
+            "x = <<EOF\na ${1 # }\n+ 2} b\nEOF\n",
+            "x = <<EOF\na ${1 // }\n+ 2} b\nEOF\n",
+            "x = <<-EOF\n  a ${1 /* } */\n  + 2} b\n  EOF\n",
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(dumps(loads(source), deserializer_options=self.OPTIONS), source)

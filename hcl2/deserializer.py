@@ -72,8 +72,13 @@ def _has_multi_line_interpolation(heredoc: str) -> bool:
     used within the language") and rejects raw, since a quoted string cannot
     span lines. `heredocs_to_strings` leaves it a heredoc rather than raising.
 
-    A `"` inside the span opens a string literal whose braces do not count;
-    the escapes `$${` and `%%{` open nothing.
+    Braces that are not structural are skipped: those in a string literal and
+    those in a comment. OpenTofu evaluates `${1 /* } */\n+ 2}` to 3, so the
+    span runs on past that brace and across the line. A `#` or `//` comment
+    runs to the end of its line, so one inside a span means the span crosses a
+    line. A string literal that itself opens `${` or `%{` is answered as
+    multi-line without looking further: keeping the heredoc is always safe,
+    and flattening it wrongly is not.
     """
     index = 0
     length = len(heredoc)
@@ -89,21 +94,30 @@ def _has_multi_line_interpolation(heredoc: str) -> bool:
         index += 1
         while index < length:
             char = heredoc[index]
+            if char == "\n":
+                return True
             if in_string:
                 if char == "\\":
                     index += 1
                 elif char == '"':
                     in_string = False
+                elif heredoc.startswith(("${", "%{"), index):
+                    return True
             elif char == '"':
                 in_string = True
+            elif char == "#" or heredoc.startswith("//", index):
+                return True
+            elif heredoc.startswith("/*", index):
+                end = heredoc.find("*/", index + 2)
+                if end == -1 or "\n" in heredoc[index:end]:
+                    return True
+                index = end + 1
             elif char == "{":
                 depth += 1
             elif char == "}":
                 depth -= 1
                 if depth == 0:
                     break
-            if char == "\n":
-                return True
             index += 1
         index += 1
     return False
