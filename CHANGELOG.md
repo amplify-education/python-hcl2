@@ -17,7 +17,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `python -m hcl2` are unaffected; only code importing `cli.hcl_to_json`, `cli.json_to_hcl`,
   `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
   because a shim would still occupy the colliding name.
+
 - The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
+
+- The `regex` package is no longer a dependency. Nothing imports it now that quoted strings are split by the span-aware template scanner; `lark` is the only runtime requirement.
 
 ### Added
 
