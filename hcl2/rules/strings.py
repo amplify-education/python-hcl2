@@ -54,6 +54,11 @@ def _strip_closing_marker_indent(text: str) -> str:
     return re.sub(r"[^\S\n]*\Z", "", text)
 
 
+def _resolve_literal(text: str) -> str:
+    """Resolve a literal stretch of quoted source into the characters it means."""
+    return process_escape_sequences(text.replace("$${", "${").replace("%%{", "%{"))
+
+
 def _escape_for_quoted_source(text: str) -> str:
     r"""Escape literal text so it can sit inside a quoted string.
 
@@ -164,14 +169,18 @@ class StringRule(LarkRule):
         if terminal == "STRING_CHARS":
             return process_escape_sequences(serialized)
         if terminal in ("ESCAPED_INTERPOLATION", "ESCAPED_DIRECTIVE"):
-            return serialized[1:]
+            # The token runs from the doubled sigil to the next `}`, and all
+            # of it is literal text: OpenTofu evaluates `"$${a\tb}"` to
+            # `${a<TAB>b}`, so the escapes after the sigil resolve too.
+            return process_escape_sequences(serialized[1:])
         # Anything else is a nested template rule -- a directive and everything
         # it encloses arrive as one part, so a marker written between `%{ if }`
         # and `%{ endif }` never reaches the branch above and stayed doubled,
-        # while the same content in a heredoc resolved. The helper is
-        # span-aware: it resolves the markers in the literal stretches and
-        # leaves the directives themselves, which are expression source, alone.
-        return resolve_escaped_markers(serialized)
+        # while the same content in a heredoc resolved. The literal stretches
+        # are resolved like any other literal text -- markers and escapes both:
+        # OpenTofu evaluates `"%{ if true }$${z}\t%{ endif }"` to `${z}<TAB>`.
+        # The directives themselves are expression source and left alone.
+        return map_literal_spans(serialized, _resolve_literal)
 
 
 class HeredocTemplateRule(LarkRule):
@@ -206,17 +215,17 @@ class HeredocTemplateRule(LarkRule):
                 # The caller asked for the value: real newlines, no escaping.
                 # `$${` and `%%{` are resolved, being escapes for a literal
                 # `${` and `%{` rather than characters of the value.
-                return resolve_escaped_markers(heredoc)
+                return resolve_escaped_markers(heredoc, heredoc=True)
             # Only the literal spans are escaped. Inside `${...}` the text is
             # expression source, and escaping a quote there rewrites someone
             # else's code: `${upper("a")}` would become `${upper(\\"a\\")}`,
             # which OpenTofu rejects outright.
-            if has_multi_line_span(heredoc):
+            if has_multi_line_span(heredoc, heredoc=True):
                 # No quoted spelling exists, so the heredoc is handed back as
                 # it was written -- the same form `preserve_heredocs=True`
                 # produces, which reads back as this heredoc.
                 return f'"{raw.rstrip(self._trim_chars)}"'
-            return '"' + map_literal_spans(heredoc, _escape_for_quoted_source) + '"'
+            return '"' + map_literal_spans(heredoc, _escape_for_quoted_source, heredoc=True) + '"'
 
         result = heredoc.rstrip(self._trim_chars)
         if options.strip_string_quotes:
@@ -249,10 +258,10 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
             body = "\n".join(self._dedent(_strip_closing_marker_indent(match.group(2))))
             if options.strip_string_quotes:
                 # The caller asked for the value: real newlines, no escaping.
-                return resolve_escaped_markers(body)
-            if has_multi_line_span(body):
+                return resolve_escaped_markers(body, heredoc=True)
+            if has_multi_line_span(body, heredoc=True):
                 return f'"{raw.rstrip(self._trim_chars)}"'
-            return '"' + map_literal_spans(body, _escape_for_quoted_source) + '"'
+            return '"' + map_literal_spans(body, _escape_for_quoted_source, heredoc=True) + '"'
 
         result = heredoc.rstrip(self._trim_chars)
         if options.strip_string_quotes:

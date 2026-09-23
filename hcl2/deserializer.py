@@ -131,9 +131,9 @@ def _heredoc_delimiter(content: str) -> str:
     return f"EOF_{suffix}"
 
 
-def _interpolation_spans(text: str) -> List[str]:
+def _interpolation_spans(text: str, heredoc: bool = False) -> List[str]:
     """The `${...}` and `%{...}` spans of *text*, in order."""
-    return [chunk for kind, chunk in split_template(text) if kind == INTERPOLATION]
+    return [chunk for kind, chunk in split_template(text, heredoc) if kind == INTERPOLATION]
 
 
 def _expressible_as_heredoc(content: str, source: str) -> bool:
@@ -156,7 +156,7 @@ def _expressible_as_heredoc(content: str, source: str) -> bool:
     # interpolation. The reverse happens too: `\u0024${b}` resolves to `$${b}`,
     # demoting an interpolation to escaped text. Either way the value changes,
     # so it stays quoted.
-    return _interpolation_spans(source) == _interpolation_spans(content)
+    return _interpolation_spans(source) == _interpolation_spans(content, heredoc=True)
 
 
 @dataclass

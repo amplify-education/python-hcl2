@@ -33,6 +33,10 @@ from test.unit.test_heredoc_matches_terraform import CASES  # noqa: E402
 
 BINARIES = ("tofu", "terraform")
 
+# Seconds one `console` evaluation may take. A binary waiting on a plugin cache
+# lock or a prompt would otherwise hang the run with nothing printed.
+TIMEOUT_SECONDS = 60
+
 
 def find_binary():
     """Return the first Terraform-compatible binary on PATH, or None."""
@@ -61,6 +65,7 @@ def evaluate(binary, source):
             capture_output=True,
             text=True,
             check=False,
+            timeout=TIMEOUT_SECONDS,
         )
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip())
@@ -85,7 +90,18 @@ def main():
     print("using %s\n" % binary, file=sys.stderr)
     mismatches = 0
     for source, expected in CASES:
-        actual = evaluate(binary, source)
+        # One case the binary rejects or stalls on is a result for that case,
+        # not a reason to lose the rest of the table and the summary.
+        try:
+            actual = evaluate(binary, source)
+        except subprocess.TimeoutExpired:
+            mismatches += 1
+            print("ERR  %r\n       %s timed out after %ds" % (source, binary, TIMEOUT_SECONDS))
+            continue
+        except RuntimeError as error:
+            mismatches += 1
+            print("ERR  %r\n       %s: %s" % (source, binary, error))
+            continue
         if args.print_table:
             print("    (%r, %r)," % (source, actual))
             continue
@@ -96,7 +112,7 @@ def main():
             print("BAD  %r\n       expected %r\n       %s says %r" % (source, expected, binary, actual))
 
     if args.print_table:
-        return 0
+        return 1 if mismatches else 0
 
     # stdout, so it lands after the per-case lines rather than ahead of them
     # when the output is piped.

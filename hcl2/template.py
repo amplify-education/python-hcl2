@@ -122,12 +122,20 @@ def _scan_expression(text: str, start: int) -> int:
     return -1
 
 
-def split_template(text: str) -> Iterator[Tuple[str, str]]:
-    """Yield `(kind, chunk)` pairs covering *text* exactly once.
+def split_template(text: str, heredoc: bool = False) -> Iterator[Tuple[str, str]]:
+    r"""Yield `(kind, chunk)` pairs covering *text* exactly once.
 
     `kind` is `LITERAL` for text the reader treats as characters, including
     the `$${` and `%%{` escapes themselves, and `INTERPOLATION` for a `${...}`
     or `%{...}` span, whose content is expression source.
+
+    *heredoc* says the text is a heredoc body rather than quoted-string
+    source. A heredoc interprets no escape, so a backslash there is a
+    character and the `${` after it is live: OpenTofu evaluates
+    `<<EOF\nC:\${upper("a")}\nEOF` to `C:\A`. In quoted source the backslash
+    pairs with what follows it. Inside an expression the two agree -- a string
+    literal written there is quoted either way -- so only the top level
+    differs.
     """
     if "$" not in text and "%" not in text:
         # The overwhelmingly common case, and the one this used to make
@@ -143,7 +151,7 @@ def split_template(text: str) -> Iterator[Tuple[str, str]]:
 
     while index < length:
         char = text[index]
-        if char == "\\":
+        if char == "\\" and not heredoc:
             index += 2
             continue
         if char in _OPENERS:
@@ -172,7 +180,7 @@ def split_template(text: str) -> Iterator[Tuple[str, str]]:
         yield LITERAL, text[literal_start:length]
 
 
-def resolve_escaped_markers(text: str) -> str:
+def resolve_escaped_markers(text: str, heredoc: bool = False) -> str:
     """Resolve `$${` and `%%{` into the single sigil they stand for.
 
     Only in literal spans: inside `${...}` the same characters are expression
@@ -180,21 +188,23 @@ def resolve_escaped_markers(text: str) -> str:
     """
     return "".join(
         chunk.replace("$${", "${").replace("%%{", "%{") if kind == LITERAL else chunk
-        for kind, chunk in split_template(text)
+        for kind, chunk in split_template(text, heredoc)
     )
 
 
-def map_literal_spans(text: str, transform: Callable[[str], str]) -> str:
+def map_literal_spans(text: str, transform: Callable[[str], str], heredoc: bool = False) -> str:
     """Apply *transform* to the literal spans of *text*, leaving the rest alone.
 
     An escape belongs to the string that carries it, not to an expression
     written inside it: escaping or unescaping through an interpolation rewrites
     someone else's source and changes what it means.
     """
-    return "".join(transform(chunk) if kind == LITERAL else chunk for kind, chunk in split_template(text))
+    return "".join(
+        transform(chunk) if kind == LITERAL else chunk for kind, chunk in split_template(text, heredoc)
+    )
 
 
-def has_multi_line_span(text: str) -> bool:
+def has_multi_line_span(text: str, heredoc: bool = False) -> bool:
     """Whether any `${...}` or `%{...}` in *text* runs across a line.
 
     Such a body has no quoted spelling. The newlines inside the span are
@@ -205,5 +215,6 @@ def has_multi_line_span(text: str) -> bool:
     decline.
     """
     return any(
-        kind == INTERPOLATION and ("\n" in chunk or "\r" in chunk) for kind, chunk in split_template(text)
+        kind == INTERPOLATION and ("\n" in chunk or "\r" in chunk)
+        for kind, chunk in split_template(text, heredoc)
     )
