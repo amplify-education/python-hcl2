@@ -60,6 +60,15 @@ CASES = [
     ("<<-EOT\n\va\n\vb\n\vEOT", "a\nb\n"),
     ("<<-EOT\n\fa\n\fb\n\fEOT", "a\nb\n"),
     ("<<-EOT\n\u3000a\n\u3000b\n\u3000EOT", "a\nb\n"),
+    # "Whitespace" is Go's `unicode.IsSpace`, which is Python's `str.isspace`
+    # less U+001C..U+001F: Python counts those information separators and Go
+    # does not. A line led by one has no indent, so the margin is zero and
+    # nothing is dedented -- or stripped from that line.
+    ("<<-EOT\n    a\n\x1c\x1c  b\n    EOT", "    a\n\x1c\x1c  b\n"),
+    ("<<-EOT\n    a\n\x1f  b\n    EOT", "    a\n\x1f  b\n"),
+    ("<<-EOT\n    a\n\x1c\n    EOT", "    a\n\x1c\n"),
+    ("<<-EOT\n    a\n\u2028  b\n    EOT", " a\nb\n"),
+    ("<<-EOT\n    a\n\u0085  b\n    EOT", " a\nb\n"),
 ]
 
 
