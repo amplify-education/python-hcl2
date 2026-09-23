@@ -350,3 +350,63 @@ class TestAStringInsideAnExpressionIsItselfATemplate(TestCase):
     def test_an_unterminated_nested_expression_is_still_literal(self):
         # No closing brace anywhere, so nothing is an interpolation.
         self.assertEqual(self._kinds('a ${upper("v${ x") b'), [LITERAL])
+
+
+class TestABackslashInAHeredocIsLiteral(TestCase):
+    r"""A heredoc body interprets no escape, so a backslash there is a character.
+
+    The scan treated `\` as escaping whatever followed it, which is right for a
+    quoted string and wrong for a heredoc: OpenTofu v1.12.6 evaluates
+    `<<EOF\nC:\${upper("a")}\nEOF` to `C:\A\n` -- the interpolation is live --
+    and `<<EOF\n\$${x}\nEOF` to `\${x}\n`, the escape resolved after a literal
+    backslash. Skipping the backslash hid both from every heredoc path.
+    """
+
+    def test_the_split_sees_the_interpolation(self):
+        self.assertEqual(
+            list(split_template('C:\\${upper("a")}', heredoc=True)),
+            [(LITERAL, "C:\\"), (INTERPOLATION, '${upper("a")}')],
+        )
+
+    def test_a_quoted_string_still_pairs_the_backslash(self):
+        self.assertEqual(list(split_template("a\\\\b")), [(LITERAL, "a\\\\b")])
+
+    def test_flattening_leaves_the_expression_unescaped(self):
+        result = loads('x = <<EOF\nC:\\${upper("a")}\nEOF\n', serialization_options=FLAT)["x"]
+        self.assertEqual(result, '"C:\\\\${upper("a")}\\n"')
+
+    def test_the_value_form_resolves_the_escape_after_a_backslash(self):
+        result = loads("x = <<EOF\n\\$${x}\nEOF\n", serialization_options=VALUE)["x"]
+        self.assertEqual(result, "\\${x}\n")
+
+    def test_a_multi_line_body_after_a_backslash_round_trips(self):
+        source = 'x = <<EOF\nC:\\${upper("a")}\nEOF\n'
+        flat = loads(source, serialization_options=FLAT)
+        self.assertEqual(
+            loads(dumps(flat), serialization_options=VALUE), loads(source, serialization_options=VALUE)
+        )
+
+
+class TestAnEscapedMarkerResolvesItsOwnEscapes(TestCase):
+    r"""`$${...}` is literal text, so the escapes inside it resolve like any other.
+
+    OpenTofu v1.12.6 evaluates `"$${a\tb}"` to `${a<TAB>b}` and
+    `"%{ if true }$${z}\t%{ endif }"` to `${z}<TAB>`. The value form dropped
+    the extra sigil but left `\t` as two characters in the first, and in a
+    directive resolved the marker but not the tab beside it.
+    """
+
+    def test_inside_an_escaped_interpolation(self):
+        self.assertEqual(loads('x = "$${a\\tb}"\n', serialization_options=QUOTED_VALUE)["x"], "${a\tb}")
+
+    def test_inside_an_escaped_directive(self):
+        self.assertEqual(loads('x = "%%{a\\tb}"\n', serialization_options=QUOTED_VALUE)["x"], "%{a\tb}")
+
+    def test_beside_a_marker_inside_a_directive(self):
+        result = loads('x = "%{ if c }$${z}\\t%{ endif }"\n', serialization_options=QUOTED_VALUE)["x"]
+        self.assertEqual(result, "%{ if c }${z}\t%{ endif }")
+
+    def test_the_directive_itself_is_left_alone(self):
+        # A literal written inside the directive is expression source.
+        result = loads('x = "%{ if c == "a\\tb" }y%{ endif }"\n', serialization_options=QUOTED_VALUE)["x"]
+        self.assertEqual(result, '%{ if c == "a\\tb" }y%{ endif }')
