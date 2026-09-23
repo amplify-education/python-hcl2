@@ -78,6 +78,11 @@ _HEREDOC_BODY_ESCAPES = {"n": "\n", "r": "\r"}
 _CLOSING_MARKER_LINE = re.compile(r"[^\S\n]*([a-zA-Z][a-zA-Z0-9._-]*)[^\S\n]*")
 
 
+def _end_line(heredoc: str) -> str:
+    """*heredoc* ending with the newline after its closing marker, as parsed."""
+    return heredoc if heredoc.endswith("\n") else heredoc + "\n"
+
+
 def _heredoc_delimiter(content: str) -> str:
     """Return a delimiter the body does not close on its own.
 
@@ -336,6 +341,11 @@ class BaseDeserializer(LarkElementTreeDeserializer):
     def _deserialize_heredoc(
         self, value: str, trim: bool
     ) -> Union[HeredocTemplateRule, HeredocTrimTemplateRule]:
+        # A parsed heredoc token runs through the newline after its closing
+        # marker, so it ends its own line wherever it is written. The dict form
+        # drops that newline; putting it back makes a built token the same
+        # shape as a parsed one, and whatever follows starts the next line.
+        value = _end_line(value)
         if trim:
             return HeredocTrimTemplateRule([HEREDOC_TRIM_TEMPLATE(value)])
         return HeredocTemplateRule([HEREDOC_TEMPLATE(value)])
@@ -343,7 +353,7 @@ class BaseDeserializer(LarkElementTreeDeserializer):
     def _deserialize_string_as_heredoc(self, content: str) -> HeredocTemplateRule:
         """Wrap an unescaped body, already newline-terminated, in heredoc syntax."""
         delimiter = _heredoc_delimiter(content)
-        heredoc = f"<<{delimiter}\n{content}{delimiter}"
+        heredoc = f"<<{delimiter}\n{content}{delimiter}\n"
         return HeredocTemplateRule([HEREDOC_TEMPLATE(heredoc)])
 
     def _deserialize_expression(self, value: str) -> ExprTermRule:

@@ -133,3 +133,65 @@ class TestAHeredocInsideAnExpressionStaysAHeredoc(TestCase):
 
     def test_a_heredoc_that_is_the_whole_value_is_unchanged(self):
         self.assertEqual(loads("x = <<EOF\nfoo\nEOF\n")["x"], '"<<EOF\nfoo\nEOF"')
+
+
+class TestAHeredocTokenHasOneShape(TestCase):
+    """A heredoc built from a dict is the same token a parsed one is.
+
+    The deserializer used to build its own terminal name for `<<-` and drop
+    the newline after the closing marker, so everything downstream needed a
+    case for each shape -- and the ones that lacked it put a separator on the
+    marker's line. Now both carry the grammar's name and end their line.
+    """
+
+    def test_a_built_trimmed_token_is_the_parsed_class(self):
+        from hcl2.api import from_dict, parses  # pylint: disable=import-outside-toplevel
+        from hcl2.rules.tokens import HEREDOC_TRIM_TEMPLATE  # pylint: disable=import-outside-toplevel
+        from hcl2.walk import walk  # pylint: disable=import-outside-toplevel
+
+        def heredoc_token(tree):
+            return next(n for n in walk(tree) if isinstance(n, HEREDOC_TRIM_TEMPLATE))
+
+        built = heredoc_token(from_dict({"a": '"<<-E\n  x\n  E"'}))
+        parsed = heredoc_token(parses("a = <<-E\n  x\n  E\n"))
+        self.assertIs(type(built), type(parsed))
+        self.assertTrue(str(built.value).endswith("\n"))
+
+
+class TestAHeredocInAnObjectEndsTheItem(TestCase):
+    """In an object the line break separates items; a comma there is rejected.
+
+    OpenTofu v1.12.6 rejects `{\\n  a = <<EOF\\nfoo\\nEOF\\n,\\n  b = 1\\n}` with
+    "Invalid expression", and accepts it without the comma. A tuple takes the
+    comma, so only objects drop it.
+    """
+
+    def test_an_object_attribute(self):
+        written = dumps(loads("x = {\n  a = <<EOF\nfoo\nEOF\n  b = 1\n}\n"))
+        self.assertEqual(written, "x = {\n  a = <<EOF\nfoo\nEOF\n  b = 1,\n}\n")
+
+    def test_strings_to_heredocs_in_an_object(self):
+        written = dumps({"x": {"a": '"foo\\n"', "b": 1}}, deserializer_options=HEREDOCS)
+        self.assertEqual(written, "x = {\n  a = <<EOF\nfoo\nEOF\n  b = 1,\n}\n")
+
+    def test_the_inline_form_inside_a_call(self):
+        loaded = loads("x = merge({\n  a = <<EOF\nfoo\nEOF\n  b = 1\n}, {})\n")
+        self.assertEqual(loaded["x"], "${merge({a = <<EOF\nfoo\nEOF\nb = 1}, {})}")
+        self.assertEqual(dumps(loaded), "x = merge({\n  a = <<EOF\nfoo\nEOF\n  b = 1\n}, {})\n")
+
+    def test_wrapped_objects_and_tuples_built_from_a_dict(self):
+        from hcl2.api import from_dict, serialize  # pylint: disable=import-outside-toplevel
+
+        objects = serialize(
+            from_dict({"x": {"k": '"<<EOF\nbar\nEOF"', "j": 1}}),
+            serialization_options=SerializationOptions(wrap_objects=True),
+        )
+        self.assertEqual(objects["x"], "${{k = <<EOF\nbar\nEOF\nj = 1}}")
+        tuples = serialize(
+            from_dict({"x": ['"<<EOF\nfoo\nEOF"', '"b"']}),
+            serialization_options=SerializationOptions(wrap_tuples=True),
+        )
+        self.assertEqual(tuples["x"], '${[<<EOF\nfoo\nEOF\n, "b"]}')
+        value = SerializationOptions(strip_string_quotes=True, preserve_heredocs=False)
+        self.assertEqual(loads(dumps(objects), serialization_options=value)["x"], {"k": "bar\n", "j": 1})
+        self.assertEqual(loads(dumps(tuples), serialization_options=value)["x"], ["foo\n", "b"])
