@@ -9,11 +9,28 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+- Python 3.14 is now tested and declared as supported. No source changes were needed; the full
+  suite passes on 3.14 as-is.
 - `SerializationOptions.metadata_sidecar`, which carries `__is_block__`, `__comments__` and `__inline_comments__` beside the mapping rather than among its keys. HCL reserves none of those names, so a document may declare an attribute called any of them -- and in-band one of the two has to lose: on read the marker overwrites the attribute, on write the deserializer drops it, and by then the dict holds a single value with no way to tell which happened. With the option set, `loads` returns an `HclDict`, a `dict` subclass whose `hcl_meta` holds the three, so the mapping contains attributes and nothing else. `dumps` accepts either form, including a hand-built dict using the old keys. Off by default: the keys are a documented part of the output shape, and JSON cannot carry a sidecar. `HclDict`, `HclMeta` and `meta_of` are exported from `hcl2`. Copying, merging with `|` and pickling carry the metadata; `dict(d)` and `{**d}` deliberately do not, since asking for a `dict` gives the mapping and nothing else. ([#331](https://github.com/amplify-education/python-hcl2/issues/331))
+
+### Changed
+
+- **Breaking for direct `cli.*` imports.** The CLI modules moved from a top-level `cli` package
+  to `hcl2.cli`, so installing python-hcl2 no longer claims the generic top-level `cli` name.
+  Since 8.0 the distribution installed `cli/` into `site-packages`, where it collided with
+  projects that have a top-level `cli` package of their own and made their `cli.*` imports
+  resolve to the wrong module. The `hcl2tojson`, `jsontohcl2`, and `hq` commands and
+  `python -m hcl2` are unaffected; only code importing `cli.hcl_to_json`, `cli.json_to_hcl`,
+  `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
+  because a shim would still occupy the colliding name.
+- The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
+
+## \[8.1.4\] - 2026-09-08
+
 ### Fixed
 
-- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block of the Snowflake provider's `snowflake_schemas` data source. HCL does not reserve its keywords, so `if`, `in`, `for`, `for_each`, `else`, `endif`, `endfor`, `true`, `false`, and `null` are now accepted in every block label position and normalized to identifiers — matching the existing behaviour for keyword attribute names. The block-side grammar gap was diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
-- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). `object_elem_key` did not accept the keyword terminals, so a key such as `in` parsed only in states where the contextual lexer happened to fall back to `NAME` — which made the key's separator and position decide whether the file parsed. The comma-separated `{ name = "n", in = "header" }` parsed, but the newline-separated form the original report actually used did not, so its `jsonencode` OpenAPI body still raised. Keys such as `for` failed in every position. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+- Parse blocks whose type or unquoted label is an HCL keyword, such as the `in` block in Snowflake's `snowflake_schemas` data source. HCL reserves no keywords, so all are now accepted as block labels. Diagnosed independently in [#355](https://github.com/amplify-education/python-hcl2/pull/355). ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
+- Parse keyword-named *object* keys reliably, fixing a regression of [#148](https://github.com/amplify-education/python-hcl2/issues/148). A key such as `in` parsed only where the lexer fell back to `NAME`, so its separator and position decided whether the file parsed. ([#357](https://github.com/amplify-education/python-hcl2/pull/357))
 
 ## \[8.1.3\] - 2026-08-26
 
