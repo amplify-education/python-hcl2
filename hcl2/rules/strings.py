@@ -26,6 +26,13 @@ from hcl2.utils import (
     to_dollar_string,
 )
 
+# A run of the whitespace OpenTofu measures a heredoc with: Go's
+# `unicode.IsSpace`, less the newline. That is Python's `str.isspace` without
+# U+001C..U+001F, information separators Python counts as whitespace and Go
+# does not -- OpenTofu leaves `<<-EOT\n    a\n\x1c  b\n    EOT` undedented,
+# where `lstrip()` measured a margin and dropped the separator with it.
+_INDENT = re.compile(r"[^\S\n\x1c-\x1f]*")
+
 
 def _strip_closing_marker_indent(text: str) -> str:
     r"""Drop the whitespace indenting the closing marker on its own line.
@@ -50,7 +57,7 @@ def _strip_closing_marker_indent(text: str) -> str:
     feed or an ideographic space is indented as far as OpenTofu is concerned,
     and leaving those characters in place appended them to the value.
     """
-    return re.sub(r"[^\S\n]*\Z", "", text)
+    return re.sub(r"[^\S\n\x1c-\x1f]*\Z", "", text)
 
 
 class InterpolationRule(LarkRule):
@@ -257,16 +264,17 @@ class HeredocTrimTemplateRule(HeredocTemplateRule):
         # space-indented input that reading the letter of the spec would cover.
         margin = sys.maxsize
         for line in lines:
-            if not line.strip():
+            indent = _INDENT.match(line).end()  # type: ignore[union-attr]
+            if indent == len(line):
                 continue
-            margin = min(margin, len(line) - len(line.lstrip()))
+            margin = min(margin, indent)
         if margin == sys.maxsize:
             margin = 0
 
         # A line that offered no measurement is left exactly as written --
         # OpenTofu keeps a six-space line inside a four-space heredoc at six
         # spaces rather than two.
-        return [line[margin:] if line.strip() else line for line in lines]
+        return [line if _INDENT.fullmatch(line) else line[margin:] for line in lines]
 
 
 class TemplateStringRule(LarkRule):
