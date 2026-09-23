@@ -65,3 +65,27 @@ class TestTheValueFormIsUnaffected(TestCase):
 
     def test_the_body_comes_back_whole(self):
         self.assertEqual(loads(MULTI_LINE, serialization_options=VALUE)["a"], "${\n  1 + 2\n}\n")
+
+
+class TestTheTrimMarginIgnoresExpressionSource(TestCase):
+    """`<<-` measures its margin on the lines that start with literal text.
+
+    A line that begins inside a `${...}` span is expression source, and its
+    indent is part of that expression rather than of the heredoc. OpenTofu
+    v1.12.6 evaluates `<<-EOT\\n    a ${\\n  "b"\\n    }\\n    c\\n    EOT` to
+    `a b\\nc\\n`: the shallow `  "b"` line does not lower the margin, and the
+    literal lines lose all four spaces. Counting it left them two.
+    """
+
+    def test_a_shallow_line_inside_a_span_does_not_lower_the_margin(self):
+        source = 'x = <<-EOT\n    a ${\n  "b"\n    }\n    c\n    EOT\n'
+        self.assertEqual(loads(source, serialization_options=VALUE)["x"], 'a ${\n  "b"\n    }\nc\n')
+
+    def test_a_span_opened_at_the_start_of_a_line_still_measures_it(self):
+        # `    ${` starts with literal whitespace, so it counts; `"y"}` does not.
+        source = 'x = <<-EOT\n    a ${"x"}\n    ${\n"y"}\n    c\n    EOT\n'
+        self.assertEqual(loads(source, serialization_options=VALUE)["x"], 'a ${"x"}\n${\n"y"}\nc\n')
+
+    def test_without_a_span_nothing_changes(self):
+        source = "x = <<-EOT\n    a\n  b\n    EOT\n"
+        self.assertEqual(loads(source, serialization_options=VALUE)["x"], "  a\nb\n")
