@@ -30,6 +30,15 @@ class HclMeta:
         """Whether there is nothing here worth carrying."""
         return not (self.is_block or self.comments or self.inline_comments)
 
+    def copy(self) -> "HclMeta":
+        """A copy with lists of its own.
+
+        `copy.copy` would share them, so appending a comment to a copied
+        body's metadata would add it to the original's too. The comment dicts
+        themselves are shared, as a shallow copy of a `dict` shares its values.
+        """
+        return HclMeta(self.is_block, list(self.comments), list(self.inline_comments))
+
 
 class HclDict(Dict[str, Any]):
     """A dict whose HCL metadata lives on the object rather than among the keys.
@@ -76,7 +85,7 @@ class HclDict(Dict[str, Any]):
         metadata to it would be a trap. The in-band form survives a copy
         because its metadata is among the keys; this has to say so explicitly.
         """
-        return HclDict(self, meta=copy_module.copy(self.hcl_meta))
+        return HclDict(self, meta=self.hcl_meta.copy())
 
     def __copy__(self) -> "HclDict":
         """Same for `copy.copy`."""
@@ -100,8 +109,17 @@ class HclDict(Dict[str, Any]):
         return duplicate
 
     def __reduce__(self) -> Tuple[Any, ...]:
-        """Carry the metadata through pickling, which `dict` would not."""
-        return (_rebuild, (dict(self), self.hcl_meta))
+        """Carry the metadata through pickling, which `dict` would not.
+
+        The items go in the reduce tuple's dict-items slot rather than as a
+        constructor argument, so the empty `HclDict` is built and memoised
+        before any of them is pickled. A mapping may hold a reference back to
+        itself, and passing `dict(self)` to the constructor pickles that
+        reference before there is anything to point it at, which does not
+        terminate -- `dict` pickles a cycle, so this has to as well. The
+        metadata is slot state, restored by the default `__setstate__`.
+        """
+        return (HclDict, (), (None, {"hcl_meta": self.hcl_meta}), None, iter(self.items()))
 
     def __or__(self, other: Any) -> "HclDict":  # type: ignore[override]
         """Merge, keeping this side's metadata.
@@ -115,13 +133,17 @@ class HclDict(Dict[str, Any]):
         would then be written as an object. `{**body, ...}` cannot be helped:
         unpacking always builds a plain `dict`, and there is no hook for it.
         """
-        merged = HclDict(self, meta=copy_module.copy(self.hcl_meta))
+        if not isinstance(other, dict):
+            return NotImplemented
+        merged = HclDict(self, meta=self.hcl_meta.copy())
         merged.update(other)
         return merged
 
     def __ror__(self, other: Any) -> "HclDict":  # type: ignore[override]
         """Same from the left, keeping this side's metadata."""
-        merged = HclDict(other, meta=copy_module.copy(self.hcl_meta))
+        if not isinstance(other, dict):
+            return NotImplemented
+        merged = HclDict(other, meta=self.hcl_meta.copy())
         merged.update(self)
         return merged
 
@@ -130,8 +152,3 @@ def meta_of(value: Any) -> Optional[HclMeta]:
     """Return the metadata carried beside *value*, or None if it carries none."""
     meta = getattr(value, "hcl_meta", None)
     return meta if isinstance(meta, HclMeta) else None
-
-
-def _rebuild(items: Dict[str, Any], meta: HclMeta) -> HclDict:
-    """Reconstruct an `HclDict` from its pickled parts."""
-    return HclDict(items, meta=meta)

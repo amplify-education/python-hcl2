@@ -341,3 +341,60 @@ class TestDeepcopyHandlesACycle(TestCase):
 
         self.assertIs(duplicate["a"], duplicate["b"])
         self.assertIsNot(duplicate["a"], shared)
+
+
+class TestPickleHandlesACycle(TestCase):
+    """Pickling has the same obligation as `copy.deepcopy`: `dict` survives a
+    self-reference, so the subclass has to as well."""
+
+    def test_a_self_reference_round_trips(self):
+        body = HclDict({"x": 1}, meta=HclMeta(is_block=True, comments=[{"value": "c"}]))
+        body["self"] = body
+
+        restored = pickle.loads(pickle.dumps(body))
+
+        self.assertIs(restored["self"], restored)
+        self.assertEqual(restored["x"], 1)
+        self.assertEqual(meta_of(restored), meta_of(body))
+
+    def test_every_protocol(self):
+        body = HclDict({"x": 1}, meta=HclMeta(is_block=True))
+        for protocol in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(protocol=protocol):
+                restored = pickle.loads(pickle.dumps(body, protocol=protocol))
+                self.assertIsInstance(restored, HclDict)
+                self.assertEqual(restored, body)
+                self.assertTrue(meta_of(restored).is_block)
+
+
+class TestMergingRefusesWhatDictRefuses(TestCase):
+    """`dict | x` is a TypeError unless `x` is a dict; the subclass must not be
+    more permissive than the type it stands in for."""
+
+    def test_or_with_a_list_of_pairs(self):
+        with self.assertRaises(TypeError):
+            HclDict({"a": 1}) | [("b", 2)]  # pylint: disable=expression-not-assigned
+
+    def test_ror_with_a_list_of_pairs(self):
+        with self.assertRaises(TypeError):
+            [("b", 2)] | HclDict({"a": 1})  # pylint: disable=expression-not-assigned
+
+
+class TestACopyOwnsItsMetadata(TestCase):
+    """Editing the copy's comments must not edit the original's."""
+
+    def setUp(self):
+        self.body = HclDict({"x": 1}, meta=HclMeta(is_block=True, comments=[{"value": "c"}]))
+
+    def test_each_way_of_copying(self):
+        for name, duplicate in (
+            ("copy()", self.body.copy()),
+            ("copy.copy", copy.copy(self.body)),
+            ("|", self.body | {}),
+            ("ror", {} | self.body),
+        ):
+            with self.subTest(name=name):
+                meta_of(duplicate).comments.append({"value": "new"})
+                meta_of(duplicate).inline_comments.append({"value": "new"})
+                self.assertEqual(meta_of(self.body).comments, [{"value": "c"}])
+                self.assertEqual(meta_of(self.body).inline_comments, [])
