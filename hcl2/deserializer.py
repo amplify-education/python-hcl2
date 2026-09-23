@@ -64,6 +64,20 @@ from hcl2.transformer import RuleTransformer
 from hcl2.utils import HEREDOC_PATTERN, HEREDOC_TRIM_PATTERN, SerializationOptions
 
 
+def _has_quoted_spelling(heredoc: str) -> bool:
+    """Whether *heredoc* can be written as a quoted string of the same value.
+
+    Two things rule it out: a `${...}` or `%{...}` that runs across a line,
+    and a `~` strip marker. A heredoc is lexed a line at a time, so `~}` there
+    strips only to the end of its own line, where in a quoted string it strips
+    across the newline and the next line's indent -- OpenTofu v1.12.6 gives the
+    two spellings of the same loop different values. Such a heredoc stays one.
+    """
+    if "${~" in heredoc or "%{~" in heredoc or "~}" in heredoc:
+        return False
+    return not _has_multi_line_interpolation(heredoc)
+
+
 def _has_multi_line_interpolation(heredoc: str) -> bool:
     """Whether a `${...}` or `%{...}` in *heredoc* runs across a line.
 
@@ -230,14 +244,14 @@ class BaseDeserializer(LarkElementTreeDeserializer):
                 if value.startswith('"<<-') and HEREDOC_TRIM_PATTERN.match(value[1:-1]):
                     if not self.options.heredocs_to_strings:
                         return self._deserialize_heredoc(value[1:-1], True)
-                    if _has_multi_line_interpolation(value[1:-1]):
+                    if not _has_quoted_spelling(value[1:-1]):
                         return self._deserialize_heredoc(value[1:-1], True)
                     return self._deserialize_string(self._heredoc_as_quoted(value[1:-1], True))
 
                 if value.startswith('"<<') and HEREDOC_PATTERN.match(value[1:-1]):
                     if not self.options.heredocs_to_strings:
                         return self._deserialize_heredoc(value[1:-1], False)
-                    if _has_multi_line_interpolation(value[1:-1]):
+                    if not _has_quoted_spelling(value[1:-1]):
                         return self._deserialize_heredoc(value[1:-1], False)
                     return self._deserialize_string(self._heredoc_as_quoted(value[1:-1], False))
 

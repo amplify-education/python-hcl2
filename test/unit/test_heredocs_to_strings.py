@@ -120,3 +120,30 @@ class TestACommentInsideTheSpanDoesNotEndIt(TestCase):
         ):
             with self.subTest(source=source):
                 self.assertEqual(dumps(loads(source), deserializer_options=self.OPTIONS), source)
+
+
+class TestAStripMarkerKeepsTheHeredoc(TestCase):
+    """`~` strips whitespace up to the line's end in a heredoc, and further in a string.
+
+    A heredoc body is lexed a line at a time, so a `~}` there strips only to
+    the end of its own line; in a quoted string the same marker strips across
+    the newline and the next line's indent. OpenTofu v1.12.6 evaluates the
+    loop below to `items:\\n  - a\\n  - b\\n`, and its flattened form to the
+    same list without the indent. No quoted spelling keeps the value, so the
+    heredoc stays one.
+    """
+
+    OPTIONS = DeserializerOptions(heredocs_to_strings=True)
+
+    def test_each_marker_keeps_the_heredoc(self):
+        for source in (
+            'x = <<EOF\nitems:\n%{ for s in ["a", "b"] ~}\n  - ${s}\n%{ endfor ~}\nEOF\n',
+            "x = <<EOF\na\n${~ b}\nEOF\n",
+            "x = <<EOF\na\n%{~ if true }y%{ endif }\nEOF\n",
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(dumps(loads(source), deserializer_options=self.OPTIONS), source)
+
+    def test_a_tilde_in_the_text_is_not_a_marker(self):
+        written = dumps(loads("x = <<EOF\na ~ b ${c}\nEOF\n"), deserializer_options=self.OPTIONS)
+        self.assertTrue(written.startswith('x = "a ~ b ${c}'), written)
