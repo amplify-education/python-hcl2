@@ -45,6 +45,29 @@ from hcl2 import SerializationOptions
 data = hcl2.serialize(tree, serialization_options=SerializationOptions(with_meta=True))
 ```
 
+### Metadata sidecar
+
+By default the serializer reports what it knows about a body -- that it is a
+block and its comments -- as `__is_block__`, `__comments__` and
+`__inline_comments__` keys among the attributes. HCL reserves none of those names, so a document that
+declares one loses either the attribute or the metadata. With
+`metadata_sidecar=True` each body is an `HclDict` instead: a `dict` holding the
+attributes and nothing else, with the metadata on `hcl_meta`.
+
+```python
+from hcl2 import HclDict, meta_of, SerializationOptions
+
+data = hcl2.loads(text, serialization_options=SerializationOptions(metadata_sidecar=True))
+body = data["resource"][0]['"aws_instance"']['"web"']
+meta_of(body).is_block      # True
+meta_of(body).comments      # [{"value": "..."}]
+meta_of({"plain": "dict"})  # None
+```
+
+`copy()`, `copy.copy`, `copy.deepcopy`, pickling and `|` keep the metadata;
+`dict(body)` and `{**body}` give the attributes alone. `dumps` accepts either
+form, including a hand-built dict using the in-band keys.
+
 ### from_dict / from_json — Python dict or JSON to LarkElement tree
 
 ```python
