@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
+- Nothing yet.
+
+## \[8.2.0\] - 2026-11-09
+
 ### Changed
 
 - **Breaking for direct `cli.*` imports.** The CLI modules moved from a top-level `cli` package
@@ -17,7 +21,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `python -m hcl2` are unaffected; only code importing `cli.hcl_to_json`, `cli.json_to_hcl`,
   `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
   because a shim would still occupy the colliding name.
+  ([#359](https://github.com/amplify-education/python-hcl2/pull/359))
 - The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
+  ([#359](https://github.com/amplify-education/python-hcl2/pull/359))
 - **Breaking for direct `hcl2.utils.SerializationContext` users.** The context is now a frozen
   dataclass and `SerializationContext.modify()` is removed. Use `context.replace(...)` to derive
   a child context; subclasses must also be declared `@dataclass(frozen=True)`.
@@ -31,6 +37,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Python 3.14 is now tested and declared as supported. No source changes were needed; the full
   suite passes on 3.14 as-is.
+  ([#360](https://github.com/amplify-education/python-hcl2/pull/360))
 
 ### Fixed
 
