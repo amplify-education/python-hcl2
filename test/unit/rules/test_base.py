@@ -16,7 +16,7 @@ from hcl2.rules.tokens import (
     STRING_CHARS,
 )
 from hcl2.rules.whitespace import NewLineOrCommentRule
-from hcl2.utils import SerializationOptions
+from hcl2.utils import SerializationContext, SerializationOptions
 
 # --- Stubs & helpers ---
 
@@ -28,7 +28,7 @@ class StubExpression(ExpressionRule):
         self._stub_value = value
         super().__init__([], None)
 
-    def serialize(self, options=None, context=None):
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()):
         return self._stub_value
 
 

@@ -39,12 +39,8 @@ class AttributeRule(LarkRule):
         """Return the attribute value expression."""
         return self._children[2]
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a single-entry dict."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         return {self.identifier.serialize(options, context): self.expression.serialize(options, context)}
 
 
@@ -64,12 +60,8 @@ class BodyRule(LarkRule):
         """Return the grammar rule name."""
         return "body"
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a dict, grouping blocks under their type name."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         attribute_names = set()
         comments = []
         inline_comments = []
@@ -119,12 +111,8 @@ class StartRule(LarkRule):
         """Return the grammar rule name."""
         return "start"
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize by delegating to the body."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         return self.body.serialize(options, context)
 
 
@@ -159,12 +147,8 @@ class BlockRule(LarkRule):
         """Return the block body."""
         return self._body
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a nested dict with labels as keys."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         result = self._body.serialize(options, context)
         if options.explicit_blocks:
             result.update({IS_BLOCK: True})

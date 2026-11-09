@@ -22,9 +22,7 @@ class NewLineOrCommentRule(TokenRule):
         """Create an instance from a raw comment or newline string."""
         return cls([NL_OR_COMMENT(string)])  # type: ignore[abstract]  # pylint: disable=abstract-class-instantiated
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to the raw comment/newline string."""
         return "".join(child.serialize() for child in self._children)
 
@@ -38,9 +36,8 @@ class NewLineOrCommentRule(TokenRule):
         """
         return not self.serialize().startswith("\n")
 
-    def to_list(self, options: Optional[SerializationOptions] = None) -> Optional[List[dict]]:
+    def to_list(self, options: SerializationOptions = SerializationOptions()) -> Optional[List[dict]]:
         """Extract comment objects, or None if only a newline."""
-        options = options if options is not None else SerializationOptions()
         raw = self.serialize(options)
         if raw == "\n":
             return None

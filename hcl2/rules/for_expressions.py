@@ -92,12 +92,8 @@ class ForIntroRule(InlineCommentMixIn):
         """Return the collection expression being iterated over."""
         return self._children[8]
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> str:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> str:
         """Serialize to 'for key, value in collection : ' string."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         result = "for "
 
         result += f"{self.first_iterator.serialize(options, context)}"
@@ -131,12 +127,8 @@ class ForCondRule(InlineCommentMixIn):
         """Return the condition expression."""
         return self._children[2]
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> str:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> str:
         """Serialize to 'if condition' string."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         return f"if {self.condition_expr.serialize(options, context)}"
 
 
@@ -199,12 +191,8 @@ class ForTupleExprRule(ExpressionRule):
         """Return the optional condition rule."""
         return self._children[6]
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '[for ... : expr]' string."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         result = "["
 
         inner = context.replace(inside_dollar_string=True)
@@ -299,12 +287,8 @@ class ForObjectExprRule(ExpressionRule):
         """Return the optional condition rule."""
         return self._children[11]
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '{for ... : key => value}' string."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         result = "{"
         inner = context.replace(inside_dollar_string=True)
         result += self.for_intro.serialize(options, inner)

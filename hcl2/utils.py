@@ -121,12 +121,12 @@ def process_escape_sequences(value: str) -> str:
 
 @dataclass(frozen=True)
 class SerializationContext:
-    """State tracked during serialization traversal, and never mutated.
+    """Immutable state tracked during serialization traversal.
 
-    A traversal descends into a nested expression by building a child with
-    `replace`, so what a rule is handed cannot be changed underneath it. The
-    field values are read on the way down and never written back, which is
-    what makes one context safe to hand to two threads at once.
+    Rules descend by passing `replace(...)` to children instead of mutating.
+    Immutability is what makes the `context=SerializationContext()` default
+    shared by every `serialize()` signature, and a caller-supplied context,
+    safe across threads -- keep it frozen and keep every field immutable.
     """
 
     inside_dollar_string: bool = False

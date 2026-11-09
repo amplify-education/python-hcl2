@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
   because a shim would still occupy the colliding name.
 - The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
+- **Breaking for direct `hcl2.utils.SerializationContext` users.** The context is now a frozen
+  dataclass and `SerializationContext.modify()` is removed. Use `context.replace(...)` to derive
+  a child context; subclasses must also be declared `@dataclass(frozen=True)`.
+  ([#344](https://github.com/amplify-education/python-hcl2/issues/344))
 
 ### Added
 
@@ -26,8 +30,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- Concurrent calls to `load`/`loads` no longer corrupt each other's values. `serialize()` declared `context=SerializationContext()` as a default argument, which Python evaluates once at import, so every rule in the process shared one mutable context — and the expression, function and indexing rules mutated it in place via `context.modify(inside_dollar_string=True)`. A thread serializing a function call therefore set that flag for every other thread, and a tuple or object being serialized elsewhere came back as its inline HCL source (`'[1, 2, 3]'`) rather than a list, with no exception raised. Measured before the fix: 400 of 400 interleaved parses corrupted. Every other rule's `serialize` carried the same default and is changed with them: the public API always enters at `StartRule`, so those were unreachable with a shared context, but a caller serializing a rule directly still had one. Both parameters are annotated `Optional[...]`, so a rule that takes `None` and then dereferences it without constructing one is a mypy error rather than an `AttributeError` for the direct caller this protects. `options` loses its shared default too. Nothing in the package assigns to a `SerializationOptions`, so that one was not a live defect, but it is the same construct in the same position -- one mutable object handed to every caller that omits the argument, reachable by any subclass or hook a consumer writes.
-- `SerializationContext` is immutable, so a context a caller builds and hands to concurrent calls is safe to share. Removing the shared default fixed only the contexts the package creates for itself; `modify` was a context manager that set fields on whatever context it was given and restored them on exit, so a consumer passing one object to several threads still had several writers and the same silent corruption, with nothing to warn them. A traversal now descends by building a child with `replace`, the dataclass is `frozen=True`, and `modify` is gone -- an assignment that used to be a temporary mutation is a `FrozenInstanceError` where it is written. Racing two threads does not demonstrate the old defect, since `modify` restored the field within one call; the regression test reads the caller's own context from inside the scope that used to mutate it, and sees `True` there before this change. ([#344](https://github.com/amplify-education/python-hcl2/issues/344))
+- Concurrent `load`/`loads` calls no longer corrupt each other's results. All rules shared one
+  default `SerializationContext` that was mutated in place during serialization, so a tuple or
+  object parsed in one thread could come back as its inline HCL source (`'[1, 2, 3]'`) instead
+  of a list or dict, with no error raised. The context is now immutable, which also makes a
+  caller-supplied context safe to share across threads.
+  ([#327](https://github.com/amplify-education/python-hcl2/issues/327),
+  [#344](https://github.com/amplify-education/python-hcl2/issues/344))
+- `StartRule`, `BodyRule`, `BlockRule` and `AttributeRule` now pass a caller-supplied
+  `SerializationContext` down to their children instead of discarding it.
 
 ## \[8.1.4\] - 2026-09-08
 

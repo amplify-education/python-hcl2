@@ -86,12 +86,8 @@ class TemplateIfStartRule(LarkRule):
         """Check if there's a strip marker before }."""
         return self._children[4] is not None
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to %{ if EXPR } or %{~ if EXPR ~}."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         inner = context.replace(inside_dollar_string=True)
         cond_str = self.condition.serialize(options, inner)
         prefix = _strip_prefix(self.strip_open)
@@ -129,9 +125,7 @@ class TemplateElseRule(LarkRule):
         """Check if there's a strip marker before }."""
         return self._children[3] is not None
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to %{ else } or %{~ else ~}."""
         prefix = _strip_prefix(self.strip_open)
         suffix = _strip_suffix(self.strip_close)
@@ -168,9 +162,7 @@ class TemplateEndifRule(LarkRule):
         """Check if there's a strip marker before }."""
         return self._children[3] is not None
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to %{ endif } or %{~ endif ~}."""
         prefix = _strip_prefix(self.strip_open)
         suffix = _strip_suffix(self.strip_close)
@@ -255,12 +247,8 @@ class TemplateForStartRule(LarkRule):
         """Return the collection expression after IN."""
         return self._children[7]
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to %{ for VAR in EXPR } or %{~ for VAR in EXPR ~}."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         prefix = _strip_prefix(self.strip_open)
         suffix = _strip_suffix(self.strip_close)
         inner = context.replace(inside_dollar_string=True)
@@ -301,9 +289,7 @@ class TemplateEndforRule(LarkRule):
         """Check if there's a strip marker before }."""
         return self._children[3] is not None
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to %{ endfor } or %{~ endfor ~}."""
         prefix = _strip_prefix(self.strip_open)
         suffix = _strip_suffix(self.strip_close)
@@ -353,12 +339,8 @@ class TemplateIfRule(LarkRule):
         children.append(endif)
         super().__init__(children, meta)
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize the full if/else/endif directive."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         result = self._if_start.serialize(options, context)
         for part in self._if_body:
             result += part.serialize(options, context)
@@ -413,12 +395,8 @@ class TemplateForRule(LarkRule):
         children = [for_start, *body, endfor]
         super().__init__(children, meta)
 
-    def serialize(
-        self, options: Optional[SerializationOptions] = None, context: Optional[SerializationContext] = None
-    ) -> Any:
+    def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize the full for/endfor directive."""
-        options = options if options is not None else SerializationOptions()
-        context = context if context is not None else SerializationContext()
         result = self._for_start.serialize(options, context)
         for part in self._body:
             result += part.serialize(options, context)
