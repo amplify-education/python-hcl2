@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   dataclass and `SerializationContext.modify()` is removed. Use `context.replace(...)` to derive
   a child context; subclasses must also be declared `@dataclass(frozen=True)`.
   ([#344](https://github.com/amplify-education/python-hcl2/issues/344))
+- `StartRule`, `BodyRule`, `BlockRule` and `AttributeRule` now pass a caller-supplied
+  `SerializationContext` down to their children instead of discarding it, so a non-default
+  context (e.g. `inside_dollar_string=True`) passed to `StartRule.serialize()` now changes the
+  output.
 
 ### Added
 
@@ -37,8 +41,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   caller-supplied context safe to share across threads.
   ([#327](https://github.com/amplify-education/python-hcl2/issues/327),
   [#344](https://github.com/amplify-education/python-hcl2/issues/344))
-- `StartRule`, `BodyRule`, `BlockRule` and `AttributeRule` now pass a caller-supplied
-  `SerializationContext` down to their children instead of discarding it.
 
 ## \[8.1.4\] - 2026-09-08
 

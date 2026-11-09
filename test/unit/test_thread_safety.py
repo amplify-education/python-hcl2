@@ -61,6 +61,16 @@ class TestSharedContextIsNeverWritten(TestCase):
         with self.assertRaises(dataclasses.FrozenInstanceError):
             default.inside_dollar_string = True  # type: ignore[misc]
 
+    def test_the_default_options_are_untouched(self):
+        # `SerializationOptions` is public and stays mutable, so the shared
+        # default is only safe while no rule writes to it.
+        default = inspect.signature(StartRule.serialize).parameters["options"].default
+
+        parses(TOGGLES_CONTEXT).serialize()
+        parses("a = { for k, v in m : k => { x = v } }\n").serialize()
+
+        self.assertEqual(default, SerializationOptions())
+
     def test_a_nested_scope_does_not_write_to_the_callers_context(self):
         shared = SerializationContext()
         seen = self._record_during_nested_serialization(shared)
