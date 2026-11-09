@@ -41,7 +41,7 @@ class AttributeRule(LarkRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a single-entry dict."""
-        return {self.identifier.serialize(options): self.expression.serialize(options)}
+        return {self.identifier.serialize(options, context): self.expression.serialize(options, context)}
 
 
 class BodyRule(LarkRule):
@@ -70,14 +70,14 @@ class BodyRule(LarkRule):
 
         for child in self._children:
             if isinstance(child, BlockRule):
-                name = child.labels[0].serialize(options)
+                name = child.labels[0].serialize(options, context)
                 if name in attribute_names:
                     raise RuntimeError(f"Attribute {name} is already defined.")
-                result[name].append(child.serialize(options))
+                result[name].append(child.serialize(options, context))
 
             if isinstance(child, AttributeRule):
-                attribute_names.add(child.identifier.serialize(options))
-                result.update(child.serialize(options))
+                attribute_names.add(child.identifier.serialize(options, context))
+                result.update(child.serialize(options, context))
                 if options.with_comments:
                     inline_comments.extend(child.expression.inline_comments())
                     comments.extend(child.expression.absorbed_comments())
@@ -113,7 +113,7 @@ class StartRule(LarkRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize by delegating to the body."""
-        return self.body.serialize(options)
+        return self.body.serialize(options, context)
 
 
 class BlockRule(LarkRule):
@@ -149,12 +149,12 @@ class BlockRule(LarkRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to a nested dict with labels as keys."""
-        result = self._body.serialize(options)
+        result = self._body.serialize(options, context)
         if options.explicit_blocks:
             result.update({IS_BLOCK: True})
 
         labels = self._labels
         for label in reversed(labels[1:]):
-            result = {label.serialize(options): result}
+            result = {label.serialize(options, context): result}
 
         return result

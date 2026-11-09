@@ -91,10 +91,10 @@ class IndexExprTermRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'expr[index]' string."""
-        with context.modify(inside_dollar_string=True):
-            expr = self.children[0].serialize(options, context)
-            index = self.children[1].serialize(options, context)
-            result = f"{expr}{index}"
+        inner = context.replace(inside_dollar_string=True)
+        expr = self.children[0].serialize(options, inner)
+        index = self.children[1].serialize(options, inner)
+        result = f"{expr}{index}"
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
         return result
@@ -148,10 +148,10 @@ class GetAttrExprTermRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'expr.attr' string."""
-        with context.modify(inside_dollar_string=True):
-            expr = self.expr_term.serialize(options, context)
-            attr = self.get_attr.serialize(options, context)
-            result = f"{expr}{attr}"
+        inner = context.replace(inside_dollar_string=True)
+        expr = self.expr_term.serialize(options, inner)
+        attr = self.get_attr.serialize(options, inner)
+        result = f"{expr}{attr}"
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
         return result
@@ -204,10 +204,10 @@ class AttrSplatExprTermRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'expr.*...' string."""
-        with context.modify(inside_dollar_string=True):
-            expr = self.expr_term.serialize(options, context)
-            splat = self.attr_splat.serialize(options, context)
-            result = f"{expr}{splat}"
+        inner = context.replace(inside_dollar_string=True)
+        expr = self.expr_term.serialize(options, inner)
+        splat = self.attr_splat.serialize(options, inner)
+        result = f"{expr}{splat}"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
@@ -261,10 +261,10 @@ class FullSplatExprTermRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'expr[*]...' string."""
-        with context.modify(inside_dollar_string=True):
-            expr = self.expr_term.serialize(options, context)
-            splat = self.attr_splat.serialize(options, context)
-            result = f"{expr}{splat}"
+        inner = context.replace(inside_dollar_string=True)
+        expr = self.expr_term.serialize(options, inner)
+        splat = self.attr_splat.serialize(options, inner)
+        result = f"{expr}{splat}"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)

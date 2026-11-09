@@ -18,11 +18,29 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `cli.hq`, or `cli.helpers` needs to add the `hcl2.` prefix. No compatibility shim ships,
   because a shim would still occupy the colliding name.
 - The redundant `cli/py.typed` marker is gone; `hcl2/py.typed` already covers `hcl2.cli`.
+- **Breaking for direct `hcl2.utils.SerializationContext` users.** The context is now a frozen
+  dataclass and `SerializationContext.modify()` is removed. Use `context.replace(...)` to derive
+  a child context; subclasses must also be declared `@dataclass(frozen=True)`.
+  ([#344](https://github.com/amplify-education/python-hcl2/issues/344))
+- `StartRule`, `BodyRule`, `BlockRule` and `AttributeRule` now pass a caller-supplied
+  `SerializationContext` down to their children instead of discarding it, so a non-default
+  context (e.g. `inside_dollar_string=True`) passed to `StartRule.serialize()` now changes the
+  output.
 
 ### Added
 
 - Python 3.14 is now tested and declared as supported. No source changes were needed; the full
   suite passes on 3.14 as-is.
+
+### Fixed
+
+- Concurrent `load`/`loads` calls no longer corrupt each other's results. All rules shared one
+  default `SerializationContext` that was mutated in place during serialization, so a tuple or
+  object parsed in one thread could come back as its inline HCL source (`'[1, 2, 3]'`) instead
+  of a list or dict, with no error raised. The context is now immutable, which also makes a
+  caller-supplied context safe to share across threads.
+  ([#327](https://github.com/amplify-education/python-hcl2/issues/327),
+  [#344](https://github.com/amplify-education/python-hcl2/issues/344))
 
 ## \[8.1.4\] - 2026-09-08
 

@@ -100,8 +100,8 @@ class ExprTermRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize, handling parenthesized expression wrapping."""
-        with context.modify(inside_parentheses=self.parentheses or context.inside_parentheses):
-            result = self.expression.serialize(options, context)
+        inner = context.replace(inside_parentheses=self.parentheses or context.inside_parentheses)
+        result = self.expression.serialize(options, inner)
 
         if self.parentheses:
             result = wrap_into_parentheses(result)
@@ -152,12 +152,12 @@ class ConditionalRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to ternary expression string."""
-        with context.modify(inside_dollar_string=True):
-            result = (
-                f"{self.condition.serialize(options, context)} "
-                f"? {self.if_true.serialize(options, context)} "
-                f": {self.if_false.serialize(options, context)}"
-            )
+        inner = context.replace(inside_dollar_string=True)
+        result = (
+            f"{self.condition.serialize(options, inner)} "
+            f"? {self.if_true.serialize(options, inner)} "
+            f": {self.if_false.serialize(options, inner)}"
+        )
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
@@ -266,10 +266,10 @@ class BinaryOpRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'lhs operator rhs' string."""
-        with context.modify(inside_dollar_string=True):
-            lhs = self.expr_term.serialize(options, context)
-            operator = str(self.binary_term.binary_operator.serialize(options, context)).strip()
-            rhs = self.binary_term.expr_term.serialize(options, context)
+        inner = context.replace(inside_dollar_string=True)
+        lhs = self.expr_term.serialize(options, inner)
+        operator = str(self.binary_term.binary_operator.serialize(options, inner)).strip()
+        rhs = self.binary_term.expr_term.serialize(options, inner)
 
         result = f"{lhs} {operator} {rhs}"
 
@@ -303,10 +303,10 @@ class UnaryOpRule(ExpressionRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'operator operand' string."""
-        with context.modify(inside_dollar_string=True):
-            operator = self.operator.rstrip()
-            operand = self.expr_term.serialize(options, context)
-            result = f"{operator}{operand}"
+        inner = context.replace(inside_dollar_string=True)
+        operator = self.operator.rstrip()
+        operand = self.expr_term.serialize(options, inner)
+        result = f"{operator}{operand}"
 
         if not context.inside_dollar_string:
             # A negated numeric literal is a number, not an expression. The

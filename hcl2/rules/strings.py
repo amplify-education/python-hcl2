@@ -67,8 +67,8 @@ class InterpolationRule(LarkRule):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to ${expression} string."""
-        with context.modify(inside_dollar_string=True):
-            return to_dollar_string(self.expression.serialize(options, context))
+        inner = context.replace(inside_dollar_string=True)
+        return to_dollar_string(self.expression.serialize(options, inner))
 
 
 class StringPartRule(LarkRule):

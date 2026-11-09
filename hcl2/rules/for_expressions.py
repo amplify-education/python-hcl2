@@ -195,12 +195,12 @@ class ForTupleExprRule(ExpressionRule):
         """Serialize to '[for ... : expr]' string."""
         result = "["
 
-        with context.modify(inside_dollar_string=True):
-            result += self.for_intro.serialize(options, context)
-            result += self.value_expr.serialize(options, context)
+        inner = context.replace(inside_dollar_string=True)
+        result += self.for_intro.serialize(options, inner)
+        result += self.value_expr.serialize(options, inner)
 
-            if self.condition is not None:
-                result += f" {self.condition.serialize(options, context)}"
+        if self.condition is not None:
+            result += f" {self.condition.serialize(options, inner)}"
 
         result += "]"
         if not context.inside_dollar_string:
@@ -290,16 +290,16 @@ class ForObjectExprRule(ExpressionRule):
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to '{for ... : key => value}' string."""
         result = "{"
-        with context.modify(inside_dollar_string=True):
-            result += self.for_intro.serialize(options, context)
-            result += f"{self.key_expr.serialize(options, context)} => "
+        inner = context.replace(inside_dollar_string=True)
+        result += self.for_intro.serialize(options, inner)
+        result += f"{self.key_expr.serialize(options, inner)} => "
 
-            result += self.value_expr.serialize(replace(options, wrap_objects=True), context)
-            if self.ellipsis is not None:
-                result += self.ellipsis.serialize(options, context)
+        result += self.value_expr.serialize(replace(options, wrap_objects=True), inner)
+        if self.ellipsis is not None:
+            result += self.ellipsis.serialize(options, inner)
 
-            if self.condition is not None:
-                result += f" {self.condition.serialize(options, context)}"
+        if self.condition is not None:
+            result += f" {self.condition.serialize(options, inner)}"
 
         result += "}"
         if not context.inside_dollar_string:

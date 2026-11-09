@@ -92,11 +92,11 @@ class FunctionCallRule(InlineCommentMixIn):
 
     def serialize(self, options=SerializationOptions(), context=SerializationContext()) -> Any:
         """Serialize to 'func(args)' string."""
-        with context.modify(inside_dollar_string=True):
-            name = "::".join(identifier.serialize(options, context) for identifier in self.identifiers)
-            args = self.arguments
-            args_str = args.serialize(options, context) if args else ""
-            result = f"{name}({args_str})"
+        inner = context.replace(inside_dollar_string=True)
+        name = "::".join(identifier.serialize(options, inner) for identifier in self.identifiers)
+        args = self.arguments
+        args_str = args.serialize(options, inner) if args else ""
+        result = f"{name}({args_str})"
 
         if not context.inside_dollar_string:
             result = to_dollar_string(result)
