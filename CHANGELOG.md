@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## \[Unreleased\]
 
-- Nothing yet.
+### Changed
+
+- The `lark` requirement now uses the compatible-release form (`lark~=1.1`), widening the floor from
+  1.1.5 to 1.1 while keeping the `<2.0` ceiling.
 
 ## \[8.2.0\] - 2026-11-09
 

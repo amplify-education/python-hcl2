@@ -27,7 +27,7 @@ classifiers = [
 requires-python = ">=3.8.0"
 
 dependencies = [
-    "lark>=1.1.5,<2.0",
+    "lark~=1.1",
     "regex>=2024.4.16"
 ]
 dynamic = ["version"]
