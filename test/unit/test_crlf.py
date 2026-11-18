@@ -15,7 +15,8 @@ in `hcl2/rules/strings.py`.
 
 from unittest import TestCase
 
-from hcl2.api import loads, parses_to_tree, reconstruct, transform
+from hcl2.api import dumps, loads, parses_to_tree, reconstruct, transform
+from hcl2.deserializer import DeserializerOptions
 from hcl2.utils import SerializationOptions
 
 CR = "\r"
@@ -105,15 +106,21 @@ class TestCrlfHeredocs(TestCase):
         self.assertTrue(result["a"].endswith('EOF"'), result["a"])
 
     def test_flattening_a_crlf_heredoc_does_not_raise(self):
-        """The heredoc patterns in utils.py run on an already-parsed token."""
+        r"""The heredoc patterns in utils.py run on an already-parsed token.
+
+        Every body line keeps its own `\r\n`, the last one included: OpenTofu
+        evaluates this source to `"x\r\ny\r\n"`. Both characters are written
+        escaped, because this form is quoted-string *source* -- see
+        `TestFlattenedCrlfHeredocsStayValidHcl`.
+        """
         options = SerializationOptions(preserve_heredocs=False)
         result = loads("a = <<EOF\r\nx\r\ny\r\nEOF\r\n", serialization_options=options)
-        self.assertEqual(result, {"a": '"x' + CR + '\\ny"'})
+        self.assertEqual(result, {"a": r'"x\r\ny\r\n"'})
 
     def test_trimmed_heredoc_flattens(self):
         options = SerializationOptions(preserve_heredocs=False)
         result = loads("a = <<-EOF\r\n  x\r\n  EOF\r\n", serialization_options=options)
-        self.assertEqual(result, {"a": '"x"'})
+        self.assertEqual(result, {"a": r'"x\r\n"'})
 
 
 class TestCrlfReconstruction(TestCase):
@@ -128,3 +135,112 @@ class TestCrlfReconstruction(TestCase):
         source = "a = 1\nb = 2\n"
         output = reconstruct(transform(parses_to_tree(source)).to_lark())
         self.assertEqual(output, source)
+
+
+class TestFlattenedCrlfHeredocsStayValidHcl(TestCase):
+    r"""`preserve_heredocs=False` writes a quoted string, which cannot hold a CR.
+
+    The flattened form is source, not a value: it is the string another parser
+    -- or this one, on the next pass -- has to read back. A raw carriage return
+    inside quotes is not valid there. OpenTofu rejects `"a<CR>b"` with "No
+    closing marker was found for the string", while `"a\rb"` evaluates to a
+    carriage return, which is what the heredoc body actually held.
+
+    The value form is unaffected: it hands back the body, so its newlines and
+    carriage returns stay real characters.
+    """
+
+    FLAT = SerializationOptions(preserve_heredocs=False)
+    VALUE = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
+
+    def test_heredoc_source_form_escapes_carriage_returns(self):
+        source = loads("a = <<EOF\r\nx\r\ny\r\nEOF\r\n", serialization_options=self.FLAT)["a"]
+        self.assertNotIn(CR, source)
+        self.assertEqual(source, r'"x\r\ny\r\n"')
+
+    def test_trim_heredoc_source_form_escapes_carriage_returns(self):
+        source = loads("a = <<-EOF\r\n  x\r\n  y\r\nEOF\r\n", serialization_options=self.FLAT)["a"]
+        self.assertNotIn(CR, source)
+        self.assertEqual(source, r'"x\r\ny\r\n"')
+
+    def test_value_form_keeps_real_carriage_returns(self):
+        value = loads("a = <<EOF\r\nx\r\ny\r\nEOF\r\n", serialization_options=self.VALUE)["a"]
+        self.assertEqual(value, "x\r\ny\r\n")
+
+    def test_a_lone_cr_inside_a_line_is_escaped_too(self):
+        # Not a line ending: a carriage return the body carries mid-line.
+        source = loads("a = <<EOF\nx\ry\nEOF\n", serialization_options=self.FLAT)["a"]
+        self.assertEqual(source, r'"x\ry\n"')
+
+
+class TestCrlfSurvivesFlattenAndRestore(TestCase):
+    r"""Flattening a CRLF heredoc and writing it back preserves the value.
+
+    The two halves have to be each other's inverse. The flattened form writes
+    a carriage return as `\r`, because it is quoted-string source; the writer
+    then has to resolve `\r` back into the character, because a heredoc
+    interprets no escape at all -- a body holding a backslash and an `r` is
+    those two characters, and OpenTofu reads it that way.
+
+    The target value is not this implementation's opinion: OpenTofu evaluates
+    a CRLF file containing `<<EOF\r\nx\r\ny\r\nEOF\r\n` to `"x\r\ny\r\n"`,
+    checked with `tofu console` against v1.12.5.
+
+    Each half was already covered on its own -- flattening a CRLF heredoc, and
+    restoring an LF string -- which is exactly why the combination could break
+    without a test noticing.
+    """
+
+    FLAT = SerializationOptions(preserve_heredocs=False)
+    VALUE = SerializationOptions(preserve_heredocs=False, strip_string_quotes=True)
+    HEREDOCS = DeserializerOptions(strings_to_heredocs=True)
+
+    def _restore(self, source: str) -> str:
+        flattened = loads(source, serialization_options=self.FLAT)
+        return dumps(flattened, deserializer_options=self.HEREDOCS)
+
+    def _round_trip(self, source: str) -> str:
+        restored = self._restore(source)
+        return loads(restored, serialization_options=self.VALUE)["a"]
+
+    def test_the_value_is_unchanged(self):
+        self.assertEqual(self._round_trip("a = <<EOF\r\nx\r\ny\r\nEOF\r\n"), "x\r\ny\r\n")
+
+    def test_the_written_body_holds_real_carriage_returns(self):
+        restored = self._restore("a = <<EOF\r\nx\r\ny\r\nEOF\r\n")
+        self.assertNotIn("\\r", restored)
+        self.assertEqual(restored, "a = <<EOF\nx\r\ny\r\nEOF\n")
+
+    def test_a_trimmed_heredoc_survives_too(self):
+        self.assertEqual(self._round_trip("a = <<-EOF\r\n  x\r\n  y\r\nEOF\r\n"), "x\r\ny\r\n")
+
+    def test_a_lone_carriage_return_keeps_the_value_quoted(self):
+        r"""A heredoc body cannot hold a `\r` that does not end a line.
+
+        OpenTofu rejects `<<EOF\nx\ry\nEOF` with "No closing marker was
+        found for the string", while the quoted `"x\ry\n"` it came from is
+        valid and evaluates to that carriage return. Writing the heredoc
+        anyway traded a wrong value for an unreadable file; the value stays
+        quoted instead, as one that does not end in a newline does.
+        """
+        source = "a = <<EOF\nx\ry\nEOF\n"
+        restored = self._restore(source)
+        self.assertEqual(restored, 'a = "x\\ry\\n"\n')
+        self.assertEqual(self._round_trip(source), "x\ry\n")
+
+    def test_a_crlf_body_carrying_the_delimiter_gets_another_one(self):
+        r"""`EOF\r` ends a heredoc in Terraform, so it counts when choosing.
+
+        The body is split on `\n`, so a CRLF line hands back its own `\r`
+        and a marker check that only allowed spaces and tabs never saw it.
+        OpenTofu evaluates `<<EOF\nbody\r\nEOF\r\n` to `"body\r\n"` --
+        it ends there -- so writing `<<EOF` over a CRLF body containing that
+        line produced a file that closed early and no longer parsed.
+        """
+        # Such a body cannot be written as a heredoc source to read from --
+        # this parser ends it at that line too, as Terraform does -- so the
+        # value arrives the way it would in practice, from a quoted string.
+        quoted = r'"x\r\nEOF\r\ny\r\n"'
+        written = dumps({"a": quoted}, deserializer_options=self.HEREDOCS)
+        self.assertEqual(written, "a = <<EOF_1\nx\r\nEOF\r\ny\r\nEOF_1\n")
+        self.assertEqual(loads(written, serialization_options=self.VALUE)["a"], "x\r\nEOF\r\ny\r\n")

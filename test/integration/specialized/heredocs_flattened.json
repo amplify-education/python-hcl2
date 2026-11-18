@@ -1,16 +1,16 @@
 {
   "locals": [
     {
-      "simple": "\"hello world\"",
-      "multiline": "\"line1\\nline2\\nline3\"",
-      "with_quotes": "\"say \\\"hello\\\"\"",
-      "with_backslashes": "\"path\\\\to\\\\file\"",
-      "trimmed": "\"indented1\\nindented2\"",
-      "trimmed_mixed": "\"line1\\n  line2\\nline3\"",
-      "json_content": "\"{\\\"key\\\": \\\"value\\\"}\"",
+      "simple": "\"hello world\\n\"",
+      "multiline": "\"line1\\nline2\\nline3\\n\"",
+      "with_quotes": "\"say \\\"hello\\\"\\n\"",
+      "with_backslashes": "\"path\\\\to\\\\file\\n\"",
+      "trimmed": "\"indented1\\nindented2\\n\"",
+      "trimmed_mixed": "\"line1\\n  line2\\nline3\\n\"",
+      "json_content": "\"{\\\"key\\\": \\\"value\\\"}\\n\"",
       "empty": "\"\"",
       "empty_trimmed": "\"\"",
-      "blank_line_only": "\"\"",
+      "blank_line_only": "\"\\n\"",
       "after_empty": "\"still parsed\"",
       "__is_block__": true
     }
