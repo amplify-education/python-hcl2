@@ -79,6 +79,15 @@ def _write_file(path, content):
 
 
 class TestHcl2ToJsonExitCodes(TestCase):
+    def test_numeric_for_values_from_stdin(self):
+        source = "counts = [for x in var.y : 1]\nweights = {for x in var.y : x => 1.5}\n"
+        result = _run_hcl2tojson("-", stdin=source)
+        self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
+        self.assertEqual(
+            json.loads(result.stdout),
+            {"counts": "${[for x in var.y : 1]}", "weights": "${{for x in var.y : x => 1.5}}"},
+        )
+
     def test_success_exits_0(self):
         result = _run_hcl2tojson(str(HCL_DIR / "nulls.tf"))
         self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")

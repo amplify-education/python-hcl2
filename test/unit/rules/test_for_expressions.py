@@ -214,6 +214,14 @@ class TestForTupleExprRule(TestCase):
         )
         self.assertEqual(rule.serialize(), "${[for v in items : expr]}")
 
+    def test_serialize_numeric_value(self):
+        for value in (0, 1, 1.5):
+            with self.subTest(value=value):
+                rule = ForTupleExprRule(
+                    [LSQB(), _make_for_intro_single("v", "items"), StubExpression(value), RSQB()]
+                )
+                self.assertEqual(rule.serialize(), f"${{[for v in items : {value}]}}")
+
     def test_serialize_with_condition(self):
         rule = ForTupleExprRule(
             [
@@ -357,6 +365,21 @@ class TestForObjectExprRule(TestCase):
             ]
         )
         self.assertEqual(rule.serialize(), "${{for k, v in items : key => value}}")
+
+    def test_serialize_numeric_value(self):
+        for value in (0, 1, 1.5):
+            with self.subTest(value=value):
+                rule = ForObjectExprRule(
+                    [
+                        LBRACE(),
+                        _make_for_intro_dual("k", "v", "items"),
+                        StubExpression("key"),
+                        FOR_OBJECT_ARROW(),
+                        StubExpression(value),
+                        RBRACE(),
+                    ]
+                )
+                self.assertEqual(rule.serialize(), f"${{{{for k, v in items : key => {value}}}}}")
 
     def test_serialize_with_ellipsis(self):
         rule = ForObjectExprRule(

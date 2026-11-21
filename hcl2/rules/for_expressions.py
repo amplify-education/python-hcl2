@@ -197,7 +197,7 @@ class ForTupleExprRule(ExpressionRule):
 
         inner = context.replace(inside_dollar_string=True)
         result += self.for_intro.serialize(options, inner)
-        result += self.value_expr.serialize(options, inner)
+        result += f"{self.value_expr.serialize(options, inner)}"
 
         if self.condition is not None:
             result += f" {self.condition.serialize(options, inner)}"
@@ -294,7 +294,7 @@ class ForObjectExprRule(ExpressionRule):
         result += self.for_intro.serialize(options, inner)
         result += f"{self.key_expr.serialize(options, inner)} => "
 
-        result += self.value_expr.serialize(replace(options, wrap_objects=True), inner)
+        result += f"{self.value_expr.serialize(replace(options, wrap_objects=True), inner)}"
         if self.ellipsis is not None:
             result += self.ellipsis.serialize(options, inner)
 
