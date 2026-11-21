@@ -75,6 +75,50 @@ class TestLoads(TestCase):
         self.assertNotIn("__is_block__", body)
 
 
+class TestNumericForExpressions(TestCase):
+    def test_numeric_values_roundtrip(self):
+        for value in ("0", "1", "1.5", "-2", "-2.5", "1e3", "-1e3"):
+            for expression in (f"[for x in var.y : {value}]", f"{{for x in var.y : x => {value}}}"):
+                with self.subTest(expression=expression):
+                    source = f"a = {expression}\n"
+                    expected = {"a": "${" + expression + "}"}
+                    self.assertEqual(loads(source), expected)
+                    self.assertEqual(loads(dumps(expected)), expected)
+                    rules = transform(parses_to_tree(source))
+                    self.assertEqual(loads(reconstruct(rules.to_lark())), expected)
+
+    def test_numeric_values_with_scientific_notation_expanded(self):
+        options = SerializationOptions(preserve_scientific_notation=False)
+        for source, expected in (
+            ("[for x in var.y : 1e3]", "${[for x in var.y : 1000.0]}"),
+            ("{for x in var.y : x => 1e3}", "${{for x in var.y : x => 1000.0}}"),
+        ):
+            with self.subTest(source=source):
+                result = loads(f"a = {source}\n", serialization_options=options)
+                self.assertEqual(result, {"a": expected})
+                self.assertEqual(loads(dumps(result), serialization_options=options), result)
+
+    def test_nested_filtered_and_grouped_numeric_values(self):
+        for expression in (
+            "[for x in var.y : 1 if x.enabled]",
+            "{for k, x in var.y : k => 1.5... if x.enabled}",
+            "[for x in var.y : [for y in x : 1]]",
+            "{for x in var.y : x => {for y in x : y => 1.5}}",
+        ):
+            with self.subTest(expression=expression):
+                result = loads(f"a = {expression}\n")
+                self.assertEqual(result, {"a": "${" + expression + "}"})
+                self.assertEqual(loads(dumps(result)), result)
+
+    def test_non_numeric_values_stay_expression_source(self):
+        for value in ('"1"', "true", "false", "null", "[1, 2]", "{count = 1}"):
+            for expression in (f"[for x in var.y : {value}]", f"{{for x in var.y : x => {value}}}"):
+                with self.subTest(expression=expression):
+                    result = loads(f"a = {expression}\n")
+                    self.assertEqual(result, {"a": "${" + expression + "}"})
+                    self.assertEqual(loads(dumps(result)), result)
+
+
 class TestLoad(TestCase):
     def test_from_file(self):
         f = StringIO(SIMPLE_HCL)
